@@ -43,18 +43,22 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.SelectionMode;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 
@@ -74,13 +78,16 @@ public final class TelaPrincipal {
 
     private final ContextoAplicacao contexto;
     private final BorderPane raiz = new BorderPane();
+    private final StackPane areaConteudo = new StackPane();
     private final TableView<Bem> tabelaBens = new TableView<>();
     private final TableView<Garantia> tabelaGarantias = new TableView<>();
     private final TableView<Manutencao> tabelaManutencoes = new TableView<>();
     private final TableView<Documento> tabelaDocumentos = new TableView<>();
     private final TableView<Alerta> tabelaAlertas = new TableView<>();
+    private final HBox painelOperacao = new HBox(12);
     private final TilePane painelResumo = new TilePane();
     private final VBox painelAlertas = new VBox(8);
+    private final VBox painelAcoes = new VBox(8);
 
     public TelaPrincipal(ContextoAplicacao contexto) {
         this.contexto = Objects.requireNonNull(contexto, "contexto da aplicação é obrigatório");
@@ -107,106 +114,239 @@ public final class TelaPrincipal {
         raiz.getStyleClass().add("raiz-aplicacao");
         raiz.setTop(cabecalho());
 
-        var abas = new TabPane();
-        abas.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        abas.getTabs().add(new Tab("Painel", criarPainel()));
-        abas.getTabs().add(new Tab("Bens", criarAbaBens()));
-        abas.getTabs().add(new Tab("Garantias", criarAbaGarantias()));
-        abas.getTabs().add(new Tab("Manutenções", criarAbaManutencoes()));
-        abas.getTabs().add(new Tab("Documentos", criarAbaDocumentos()));
-        abas.getTabs().add(new Tab("Alertas", criarAbaAlertas()));
-        raiz.setCenter(abas);
+        var itens = List.of(
+                new ItemNavegacao("Painel", "Resumo operacional", criarPainel()),
+                new ItemNavegacao("Bens", "Inventário e status", criarAbaBens()),
+                new ItemNavegacao("Garantias", "Cobertura e vencimentos", criarAbaGarantias()),
+                new ItemNavegacao("Manutenções", "Agenda e custos", criarAbaManutencoes()),
+                new ItemNavegacao("Documentos", "Arquivos vinculados", criarAbaDocumentos()),
+                new ItemNavegacao("Alertas", "Pendências abertas", criarAbaAlertas())
+        );
+
+        areaConteudo.getStyleClass().add("area-conteudo");
+
+        var estrutura = new BorderPane();
+        estrutura.getStyleClass().add("estrutura-principal");
+        estrutura.setLeft(navegacaoLateral(itens));
+        estrutura.setCenter(areaConteudo);
+        raiz.setCenter(estrutura);
+
+        selecionarConteudo(itens.getFirst().conteudo());
     }
 
     private Parent cabecalho() {
+        var marca = marcaVisual();
+
         var titulo = new Label("Assetly");
         titulo.getStyleClass().add("titulo-aplicacao");
 
-        var subtitulo = new Label("Bens, garantias, documentos e manutenções em um aplicativo local.");
+        var subtitulo = new Label("Gestão local de bens, garantias, documentos e manutenções.");
         subtitulo.getStyleClass().add("subtitulo-aplicacao");
+
+        var textos = new VBox(2, titulo, subtitulo);
+        var identidade = new HBox(12, marca, textos);
+        identidade.setAlignment(Pos.CENTER_LEFT);
+        identidade.getStyleClass().add("marca-aplicacao");
+
+        var seloLocal = new Label("Local");
+        seloLocal.getStyleClass().add("selo-identidade");
+        var seloEscuro = new Label("Escuro fixo");
+        seloEscuro.getStyleClass().add("selo-identidade");
+        var selos = new HBox(8, seloLocal, seloEscuro);
+        selos.setAlignment(Pos.CENTER_LEFT);
 
         var atualizar = new Button("Atualizar");
         atualizar.getStyleClass().add("botao-secundario");
         atualizar.setOnAction(evento -> executarComTratamento(this::atualizarTudo));
 
-        var textos = new VBox(2, titulo, subtitulo);
-        var cabecalho = new HBox(16, textos, espaco(), atualizar);
+        var cabecalho = new HBox(18, identidade, espaco(), selos, atualizar);
         cabecalho.setAlignment(Pos.CENTER_LEFT);
-        cabecalho.setPadding(new Insets(18, 22, 14, 22));
+        cabecalho.setPadding(new Insets(8, 24, 8, 24));
         cabecalho.getStyleClass().add("cabecalho-aplicacao");
         return cabecalho;
+    }
+
+    private Parent marcaVisual() {
+        var recurso = TelaPrincipal.class.getResource("/imagens/assetly-icon-128.png");
+        if (recurso == null) {
+            var fallback = new Label("A");
+            fallback.getStyleClass().add("marca-simbolo");
+            return fallback;
+        }
+
+        var imagem = new ImageView(recurso.toExternalForm());
+        imagem.setFitWidth(78);
+        imagem.setFitHeight(78);
+        imagem.setPreserveRatio(true);
+        imagem.setSmooth(true);
+
+        var caixa = new StackPane(imagem);
+        caixa.getStyleClass().add("marca-icone");
+        return caixa;
+    }
+
+    private Parent navegacaoLateral(List<ItemNavegacao> itens) {
+        var titulo = new Label("Módulos");
+        titulo.getStyleClass().add("titulo-menu");
+        var descricao = new Label("Controle por área");
+        descricao.getStyleClass().add("subtitulo-menu");
+        var cabecalho = new VBox(2, titulo, descricao);
+        cabecalho.getStyleClass().add("cabecalho-menu");
+
+        var grupo = new ToggleGroup();
+        var botoes = itens.stream()
+                .map(item -> botaoNavegacao(item, grupo))
+                .toList();
+        botoes.getFirst().setSelected(true);
+
+        var rodape = new Label("Base local SQLite\nDados privados no dispositivo");
+        rodape.setWrapText(true);
+        rodape.getStyleClass().add("rodape-menu");
+
+        var menu = new VBox(10);
+        menu.getStyleClass().add("menu-lateral");
+        menu.getChildren().add(cabecalho);
+        menu.getChildren().addAll(botoes);
+        menu.getChildren().add(espacoVertical());
+        menu.getChildren().add(rodape);
+        return menu;
+    }
+
+    private ToggleButton botaoNavegacao(ItemNavegacao item, ToggleGroup grupo) {
+        var titulo = new Label(item.titulo());
+        titulo.getStyleClass().add("titulo-navegacao");
+        var descricao = new Label(item.descricao());
+        descricao.getStyleClass().add("descricao-navegacao");
+        var textos = new VBox(2, titulo, descricao);
+
+        var botao = new ToggleButton();
+        botao.setGraphic(textos);
+        botao.setMaxWidth(Double.MAX_VALUE);
+        botao.setToggleGroup(grupo);
+        botao.getStyleClass().add("botao-navegacao");
+        botao.setOnAction(evento -> {
+            if (!botao.isSelected()) {
+                botao.setSelected(true);
+            }
+            selecionarConteudo(item.conteudo());
+        });
+        return botao;
+    }
+
+    private void selecionarConteudo(Parent conteudo) {
+        areaConteudo.getChildren().setAll(conteudo);
     }
 
     private Parent criarPainel() {
         painelResumo.setHgap(12);
         painelResumo.setVgap(12);
         painelResumo.setPrefColumns(4);
+        painelResumo.getStyleClass().add("painel-resumo");
+
+        var tituloPainel = new Label("Visão geral");
+        tituloPainel.getStyleClass().add("titulo-secao");
+        var subtituloPainel = new Label("Indicadores críticos para acompanhar a saúde dos ativos.");
+        subtituloPainel.getStyleClass().add("texto-suave");
+        var cabecalhoPainel = new VBox(4, tituloPainel, subtituloPainel);
+        cabecalhoPainel.getStyleClass().add("cabecalho-secao");
+
+        painelOperacao.getStyleClass().add("painel-operacao");
 
         var tituloAlertas = new Label("Alertas abertos");
         tituloAlertas.getStyleClass().add("titulo-secao");
         painelAlertas.getStyleClass().add("lista-alertas");
 
-        var conteudo = new VBox(18, painelResumo, tituloAlertas, painelAlertas);
+        var tituloAcoes = new Label("Prioridades");
+        tituloAcoes.getStyleClass().add("titulo-secao");
+        painelAcoes.getStyleClass().add("lista-prioridades");
+
+        var secaoAlertas = new VBox(10, tituloAlertas, painelAlertas);
+        secaoAlertas.getStyleClass().add("secao-dashboard");
+        var secaoAcoes = new VBox(10, tituloAcoes, painelAcoes);
+        secaoAcoes.getStyleClass().add("secao-dashboard");
+
+        var painelInferior = new HBox(14, secaoAlertas, secaoAcoes);
+        painelInferior.getStyleClass().add("painel-inferior");
+        HBox.setHgrow(secaoAlertas, Priority.ALWAYS);
+        HBox.setHgrow(secaoAcoes, Priority.ALWAYS);
+
+        var conteudo = new VBox(18, cabecalhoPainel, painelOperacao, painelResumo, painelInferior);
         conteudo.setPadding(new Insets(18));
+        conteudo.getStyleClass().add("painel-dashboard");
         return conteudo;
     }
 
     private Parent criarAbaBens() {
         var barra = barraAcoes(
                 botaoPrimario("Novo", () -> abrirDialogoBem(null)),
-                botaoSecundario("Editar", () -> abrirDialogoBem(selecionado(tabelaBens, "Selecione um bem para editar."))),
+                botaoSecundario("Editar",
+                        () -> abrirDialogoBem(selecionado(tabelaBens, "Selecione um bem para editar."))),
                 botaoSecundario("Detalhes", this::mostrarDetalhesBem),
                 botaoSecundario("Ativar", () -> alterarStatusBem(StatusBem.ATIVO)),
                 botaoSecundario("Manutenção", () -> alterarStatusBem(StatusBem.EM_MANUTENCAO)),
                 botaoPerigo("Descartar", () -> alterarStatusBem(StatusBem.DESCARTADO)),
-                botaoPerigo("Arquivar", () -> alterarStatusBem(StatusBem.ARQUIVADO))
-        );
-        return telaComTabela(barra, tabelaBens);
+                botaoPerigo("Arquivar", () -> alterarStatusBem(StatusBem.ARQUIVADO)));
+        return telaComTabela("Bens", "Inventário dos ativos, status de uso e valor de compra.", barra, tabelaBens);
     }
 
     private Parent criarAbaGarantias() {
         var barra = barraAcoes(
                 botaoPrimario("Nova", () -> abrirDialogoGarantia(null)),
-                botaoSecundario("Editar", () -> abrirDialogoGarantia(selecionado(tabelaGarantias, "Selecione uma garantia para editar.")))
-        );
-        return telaComTabela(barra, tabelaGarantias);
+                botaoSecundario("Editar", () -> abrirDialogoGarantia(
+                        selecionado(tabelaGarantias, "Selecione uma garantia para editar."))));
+        return telaComTabela("Garantias", "Coberturas cadastradas, fornecedores e vencimentos.", barra, tabelaGarantias);
     }
 
     private Parent criarAbaManutencoes() {
         var barra = barraAcoes(
                 botaoPrimario("Nova", () -> abrirDialogoManutencao(null)),
-                botaoSecundario("Editar", () -> abrirDialogoManutencao(selecionado(tabelaManutencoes, "Selecione uma manutenção para editar."))),
+                botaoSecundario("Editar",
+                        () -> abrirDialogoManutencao(
+                                selecionado(tabelaManutencoes, "Selecione uma manutenção para editar."))),
                 botaoSecundario("Concluir", this::concluirManutencao),
-                botaoPerigo("Cancelar", this::cancelarManutencao)
-        );
-        return telaComTabela(barra, tabelaManutencoes);
+                botaoPerigo("Cancelar", this::cancelarManutencao));
+        return telaComTabela("Manutenções", "Agenda preventiva, corretiva, custos e conclusões.", barra, tabelaManutencoes);
     }
 
     private Parent criarAbaDocumentos() {
         var barra = barraAcoes(
                 botaoPrimario("Novo", () -> abrirDialogoDocumento(null)),
-                botaoSecundario("Editar", () -> abrirDialogoDocumento(selecionado(tabelaDocumentos, "Selecione um documento para editar."))),
+                botaoSecundario("Editar",
+                        () -> abrirDialogoDocumento(
+                                selecionado(tabelaDocumentos, "Selecione um documento para editar."))),
                 botaoSecundario("Marcar ausente", this::marcarDocumentoAusente),
-                botaoPerigo("Arquivar", this::arquivarDocumento)
-        );
-        return telaComTabela(barra, tabelaDocumentos);
+                botaoPerigo("Arquivar", this::arquivarDocumento));
+        return telaComTabela("Documentos", "Notas fiscais, comprovantes e arquivos ligados aos bens.", barra,
+                tabelaDocumentos);
     }
 
     private Parent criarAbaAlertas() {
         var barra = barraAcoes(
                 botaoPrimario("Novo", () -> abrirDialogoAlerta()),
                 botaoSecundario("Ciente", this::tomarCienciaAlerta),
-                botaoSecundario("Resolver", this::resolverAlerta)
-        );
-        return telaComTabela(barra, tabelaAlertas);
+                botaoSecundario("Resolver", this::resolverAlerta));
+        return telaComTabela("Alertas", "Pendências abertas e eventos que exigem acompanhamento.", barra, tabelaAlertas);
     }
 
-    private Parent telaComTabela(Parent barra, TableView<?> tabela) {
+    private Parent telaComTabela(String titulo, String descricao, Parent barra, TableView<?> tabela) {
         tabela.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        tabela.setFixedCellSize(42);
+        tabela.setPlaceholder(new Label("Nenhum registro encontrado."));
         VBox.setVgrow(tabela, Priority.ALWAYS);
-        var conteudo = new VBox(12, barra, tabela);
+        var conteudo = new VBox(14, cabecalhoConteudo(titulo, descricao), barra, tabela);
         conteudo.setPadding(new Insets(18));
+        conteudo.getStyleClass().add("conteudo-aba");
         return conteudo;
+    }
+
+    private Parent cabecalhoConteudo(String titulo, String descricao) {
+        var tituloLabel = new Label(titulo);
+        tituloLabel.getStyleClass().add("titulo-secao");
+        var descricaoLabel = new Label(descricao);
+        descricaoLabel.getStyleClass().add("texto-suave");
+        var cabecalho = new VBox(4, tituloLabel, descricaoLabel);
+        cabecalho.getStyleClass().add("cabecalho-conteudo");
+        return cabecalho;
     }
 
     private void configurarTabelas() {
@@ -222,11 +362,16 @@ public final class TelaPrincipal {
         tabelaBens.getColumns().setAll(List.of(
                 coluna("Nome", bem -> bem.nome().valor()),
                 coluna("Tipo", bem -> textoEnum(bem.tipo())),
-                coluna("Status", bem -> textoEnum(bem.status())),
+                colunaEtiqueta("Status", bem -> textoEnum(bem.status()), bem -> classeEtiqueta(bem.status())),
                 coluna("Compra", bem -> bem.compradoEm().map(this::data).orElse("")),
                 coluna("Valor", bem -> bem.precoCompra().map(this::dinheiro).orElse("")),
-                coluna("Observações", Bem::observacoes)
-        ));
+                coluna("Observações", Bem::observacoes)));
+        configurarLinhasTabela(tabelaBens, bem -> switch (bem.status()) {
+            case ATIVO -> "linha-ok";
+            case EM_MANUTENCAO -> "linha-aviso";
+            case DESCARTADO -> "linha-perigo";
+            case ARQUIVADO -> "linha-neutra";
+        });
     }
 
     private void configurarTabelaGarantias() {
@@ -237,25 +382,15 @@ public final class TelaPrincipal {
                 coluna("Fornecedor", Garantia::fornecedor),
                 coluna("Início", garantia -> data(garantia.periodo().iniciaEm())),
                 coluna("Fim", garantia -> data(garantia.periodo().terminaEm())),
-                coluna("Status", garantia -> textoEnum(garantia.statusEm(LocalDate.now()))),
-                coluna("Suporte", Garantia::contatoSuporte)
-        ));
-        tabelaGarantias.setRowFactory(tabela -> new TableRow<>() {
-            @Override
-            protected void updateItem(Garantia garantia, boolean vazio) {
-                super.updateItem(garantia, vazio);
-                getStyleClass().removeAll("garantia-ativa", "garantia-perto", "garantia-vencida");
-                if (!vazio && garantia != null) {
-                    var status = garantia.statusEm(LocalDate.now());
-                    if (status == StatusGarantia.VENCIDA) {
-                        getStyleClass().add("garantia-vencida");
-                    } else if (status == StatusGarantia.PERTO_DO_VENCIMENTO) {
-                        getStyleClass().add("garantia-perto");
-                    } else if (status == StatusGarantia.ATIVA) {
-                        getStyleClass().add("garantia-ativa");
-                    }
-                }
-            }
+                colunaEtiqueta(
+                        "Status",
+                        garantia -> textoEnum(garantia.statusEm(LocalDate.now())),
+                        garantia -> classeEtiqueta(garantia.statusEm(LocalDate.now()))),
+                coluna("Suporte", Garantia::contatoSuporte)));
+        configurarLinhasTabela(tabelaGarantias, garantia -> switch (garantia.statusEm(LocalDate.now())) {
+            case ATIVA -> "linha-ok";
+            case PERTO_DO_VENCIMENTO, NAO_INICIADA -> "linha-aviso";
+            case VENCIDA -> "linha-perigo";
         });
     }
 
@@ -268,8 +403,16 @@ public final class TelaPrincipal {
                 coluna("Agendada", manutencao -> data(manutencao.agendadaPara())),
                 coluna("Concluída", manutencao -> manutencao.concluidaEm().map(this::data).orElse("")),
                 coluna("Custo", manutencao -> manutencao.custo().map(this::dinheiro).orElse("")),
-                coluna("Status", manutencao -> textoEnum(manutencao.statusEm(LocalDate.now())))
-        ));
+                colunaEtiqueta(
+                        "Status",
+                        manutencao -> textoEnum(manutencao.statusEm(LocalDate.now())),
+                        manutencao -> classeEtiqueta(manutencao.statusEm(LocalDate.now())))));
+        configurarLinhasTabela(tabelaManutencoes, manutencao -> switch (manutencao.statusEm(LocalDate.now())) {
+            case CONCLUIDA -> "linha-ok";
+            case AGENDADA -> "linha-informativa";
+            case ATRASADA -> "linha-perigo";
+            case CANCELADA -> "linha-neutra";
+        });
     }
 
     private void configurarTabelaDocumentos() {
@@ -280,8 +423,13 @@ public final class TelaPrincipal {
                 coluna("Nome", documento -> documento.nome().valor()),
                 coluna("Caminho", documento -> documento.caminhoLocal().valor().toString()),
                 coluna("Registrado", documento -> data(documento.registradoEm())),
-                coluna("Status", documento -> textoEnum(documento.status()))
-        ));
+                colunaEtiqueta("Status", documento -> textoEnum(documento.status()),
+                        documento -> classeEtiqueta(documento.status()))));
+        configurarLinhasTabela(tabelaDocumentos, documento -> switch (documento.status()) {
+            case DISPONIVEL -> "linha-ok";
+            case AUSENTE -> "linha-aviso";
+            case ARQUIVADO -> "linha-neutra";
+        });
     }
 
     private void configurarTabelaAlertas() {
@@ -289,18 +437,78 @@ public final class TelaPrincipal {
         tabelaAlertas.getColumns().setAll(List.of(
                 coluna("Bem", alerta -> nomeBem(alerta.bemId())),
                 coluna("Tipo", alerta -> textoEnum(alerta.tipo())),
-                coluna("Severidade", alerta -> textoEnum(alerta.severidade())),
+                colunaEtiqueta("Severidade", alerta -> textoEnum(alerta.severidade()),
+                        alerta -> classeEtiqueta(alerta.severidade())),
                 coluna("Mensagem", Alerta::mensagem),
                 coluna("Criado", alerta -> data(alerta.criadoEm())),
                 coluna("Prazo", alerta -> alerta.prazoEm().map(this::data).orElse("")),
-                coluna("Status", alerta -> textoEnum(alerta.status()))
-        ));
+                colunaEtiqueta("Status", alerta -> textoEnum(alerta.status()),
+                        alerta -> classeEtiqueta(alerta.status()))));
+        configurarLinhasTabela(tabelaAlertas, alerta -> {
+            if (alerta.status() == StatusAlerta.RESOLVIDO) {
+                return "linha-ok";
+            }
+            return switch (alerta.severidade()) {
+                case CRITICO -> "linha-perigo";
+                case AVISO -> "linha-aviso";
+                case INFORMATIVO -> "linha-informativa";
+            };
+        });
     }
 
     private <T> TableColumn<T, String> coluna(String titulo, Function<T, String> valor) {
         var coluna = new TableColumn<T, String>(titulo);
         coluna.setCellValueFactory(dados -> new ReadOnlyStringWrapper(valor.apply(dados.getValue())));
         return coluna;
+    }
+
+    private <T> TableColumn<T, String> colunaEtiqueta(String titulo, Function<T, String> valor,
+            Function<T, String> classeCss) {
+        var coluna = coluna(titulo, valor);
+        coluna.setCellFactory(tabela -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean vazio) {
+                super.updateItem(item, vazio);
+                setText(null);
+                setGraphic(null);
+                if (vazio || item == null || item.isBlank()) {
+                    return;
+                }
+
+                var etiqueta = new Label(item);
+                etiqueta.getStyleClass().add("etiqueta");
+                var linha = getTableRow() == null ? null : getTableRow().getItem();
+                if (linha == null && getTableView() != null && getIndex() >= 0
+                        && getIndex() < getTableView().getItems().size()) {
+                    linha = getTableView().getItems().get(getIndex());
+                }
+                if (linha != null) {
+                    var classe = classeCss.apply(linha);
+                    if (classe != null && !classe.isBlank()) {
+                        etiqueta.getStyleClass().add(classe);
+                    }
+                }
+                setGraphic(etiqueta);
+            }
+        });
+        return coluna;
+    }
+
+    private <T> void configurarLinhasTabela(TableView<T> tabela, Function<T, String> classeCss) {
+        tabela.setRowFactory(controle -> new TableRow<>() {
+            @Override
+            protected void updateItem(T item, boolean vazio) {
+                super.updateItem(item, vazio);
+                getStyleClass().removeAll("linha-ok", "linha-informativa", "linha-aviso", "linha-perigo",
+                        "linha-neutra");
+                if (!vazio && item != null) {
+                    var classe = classeCss.apply(item);
+                    if (classe != null && !classe.isBlank()) {
+                        getStyleClass().add(classe);
+                    }
+                }
+            }
+        });
     }
 
     private void atualizarPainel() {
@@ -310,44 +518,147 @@ public final class TelaPrincipal {
         var documentos = contexto.listarDocumentos().executar();
         var alertas = contexto.listarAlertas().executar();
         var hoje = LocalDate.now();
+        var garantiasVencidas = contar(garantias, garantia -> garantia.statusEm(hoje) == StatusGarantia.VENCIDA);
+        var garantiasProximas = contar(garantias,
+                garantia -> garantia.statusEm(hoje) == StatusGarantia.PERTO_DO_VENCIMENTO);
+        var manutencoesAtrasadas = contar(manutencoes,
+                manutencao -> manutencao.statusEm(hoje) == StatusManutencao.ATRASADA);
+        var documentosAusentes = contar(documentos, documento -> documento.status() == StatusDocumento.AUSENTE);
+        var alertasAbertos = contar(alertas, alerta -> alerta.status() != StatusAlerta.RESOLVIDO);
+        var alertasCriticos = contar(alertas,
+                alerta -> alerta.status() != StatusAlerta.RESOLVIDO && alerta.severidade() == SeveridadeAlerta.CRITICO);
+        var pontosAtencao = garantiasVencidas + garantiasProximas + manutencoesAtrasadas + documentosAusentes
+                + alertasAbertos;
+
+        painelOperacao.getChildren().setAll(
+                resumoOperacao("Atenção necessária", String.valueOf(pontosAtencao),
+                        pontosAtencao == 0 ? "sem pendências críticas" : "itens pedem revisão",
+                        pontosAtencao == 0 ? "resumo-ok" : "resumo-perigo"),
+                resumoOperacao("Alertas críticos", String.valueOf(alertasCriticos),
+                        alertasCriticos == 1 ? "alerta crítico aberto" : "alertas críticos abertos",
+                        alertasCriticos == 0 ? "resumo-ok" : "resumo-perigo"),
+                resumoOperacao("Base local", String.valueOf(bens.size() + documentos.size()),
+                        "registros sob controle", "resumo-informativo"));
 
         painelResumo.getChildren().setAll(
-                indicador("Bens", String.valueOf(bens.size())),
-                indicador("Garantias vencidas", String.valueOf(contar(garantias, garantia -> garantia.statusEm(hoje) == StatusGarantia.VENCIDA))),
-                indicador("Garantias próximas", String.valueOf(contar(garantias, garantia -> garantia.statusEm(hoje) == StatusGarantia.PERTO_DO_VENCIMENTO))),
-                indicador("Manutenções atrasadas", String.valueOf(contar(manutencoes, manutencao -> manutencao.statusEm(hoje) == StatusManutencao.ATRASADA))),
-                indicador("Documentos ausentes", String.valueOf(contar(documentos, documento -> documento.status() == StatusDocumento.AUSENTE))),
-                indicador("Alertas abertos", String.valueOf(contar(alertas, alerta -> alerta.status() != StatusAlerta.RESOLVIDO)))
-        );
+                indicador("Bens monitorados", String.valueOf(bens.size()), "indicador-neutro"),
+                indicador("Garantias vencidas", String.valueOf(garantiasVencidas), "indicador-perigo"),
+                indicador("Garantias próximas", String.valueOf(garantiasProximas), "indicador-aviso"),
+                indicador("Manutenções atrasadas", String.valueOf(manutencoesAtrasadas), "indicador-perigo"),
+                indicador("Documentos ausentes", String.valueOf(documentosAusentes), "indicador-aviso"),
+                indicador("Alertas abertos", String.valueOf(alertasAbertos), "indicador-informativo"));
 
         painelAlertas.getChildren().clear();
         alertas.stream()
                 .filter(alerta -> alerta.status() != StatusAlerta.RESOLVIDO)
                 .limit(8)
-                .map(alerta -> new Label(nomeBem(alerta.bemId()) + " - " + alerta.mensagem()))
-                .forEach(rotulo -> {
-                    rotulo.getStyleClass().add("linha-alerta");
-                    painelAlertas.getChildren().add(rotulo);
-                });
+                .map(this::alertaResumo)
+                .forEach(painelAlertas.getChildren()::add);
         if (painelAlertas.getChildren().isEmpty()) {
             var vazio = new Label("Nenhum alerta aberto.");
             vazio.getStyleClass().add("texto-suave");
             painelAlertas.getChildren().add(vazio);
         }
+
+        painelAcoes.getChildren().clear();
+        garantias.stream()
+                .filter(garantia -> garantia.statusEm(hoje) == StatusGarantia.VENCIDA
+                        || garantia.statusEm(hoje) == StatusGarantia.PERTO_DO_VENCIMENTO)
+                .limit(2)
+                .map(garantia -> prioridadeResumo("Garantia", nomeBem(garantia.bemId()),
+                        "fim em " + data(garantia.periodo().terminaEm()),
+                        classeEtiqueta(garantia.statusEm(hoje))))
+                .forEach(painelAcoes.getChildren()::add);
+        manutencoes.stream()
+                .filter(manutencao -> manutencao.statusEm(hoje) == StatusManutencao.ATRASADA)
+                .limit(2)
+                .map(manutencao -> prioridadeResumo("Manutenção", nomeBem(manutencao.bemId()),
+                        manutencao.descricao() + " - agendada para " + data(manutencao.agendadaPara()),
+                        classeEtiqueta(StatusManutencao.ATRASADA)))
+                .forEach(painelAcoes.getChildren()::add);
+        documentos.stream()
+                .filter(documento -> documento.status() == StatusDocumento.AUSENTE)
+                .limit(2)
+                .map(documento -> prioridadeResumo("Documento", nomeBem(documento.bemId()),
+                        documento.nome().valor(), classeEtiqueta(StatusDocumento.AUSENTE)))
+                .forEach(painelAcoes.getChildren()::add);
+        alertas.stream()
+                .filter(alerta -> alerta.status() != StatusAlerta.RESOLVIDO)
+                .filter(alerta -> alerta.severidade() == SeveridadeAlerta.CRITICO
+                        || alerta.severidade() == SeveridadeAlerta.AVISO)
+                .limit(2)
+                .map(alerta -> prioridadeResumo("Alerta", nomeBem(alerta.bemId()),
+                        alerta.mensagem(), classeEtiqueta(alerta.severidade())))
+                .forEach(painelAcoes.getChildren()::add);
+        if (painelAcoes.getChildren().isEmpty()) {
+            var vazio = new Label("Nenhuma prioridade no momento.");
+            vazio.getStyleClass().add("texto-suave");
+            painelAcoes.getChildren().add(vazio);
+        }
     }
 
-    private Parent indicador(String titulo, String valor) {
+    private Parent alertaResumo(Alerta alerta) {
+        var severidade = new Label(textoEnum(alerta.severidade()));
+        severidade.getStyleClass().addAll("etiqueta", classeEtiqueta(alerta.severidade()));
+
+        var mensagem = new Label(nomeBem(alerta.bemId()) + " - " + alerta.mensagem());
+        mensagem.getStyleClass().add("linha-alerta-texto");
+        mensagem.setMaxWidth(Double.MAX_VALUE);
+        mensagem.setWrapText(true);
+        HBox.setHgrow(mensagem, Priority.ALWAYS);
+
+        var linha = new HBox(10, severidade, mensagem);
+        linha.setAlignment(Pos.CENTER_LEFT);
+        linha.getStyleClass().add("linha-alerta");
+        return linha;
+    }
+
+    private Parent resumoOperacao(String titulo, String valor, String detalhe, String classeCss) {
+        var tituloLabel = new Label(titulo);
+        tituloLabel.getStyleClass().add("resumo-operacao-titulo");
+        var valorLabel = new Label(valor);
+        valorLabel.getStyleClass().add("resumo-operacao-valor");
+        var detalheLabel = new Label(detalhe);
+        detalheLabel.getStyleClass().add("resumo-operacao-detalhe");
+
+        var caixa = new VBox(3, tituloLabel, valorLabel, detalheLabel);
+        caixa.getStyleClass().addAll("resumo-operacao", classeCss);
+        HBox.setHgrow(caixa, Priority.ALWAYS);
+        return caixa;
+    }
+
+    private Parent prioridadeResumo(String categoria, String titulo, String detalhe, String classeCss) {
+        var categoriaLabel = new Label(categoria);
+        categoriaLabel.getStyleClass().addAll("etiqueta", classeCss);
+
+        var tituloLabel = new Label(titulo);
+        tituloLabel.getStyleClass().add("prioridade-titulo");
+        var detalheLabel = new Label(detalhe);
+        detalheLabel.getStyleClass().add("prioridade-detalhe");
+        detalheLabel.setWrapText(true);
+        var textos = new VBox(2, tituloLabel, detalheLabel);
+        textos.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(textos, Priority.ALWAYS);
+
+        var linha = new HBox(10, categoriaLabel, textos);
+        linha.setAlignment(Pos.CENTER_LEFT);
+        linha.getStyleClass().add("linha-prioridade");
+        return linha;
+    }
+
+    private Parent indicador(String titulo, String valor, String classeCss) {
         var tituloLabel = new Label(titulo);
         tituloLabel.getStyleClass().add("indicador-titulo");
         var valorLabel = new Label(valor);
         valorLabel.getStyleClass().add("indicador-valor");
         var caixa = new VBox(4, tituloLabel, valorLabel);
-        caixa.getStyleClass().add("indicador");
+        caixa.getStyleClass().addAll("indicador", classeCss);
         return caixa;
     }
 
-    private HBox barraAcoes(Button... botoes) {
-        var barra = new HBox(8, botoes);
+    private FlowPane barraAcoes(Button... botoes) {
+        var barra = new FlowPane(8, 8);
+        barra.getChildren().addAll(botoes);
         barra.setAlignment(Pos.CENTER_LEFT);
         barra.getStyleClass().add("barra-acoes");
         return barra;
@@ -378,8 +689,10 @@ public final class TelaPrincipal {
         var nome = campoTexto("Nome", bem == null ? "" : bem.nome().valor());
         var tipo = combo(TipoBem.values(), bem == null ? TipoBem.ELETRONICO : bem.tipo());
         var compradoEm = dataPicker(bem == null ? null : bem.compradoEm().orElse(null));
-        var preco = campoTexto("Preço", bem == null ? "" : bem.precoCompra().map(valor -> valor.valor().toPlainString()).orElse(""));
-        var moeda = campoTexto("Moeda", bem == null ? "BRL" : bem.precoCompra().map(valor -> valor.moeda().getCurrencyCode()).orElse("BRL"));
+        var preco = campoTexto("Preço",
+                bem == null ? "" : bem.precoCompra().map(valor -> valor.valor().toPlainString()).orElse(""));
+        var moeda = campoTexto("Moeda",
+                bem == null ? "BRL" : bem.precoCompra().map(valor -> valor.moeda().getCurrencyCode()).orElse("BRL"));
         var observacoes = areaTexto(bem == null ? "" : bem.observacoes());
         var grade = gradeFormulario();
         adicionarLinha(grade, 0, "Nome", nome);
@@ -397,8 +710,7 @@ public final class TelaPrincipal {
                         compradoEm.getValue(),
                         decimalOpcional(preco.getText()),
                         textoOpcional(moeda.getText()),
-                        observacoes.getText()
-                ));
+                        observacoes.getText()));
             }
             return contexto.editarBem().executar(new EditarBemComando(
                     bem.id(),
@@ -407,8 +719,7 @@ public final class TelaPrincipal {
                     compradoEm.getValue(),
                     decimalOpcional(preco.getText()),
                     textoOpcional(moeda.getText()),
-                    observacoes.getText()
-            ));
+                    observacoes.getText()));
         }).ifPresent(resultado -> atualizarTudo());
     }
 
@@ -436,8 +747,7 @@ public final class TelaPrincipal {
                         fornecedor.getText(),
                         dataObrigatoria(iniciaEm, "início"),
                         dataObrigatoria(terminaEm, "fim"),
-                        suporte.getText()
-                ));
+                        suporte.getText()));
             }
             return contexto.editarGarantia().executar(new EditarGarantiaComando(
                     garantia.id(),
@@ -445,8 +755,7 @@ public final class TelaPrincipal {
                     fornecedor.getText(),
                     dataObrigatoria(iniciaEm, "início"),
                     dataObrigatoria(terminaEm, "fim"),
-                    suporte.getText()
-            ));
+                    suporte.getText()));
         }).ifPresent(resultado -> atualizarTudo());
     }
 
@@ -468,15 +777,13 @@ public final class TelaPrincipal {
                         exigirBemSelecionado(bem).id(),
                         tipo.getValue(),
                         descricao.getText(),
-                        dataObrigatoria(data, "data agendada")
-                ));
+                        dataObrigatoria(data, "data agendada")));
             }
             return contexto.editarManutencao().executar(new EditarManutencaoComando(
                     manutencao.id(),
                     tipo.getValue(),
                     descricao.getText(),
-                    dataObrigatoria(data, "data agendada")
-            ));
+                    dataObrigatoria(data, "data agendada")));
         }).ifPresent(resultado -> atualizarTudo());
     }
 
@@ -501,16 +808,14 @@ public final class TelaPrincipal {
                         tipo.getValue(),
                         nome.getText(),
                         caminho.getText(),
-                        dataObrigatoria(registradoEm, "registro")
-                ));
+                        dataObrigatoria(registradoEm, "registro")));
             }
             return contexto.editarDocumento().executar(new EditarDocumentoComando(
                     documento.id(),
                     tipo.getValue(),
                     nome.getText(),
                     caminho.getText(),
-                    dataObrigatoria(registradoEm, "registro")
-            ));
+                    dataObrigatoria(registradoEm, "registro")));
         }).ifPresent(resultado -> atualizarTudo());
     }
 
@@ -535,8 +840,7 @@ public final class TelaPrincipal {
                 severidade.getValue(),
                 mensagem.getText(),
                 dataObrigatoria(criadoEm, "criação"),
-                prazoEm.getValue()
-        ))).ifPresent(resultado -> atualizarTudo());
+                prazoEm.getValue()))).ifPresent(resultado -> atualizarTudo());
     }
 
     private void concluirManutencao() {
@@ -549,12 +853,13 @@ public final class TelaPrincipal {
         adicionarLinha(grade, 1, "Custo", custo);
         adicionarLinha(grade, 2, "Moeda", moeda);
 
-        mostrarFormulario("Concluir manutenção", grade, () -> contexto.concluirManutencao().executar(new ConcluirManutencaoComando(
-                manutencao.id(),
-                dataObrigatoria(concluidaEm, "conclusão"),
-                decimalOpcional(custo.getText()),
-                textoOpcional(moeda.getText())
-        ))).ifPresent(resultado -> atualizarTudo());
+        mostrarFormulario("Concluir manutenção", grade,
+                () -> contexto.concluirManutencao().executar(new ConcluirManutencaoComando(
+                        manutencao.id(),
+                        dataObrigatoria(concluidaEm, "conclusão"),
+                        decimalOpcional(custo.getText()),
+                        textoOpcional(moeda.getText()))))
+                .ifPresent(resultado -> atualizarTudo());
     }
 
     private void cancelarManutencao() {
@@ -623,8 +928,7 @@ public final class TelaPrincipal {
                 garantias,
                 manutencoes,
                 documentos,
-                alertas
-        );
+                alertas);
         mostrarInformacao("Detalhes do bem", mensagem);
     }
 
@@ -638,6 +942,9 @@ public final class TelaPrincipal {
 
         var resultado = new AtomicReference<T>();
         var botaoSalvar = (Button) dialogo.getDialogPane().lookupButton(salvar);
+        botaoSalvar.getStyleClass().add("botao-primario");
+        var botaoCancelar = (Button) dialogo.getDialogPane().lookupButton(ButtonType.CANCEL);
+        botaoCancelar.getStyleClass().add("botao-secundario");
         botaoSalvar.addEventFilter(javafx.event.ActionEvent.ACTION, evento -> {
             try {
                 resultado.set(fornecedorResultado.get());
@@ -746,6 +1053,8 @@ public final class TelaPrincipal {
         alerta.setTitle("Erro");
         alerta.setHeaderText("Não foi possível concluir a ação");
         alerta.setContentText(excecao.getMessage());
+        aplicarEstilo(alerta.getDialogPane());
+        alerta.getDialogPane().getStyleClass().add("dialogo-erro");
         alerta.showAndWait();
     }
 
@@ -754,6 +1063,8 @@ public final class TelaPrincipal {
         alerta.setTitle(titulo);
         alerta.setHeaderText(null);
         alerta.setContentText(mensagem);
+        aplicarEstilo(alerta.getDialogPane());
+        alerta.getDialogPane().getStyleClass().add("dialogo-informacao");
         alerta.showAndWait();
     }
 
@@ -773,6 +1084,10 @@ public final class TelaPrincipal {
 
     private String textoEnum(Enum<?> valor) {
         return valor.name().toLowerCase().replace('_', ' ');
+    }
+
+    private String classeEtiqueta(Enum<?> valor) {
+        return "etiqueta-" + valor.name().toLowerCase().replace('_', '-');
     }
 
     private String textoOpcional(String valor) {
@@ -799,6 +1114,12 @@ public final class TelaPrincipal {
         return espaco;
     }
 
+    private Region espacoVertical() {
+        var espaco = new Region();
+        VBox.setVgrow(espaco, Priority.ALWAYS);
+        return espaco;
+    }
+
     private <T> long contar(List<T> itens, java.util.function.Predicate<T> predicado) {
         return itens.stream().filter(predicado).count();
     }
@@ -809,5 +1130,8 @@ public final class TelaPrincipal {
         public String toString() {
             return bem.nome().valor();
         }
+    }
+
+    private record ItemNavegacao(String titulo, String descricao, Parent conteudo) {
     }
 }

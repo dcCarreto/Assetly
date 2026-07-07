@@ -2,6 +2,17 @@
 
 Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco em um produto mínimo viável de área de trabalho com prioridade local em Java 21, JavaFX, Maven e SQLite.
 
+## Situação Atual
+
+- Base Maven/Java 21/JavaFX criada.
+- Domínio principal implementado e coberto por testes unitários.
+- Casos de uso, comandos e contratos de repositório implementados.
+- Persistência SQLite local implementada com migração versionada.
+- Interface JavaFX funcional implementada.
+- Identidade visual escura fixa implementada.
+- Navegação lateral, painel operacional, indicadores, prioridades e estados visuais implementados.
+- Ícone estilizado do aplicativo criado e aplicado na janela e no cabeçalho.
+
 ## Princípios do Projeto
 
 - Manter o domínio isolado de JavaFX, JDBC, SQLite e detalhes de infraestrutura.
@@ -11,6 +22,7 @@ Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco 
 - Não fazer commits, pushes ou tags automaticamente.
 - Manter nomes de pacotes, classes e documentação de negócio em português.
 - Manter convenções do ecossistema Java/Maven e arquivos padrão do repositório em inglês, como `src/main/java`, `src/main/resources`, `src/test/java`, `README.md`, `LICENSE` e `ROADMAP.md`.
+- Manter a interface com tema escuro fixo, sem alternância de tema no produto mínimo viável.
 
 ## Etapa 1 - Base do Projeto
 
@@ -27,6 +39,8 @@ Objetivo: preparar a fundação do repositório e da aplicação.
 
 Resultado esperado: aplicação JavaFX mínima abrindo sem funcionalidades complexas.
 
+Situação: implementado.
+
 ## Etapa 2 - Domínio Principal
 
 Objetivo: implementar as regras centrais sem dependência de arcabouço.
@@ -37,6 +51,8 @@ Objetivo: implementar as regras centrais sem dependência de arcabouço.
 - Adicionar testes unitários para regras importantes.
 
 Resultado esperado: domínio testável, claro e independente da interface e do banco.
+
+Situação: implementado com entidades, objetos de valor, enums, validações e testes unitários.
 
 ## Etapa 3 - Casos de Uso
 
@@ -74,7 +90,7 @@ Objetivo: entregar uma interface funcional para o produto mínimo viável.
 
 Resultado esperado: usuário consegue navegar pelo fluxo principal do app.
 
-Situação: implementado com painel, abas JavaFX, listagens, formulários e ações básicas para bens, garantias, manutenções, documentos e alertas.
+Situação: implementado e evoluído com painel, navegação lateral, listagens, formulários, ações básicas, tema escuro fixo, identidade visual, ícone do aplicativo, indicadores operacionais, prioridades e estados visuais para bens, garantias, manutenções, documentos e alertas.
 
 ## Etapa 6 - Documentos Locais
 
@@ -104,14 +120,34 @@ Objetivo: preparar o projeto para uso e apresentação código aberto.
 
 - Melhorar mensagens de erro e validações.
 - Revisar layout e navegação.
+- Consolidar identidade visual escura fixa.
+- Aplicar ícone do aplicativo na janela e na interface.
+- Refinar painel com indicadores e prioridades acionáveis.
 - Completar `README.md` com instruções de execução e contribuição.
 - Revisar testes.
 - Conferir `git status` antes de qualquer sugestão de commit.
 
 Resultado esperado: produto mínimo viável organizado, documentado e pronto para evoluir publicamente.
 
+Situação: parcialmente implementado. O polimento visual, a navegação lateral, o painel operacional, os estados visuais e o ícone do aplicativo já foram concluídos. Ainda restam revisão de mensagens, documentação final e empacotamento.
+
+## Etapa 9 - Empacotamento e Distribuição
+
+Objetivo: facilitar a execução do Assetly fora do ambiente de desenvolvimento.
+
+- Definir estratégia de empacotamento com JavaFX.
+- Gerar artefato executável local.
+- Avaliar empacotamento com `jlink` ou `jpackage`.
+- Incluir ícone do aplicativo nos pacotes gerados.
+- Documentar requisitos de execução.
+
+Resultado esperado: usuário consegue baixar ou gerar uma versão executável do Assetly com menos configuração manual.
+
+Situação: planejado.
+
 ## Funcionalidades Futuras
 
+- Instalador para Windows.
 - OCR para nota fiscal.
 - Leitura de QR Code.
 - Exportação CSV e JSON.
@@ -121,5 +157,5 @@ Resultado esperado: produto mínimo viável organizado, documentado e pronto par
 - Controle de veículos, imóveis e equipamentos de pequenas empresas.
 - Painel de valor patrimonial.
 - Depreciação estimada.
-- Tema claro e escuro.
+- Pacote de identidade visual expandido, com splash screen e ícones por plataforma.
 - Internacionalização.
