@@ -1,4 +1,4 @@
-# Build and dependencies
+# Compilação e dependências
 target/
 build/
 out/
@@ -9,33 +9,34 @@ bin/
 *.war
 *.ear
 
-# IDEs and editors
+# IDEs e editores
 .idea/
 *.iml
 .vscode/
+.metadata/
 .project
 .classpath
 .settings/
 
-# Operating system
+# Sistema operacional
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Logs and temporary files
+# Logs e arquivos temporários
 *.log
 logs/
 tmp/
 temp/
 *.tmp
 
-# Local and sensitive configuration
+# Configuração local e sensível
 .env
 .env.local
 .env.*
 !.env.example
-application-local.properties
-application-local.yml
+aplicacao-local.properties
+aplicacao-local.yml
 config/local/
 secrets/
 *.key
@@ -44,19 +45,25 @@ secrets/
 *.crt
 *.keystore
 
-# Local databases
+# Bancos locais
 *.db
 *.sqlite
 *.sqlite3
-/data/
-/database/local/
+/dados/
+/banco/local/
 
-# User files and personal documents
-/uploads/
-/documents/
-/attachments/
-/storage/
-/user-files/
-/files/
-/backups/
-/exports/
+# Arquivos pessoais do usuário
+/envios/
+/documentos/
+/anexos/
+/armazenamento/
+/arquivos-usuario/
+/arquivos/
+/copias-seguranca/
+/exportacoes/
+
+# Prompts locais e anexos do Codex
+.codex/
+prompts/
+*.prompt.*
+pasted-text.txt

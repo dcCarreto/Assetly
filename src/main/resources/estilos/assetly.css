@@ -1,0 +1,142 @@
+.raiz-aplicacao {
+    -fx-background-color: #f6f7f9;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+.cabecalho-aplicacao {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d8dee7;
+    -fx-border-width: 0 0 1 0;
+}
+
+.titulo-aplicacao {
+    -fx-font-size: 28px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #17202a;
+}
+
+.subtitulo-aplicacao {
+    -fx-font-size: 13px;
+    -fx-text-fill: #5b6675;
+}
+
+.tab-pane {
+    -fx-tab-min-height: 38px;
+}
+
+.tab {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.barra-acoes {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d8dee7;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 10px;
+}
+
+.button {
+    -fx-background-radius: 6px;
+    -fx-border-radius: 6px;
+    -fx-font-weight: 600;
+    -fx-padding: 7px 12px;
+}
+
+.botao-primario {
+    -fx-background-color: #2459a6;
+    -fx-text-fill: #ffffff;
+}
+
+.botao-secundario {
+    -fx-background-color: #edf1f6;
+    -fx-text-fill: #1f2933;
+    -fx-border-color: #c8d1dc;
+}
+
+.botao-perigo {
+    -fx-background-color: #f7e7e7;
+    -fx-text-fill: #8a1f1f;
+    -fx-border-color: #e3b9b9;
+}
+
+.table-view {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d8dee7;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #edf1f6;
+}
+
+.table-row-cell:filled:selected {
+    -fx-background-color: #d7e6fb;
+    -fx-text-background-color: #17202a;
+}
+
+.garantia-ativa {
+    -fx-background-color: #edf8f1;
+}
+
+.garantia-perto {
+    -fx-background-color: #fff4d6;
+}
+
+.garantia-vencida {
+    -fx-background-color: #fde8e8;
+}
+
+.indicador {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d8dee7;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 14px;
+    -fx-pref-width: 190px;
+}
+
+.indicador-titulo {
+    -fx-font-size: 12px;
+    -fx-text-fill: #5b6675;
+}
+
+.indicador-valor {
+    -fx-font-size: 26px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #17202a;
+}
+
+.titulo-secao {
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #17202a;
+}
+
+.lista-alertas {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d8dee7;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 12px;
+}
+
+.linha-alerta {
+    -fx-text-fill: #17202a;
+    -fx-padding: 5px 0;
+}
+
+.texto-suave {
+    -fx-text-fill: #6a7482;
+}
+
+.rotulo-formulario {
+    -fx-font-weight: 600;
+    -fx-text-fill: #2f3a46;
+}
+
+.dialogo-formulario {
+    -fx-background-color: #ffffff;
+}

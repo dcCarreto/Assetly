@@ -1,124 +1,128 @@
 # Assetly
 
-Assetly is an open source personal asset manager built with Java. It helps users organize their belongings, warranties, documents and maintenance history in a simple, offline-first way.
+Assetly é um gerenciador pessoal de código aberto de bens, garantias, documentos e manutenções. O objetivo é ajudar pessoas comuns a manterem itens importantes organizados, com controle de prazos, histórico e documentos locais.
 
-Assetly é um gerenciador pessoal open source de bens, garantias, documentos e manutenções. O objetivo é ajudar pessoas comuns a manterem seus itens importantes organizados, com controle de prazos, histórico e documentos locais.
+## Situação
 
-## Status
+Projeto em desenvolvimento inicial de produto mínimo viável. A base atual inclui domínio independente de arcabouços, casos de uso, persistência SQLite local e uma interface JavaFX básica para operar os fluxos principais.
 
-Project in early MVP development. The current stage defines the base Java project structure, architecture direction and a minimal JavaFX application shell.
+## Objetivos
 
-## Goals
+- Registrar bens pessoais como eletrônicos, eletrodomésticos, veículos, ferramentas e equipamentos de trabalho.
+- Acompanhar garantias, datas de vencimento e informações de suporte.
+- Guardar metadados de documentos como notas fiscais, recibos, manuais e fotos.
+- Registrar histórico de manutenções e próximas datas previstas.
+- Gerar alertas locais para garantias vencendo, manutenções atrasadas e documentos ausentes.
 
-- Register personal assets such as electronics, appliances, vehicles, tools and work equipment.
-- Track warranties, expiration dates and support information.
-- Keep document metadata for invoices, receipts, manuals and photos.
-- Record maintenance history and upcoming maintenance dates.
-- Generate local alerts for expiring warranties, overdue maintenance and missing documents.
-
-## Tech Stack
+## Tecnologias
 
 - Java 21
 - JavaFX
 - Maven
-- SQLite, planned for local persistence
+- SQLite para persistência local
 - JUnit 5
 - AssertJ
 
-## Architecture
+## Arquitetura
 
-Assetly follows a lightweight architecture inspired by Domain-Driven Design and Clean Architecture.
+Assetly segue uma arquitetura leve inspirada em DDD e Arquitetura Limpa.
 
-- `domain`: business concepts and rules. It must not depend on JavaFX, SQLite or infrastructure details.
-- `application`: use cases, application services and DTOs.
-- `infrastructure`: database access, repositories and local file storage.
-- `presentation`: JavaFX controllers, views and view models.
+- `dominio`: conceitos e regras de negócio. Não deve depender de JavaFX, SQLite ou detalhes de infraestrutura.
+- `aplicacao`: casos de uso, contratos de repositório e dados de entrada/saída.
+- `infraestrutura`: acesso a banco, repositórios e armazenamento local de arquivos.
+- `apresentacao`: contexto da aplicação, visões e modelos de visão JavaFX.
 
-SQLite will be used as an embedded local database. The application will create the local database automatically in a folder ignored by Git in a future persistence stage.
+O SQLite é usado como banco local embutido. Dados de execução ficam fora do repositório, dentro da pasta do usuário:
 
-Personal documents will be stored locally under `storage/`, also ignored by Git. The database should keep only metadata and local paths.
+- banco: `~/.assetly/banco/assetly.sqlite3`
+- documentos locais: `~/.assetly/documentos/`
 
-## Current Structure
+O banco deve guardar apenas metadados e caminhos locais dos documentos.
+Ao iniciar a aplicação, o banco local é criado e migrado automaticamente.
+
+## Estrutura Atual
 
 ```text
 Assetly/
 ├── README.md
 ├── LICENSE
-├── .gitignore
+├── ROADMAP.md
 ├── pom.xml
 └── src/
     ├── main/
     │   ├── java/
     │   │   ├── module-info.java
     │   │   └── com/assetly/
-    │   │       ├── AssetlyApplication.java
-    │   │       ├── domain/
-    │   │       ├── application/
-    │   │       ├── infrastructure/
-    │   │       └── presentation/
+    │   │       ├── AssetlyAplicacao.java
+    │   │       ├── dominio/
+    │   │       ├── aplicacao/
+    │   │       ├── infraestrutura/
+    │   │       └── apresentacao/
     │   └── resources/
-    │       ├── css/
-    │       ├── fxml/
-    │       └── database/
+    │       ├── estilos/
+    │       ├── interfaces/
+    │       └── banco/
     └── test/
         └── java/com/assetly/
 ```
 
-## Running
+Pastas padrão do Java/Maven e arquivos convencionais do repositório mantêm seus nomes em inglês, como `src/main/java`, `src/main/resources`, `src/test/java`, `README.md`, `LICENSE`, `ROADMAP.md`, `pom.xml`, `.gitignore` e `module-info.java`.
 
-Requirements:
+## Execução
 
-- JDK 21 or newer
-- Maven 3.9 or newer
+Requisitos:
 
-Run the application:
+- JDK 21 ou superior
+- Maven 3.9 ou superior
+
+Executar a aplicação:
 
 ```bash
 mvn clean javafx:run
 ```
 
-Run tests:
+Executar testes:
 
 ```bash
 mvn test
 ```
 
-## Privacy
+## Privacidade
 
-Assetly is designed as a local-first application:
+Assetly foi pensado como uma aplicação com prioridade local:
 
-- no account required;
-- no cloud dependency;
-- no telemetry in the MVP;
-- data stays on the user's computer;
-- documents are stored in local folders ignored by Git.
+- não exige conta;
+- não depende de nuvem;
+- não possui telemetria no produto mínimo viável;
+- os dados ficam no computador do usuário;
+- bancos e documentos de execução ficam fora do repositório por padrão.
 
-Do not commit real databases, invoices, receipts, manuals, photos, backups, exports or personal documents.
+Não faça commit de bancos reais, notas fiscais, recibos, manuais, fotos, cópias de segurança, exportações ou documentos pessoais.
 
-## Planned Features
+## Funcionalidades Planejadas
 
-- Asset registration, editing, listing and status changes.
-- Warranty registration and expiration indicators.
-- Maintenance scheduling and history.
-- Alert dashboard.
-- Document metadata registration and local file storage.
-- CSV and JSON export.
-- OCR for invoices.
-- QR Code support for invoices.
-- Encrypted backups.
-- Optional synchronization.
-- Family mode.
-- Vehicle and property tracking.
-- Estimated depreciation.
-- Light and dark themes.
-- Internationalization.
+- Cadastro, edição, listagem e mudança de status de bens.
+- Cadastro de garantias e indicadores de vencimento.
+- Agendamento e histórico de manutenções.
+- Painel de alertas.
+- Cadastro de metadados de documentos e armazenamento local.
+- Exportação CSV e JSON.
+- OCR para notas fiscais.
+- Leitura de QR Code de notas fiscais.
+- Cópias de segurança criptografadas.
+- Sincronização opcional.
+- Modo família.
+- Controle de veículos e imóveis.
+- Depreciação estimada.
+- Tema claro e escuro.
+- Internacionalização.
 
-## Contributing
+## Contribuição
 
-Contributions are welcome once the MVP foundation is stable. Keep changes focused, readable and covered by tests when they touch domain rules.
+Contribuições serão bem-vindas quando a fundação do produto mínimo viável estiver estável. Mantenha mudanças focadas, legíveis e cobertas por testes quando afetarem regras de domínio.
 
-Before opening a pull request, make sure local databases, documents and environment files are not included.
+Antes de abrir uma contribuição, confirme que bancos locais, documentos e arquivos de ambiente não foram incluídos.
 
-## License
+## Licença
 
-MIT License. See [LICENSE](LICENSE).
+Licença MIT. Consulte [LICENSE](LICENSE).
