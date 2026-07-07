@@ -1,0 +1,14 @@
+.app-root {
+    -fx-background-color: #f7f8fa;
+}
+
+.app-title {
+    -fx-font-size: 34px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #1f2933;
+}
+
+.app-subtitle {
+    -fx-font-size: 15px;
+    -fx-text-fill: #536171;
+}
