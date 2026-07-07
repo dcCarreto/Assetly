@@ -74,6 +74,12 @@
     -fx-text-fill: #b6c5d8;
 }
 
+.selo-teste {
+    -fx-background-color: #2a2112;
+    -fx-border-color: #f59e0b;
+    -fx-text-fill: #fde68a;
+}
+
 .estrutura-principal {
     -fx-background-color: transparent;
 }
@@ -168,7 +174,7 @@
 }
 
 .painel-operacao {
-    -fx-alignment: stretch;
+    -fx-alignment: center-left;
 }
 
 .resumo-operacao {
@@ -211,7 +217,7 @@
 }
 
 .painel-inferior {
-    -fx-alignment: stretch;
+    -fx-alignment: center-left;
 }
 
 .secao-dashboard {

@@ -61,6 +61,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -101,6 +102,7 @@ public final class TelaPrincipal {
     }
 
     public void atualizarTudo() {
+        contexto.gerarAlertasAutomaticos().executar(LocalDate.now());
         var bens = contexto.listarBens().executar();
         tabelaBens.setItems(FXCollections.observableArrayList(bens));
         tabelaGarantias.setItems(FXCollections.observableArrayList(contexto.listarGarantias().executar()));
@@ -148,11 +150,14 @@ public final class TelaPrincipal {
         identidade.setAlignment(Pos.CENTER_LEFT);
         identidade.getStyleClass().add("marca-aplicacao");
 
-        var seloLocal = new Label("Local");
-        seloLocal.getStyleClass().add("selo-identidade");
+        var seloAmbiente = new Label(contexto.rotuloAmbiente());
+        seloAmbiente.getStyleClass().add("selo-identidade");
+        if (contexto.ambienteTeste()) {
+            seloAmbiente.getStyleClass().add("selo-teste");
+        }
         var seloEscuro = new Label("Escuro fixo");
         seloEscuro.getStyleClass().add("selo-identidade");
-        var selos = new HBox(8, seloLocal, seloEscuro);
+        var selos = new HBox(8, seloAmbiente, seloEscuro);
         selos.setAlignment(Pos.CENTER_LEFT);
 
         var atualizar = new Button("Atualizar");
@@ -421,7 +426,7 @@ public final class TelaPrincipal {
                 coluna("Bem", documento -> nomeBem(documento.bemId())),
                 coluna("Tipo", documento -> textoEnum(documento.tipo())),
                 coluna("Nome", documento -> documento.nome().valor()),
-                coluna("Caminho", documento -> documento.caminhoLocal().valor().toString()),
+                coluna("Arquivo local", documento -> documento.caminhoLocal().valor().toString()),
                 coluna("Registrado", documento -> data(documento.registradoEm())),
                 colunaEtiqueta("Status", documento -> textoEnum(documento.status()),
                         documento -> classeEtiqueta(documento.status()))));
@@ -792,13 +797,13 @@ public final class TelaPrincipal {
         bem.setDisable(documento != null);
         var tipo = combo(TipoDocumento.values(), documento == null ? TipoDocumento.NOTA_FISCAL : documento.tipo());
         var nome = campoTexto("Nome", documento == null ? "" : documento.nome().valor());
-        var caminho = campoTexto("Caminho local", documento == null ? "" : documento.caminhoLocal().valor().toString());
+        var caminho = campoTexto("Arquivo de origem", documento == null ? "" : documento.caminhoLocal().valor().toString());
         var registradoEm = dataPicker(documento == null ? LocalDate.now() : documento.registradoEm());
         var grade = gradeFormulario();
         adicionarLinha(grade, 0, "Bem", bem);
         adicionarLinha(grade, 1, "Tipo", tipo);
         adicionarLinha(grade, 2, "Nome", nome);
-        adicionarLinha(grade, 3, "Caminho", caminho);
+        adicionarLinha(grade, 3, "Arquivo", seletorArquivo(caminho));
         adicionarLinha(grade, 4, "Registrado em", registradoEm);
 
         mostrarFormulario(documento == null ? "Novo documento" : "Editar documento", grade, () -> {
@@ -1003,6 +1008,32 @@ public final class TelaPrincipal {
         return campo;
     }
 
+    private Parent seletorArquivo(TextField campo) {
+        var selecionar = botaoSecundario("Selecionar", () -> escolherArquivo(campo));
+        var caixa = new HBox(8, campo, selecionar);
+        HBox.setHgrow(campo, Priority.ALWAYS);
+        caixa.setAlignment(Pos.CENTER_LEFT);
+        return caixa;
+    }
+
+    private void escolherArquivo(TextField campo) {
+        var seletor = new FileChooser();
+        seletor.setTitle("Selecionar documento");
+        if (campo.getText() != null && !campo.getText().isBlank()) {
+            var caminhoAtual = java.nio.file.Path.of(campo.getText()).toAbsolutePath().normalize();
+            var diretorio = caminhoAtual.getParent();
+            if (diretorio != null && java.nio.file.Files.isDirectory(diretorio)) {
+                seletor.setInitialDirectory(diretorio.toFile());
+            }
+        }
+
+        var janela = raiz.getScene() == null ? null : raiz.getScene().getWindow();
+        var arquivo = seletor.showOpenDialog(janela);
+        if (arquivo != null) {
+            campo.setText(arquivo.toPath().toString());
+        }
+    }
+
     private TextArea areaTexto(String valor) {
         var area = new TextArea(valor == null ? "" : valor);
         area.setPrefRowCount(3);
@@ -1052,10 +1083,22 @@ public final class TelaPrincipal {
         var alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
         alerta.setTitle("Erro");
         alerta.setHeaderText("Não foi possível concluir a ação");
-        alerta.setContentText(excecao.getMessage());
+        alerta.setContentText(mensagemErro(excecao));
         aplicarEstilo(alerta.getDialogPane());
         alerta.getDialogPane().getStyleClass().add("dialogo-erro");
         alerta.showAndWait();
+    }
+
+    private String mensagemErro(RuntimeException excecao) {
+        var mensagem = excecao.getMessage();
+        if (mensagem != null && !mensagem.isBlank()) {
+            return mensagem;
+        }
+        var causa = excecao.getCause();
+        if (causa != null && causa.getMessage() != null && !causa.getMessage().isBlank()) {
+            return causa.getMessage();
+        }
+        return "Ocorreu um erro inesperado. Verifique os dados informados e tente novamente.";
     }
 
     private void mostrarInformacao(String titulo, String mensagem) {
@@ -1098,7 +1141,11 @@ public final class TelaPrincipal {
         if (valor == null || valor.isBlank()) {
             return null;
         }
-        return new BigDecimal(valor.trim().replace(',', '.'));
+        try {
+            return new BigDecimal(valor.trim().replace(',', '.'));
+        } catch (NumberFormatException excecao) {
+            throw new IllegalArgumentException("valor monetário inválido. Use apenas números, ponto ou vírgula.", excecao);
+        }
     }
 
     private LocalDate dataObrigatoria(DatePicker campo, String nome) {

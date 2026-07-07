@@ -12,6 +12,13 @@ Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco 
 - Identidade visual escura fixa implementada.
 - Navegação lateral, painel operacional, indicadores, prioridades e estados visuais implementados.
 - Ícone estilizado do aplicativo criado e aplicado na janela e no cabeçalho.
+- Documentos locais são copiados para armazenamento privado em `~/.assetly/documentos/`.
+- Alertas automáticos geram avisos de garantia, manutenção e nota fiscal ausente sem duplicar registros.
+- Ambiente de teste separado implementado em `~/.assetly-teste/`, com dados fictícios completos e anexos físicos em PDF, SVG, CSV e TXT.
+- Script `executar.ps1` permite alternar produção/teste mudando uma única linha de variável de ambiente.
+- Maven Wrapper adicionado para executar o projeto sem Maven instalado manualmente.
+- CI básico no GitHub Actions adicionado para rodar testes em pushes e pull requests para `main`.
+- README atualizado com execução, privacidade, interface, documentos locais e alertas automáticos.
 
 ## Princípios do Projeto
 
@@ -102,6 +109,8 @@ Objetivo: registrar documentos relacionados aos bens sem expor arquivos pessoais
 
 Resultado esperado: documentos associados aos bens sem risco de commit acidental.
 
+Situação: implementado com serviço de armazenamento local, cópia de arquivos para `~/.assetly/documentos/`, seleção de arquivo na interface e persistência do caminho local armazenado.
+
 ## Etapa 7 - Alertas Automáticos
 
 Objetivo: gerar avisos úteis para o usuário.
@@ -114,6 +123,8 @@ Objetivo: gerar avisos úteis para o usuário.
 
 Resultado esperado: painel de alertas com informações acionáveis.
 
+Situação: implementado com geração automática ao atualizar a aplicação, cobrindo garantias vencendo/vencidas, manutenções próximas/atrasadas e ausência de nota fiscal para bens ativos ou em manutenção.
+
 ## Etapa 8 - Polimento do produto mínimo viável
 
 Objetivo: preparar o projeto para uso e apresentação código aberto.
@@ -125,11 +136,14 @@ Objetivo: preparar o projeto para uso e apresentação código aberto.
 - Refinar painel com indicadores e prioridades acionáveis.
 - Completar `README.md` com instruções de execução e contribuição.
 - Revisar testes.
+- Criar ambiente de teste isolado com dados fictícios completos e anexos reais.
+- Criar execução simples por variável de ambiente para produção e teste.
+- Adicionar Maven Wrapper e validação automatizada básica para suportar trabalho por branches.
 - Conferir `git status` antes de qualquer sugestão de commit.
 
 Resultado esperado: produto mínimo viável organizado, documentado e pronto para evoluir publicamente.
 
-Situação: parcialmente implementado. O polimento visual, a navegação lateral, o painel operacional, os estados visuais e o ícone do aplicativo já foram concluídos. Ainda restam revisão de mensagens, documentação final e empacotamento.
+Situação: implementado. O polimento visual, a navegação lateral, o painel operacional, os estados visuais, o ícone do aplicativo, as mensagens de erro, a documentação, o ambiente de teste com dados fictícios, o script de alternância por variável de ambiente, o Maven Wrapper e o CI básico foram revisados. Empacotamento e distribuição seguem na Etapa 9.
 
 ## Etapa 9 - Empacotamento e Distribuição
 

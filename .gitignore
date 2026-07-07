@@ -4,6 +4,7 @@ build/
 out/
 bin/
 .gradle/
+.tools/
 *.class
 *.jar
 *.war

@@ -16,6 +16,10 @@ public final class BancoDadosAssetly {
         return new BancoDadosAssetly(new FabricaConexaoSqlite(CaminhosArmazenamentoLocal.arquivoBanco()));
     }
 
+    public static BancoDadosAssetly localTeste() {
+        return new BancoDadosAssetly(new FabricaConexaoSqlite(CaminhosArmazenamentoLocal.arquivoBancoTeste()));
+    }
+
     public void inicializar() {
         migradorBancoDados.migrar();
     }

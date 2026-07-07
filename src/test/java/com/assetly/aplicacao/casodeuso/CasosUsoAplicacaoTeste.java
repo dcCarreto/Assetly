@@ -190,6 +190,99 @@ class CasosUsoAplicacaoTeste {
     }
 
     @Test
+    void deveGerarAlertasAutomaticosSemDuplicarAlertasExistentes() {
+        var dataReferencia = LocalDate.of(2026, 7, 7);
+        var repositorioBem = new RepositorioBemMemoria();
+        var repositorioGarantia = new RepositorioGarantiaMemoria();
+        var repositorioManutencao = new RepositorioManutencaoMemoria();
+        var repositorioDocumento = new RepositorioDocumentoMemoria();
+        var repositorioAlerta = new RepositorioAlertaMemoria();
+        var bemComNota = new CadastrarBem(repositorioBem).executar(new CadastrarBemComando(
+                "Notebook",
+                TipoBem.ELETRONICO,
+                null,
+                null,
+                null,
+                null
+        ));
+        var bemSemNota = new CadastrarBem(repositorioBem).executar(new CadastrarBemComando(
+                "Câmera",
+                TipoBem.ELETRONICO,
+                null,
+                null,
+                null,
+                null
+        ));
+
+        new RegistrarDocumento(repositorioBem, repositorioDocumento).executar(new RegistrarDocumentoComando(
+                bemComNota.id(),
+                TipoDocumento.NOTA_FISCAL,
+                "Nota fiscal",
+                "documentos/nota.pdf",
+                dataReferencia
+        ));
+        new RegistrarGarantia(repositorioBem, repositorioGarantia).executar(new RegistrarGarantiaComando(
+                bemComNota.id(),
+                TipoGarantia.FABRICANTE,
+                "Fabricante",
+                dataReferencia.minusMonths(6),
+                dataReferencia.plusDays(20),
+                null
+        ));
+        new RegistrarGarantia(repositorioBem, repositorioGarantia).executar(new RegistrarGarantiaComando(
+                bemSemNota.id(),
+                TipoGarantia.ESTENDIDA,
+                "Loja",
+                dataReferencia.minusMonths(12),
+                dataReferencia.minusDays(1),
+                null
+        ));
+        new AgendarManutencao(repositorioBem, repositorioManutencao).executar(new AgendarManutencaoComando(
+                bemComNota.id(),
+                TipoManutencao.PREVENTIVA,
+                "Limpeza",
+                dataReferencia.plusDays(3)
+        ));
+        new AgendarManutencao(repositorioBem, repositorioManutencao).executar(new AgendarManutencaoComando(
+                bemSemNota.id(),
+                TipoManutencao.CORRETIVA,
+                "Trocar lente",
+                dataReferencia.minusDays(2)
+        ));
+
+        var gerador = new GerarAlertasAutomaticos(
+                repositorioBem,
+                repositorioGarantia,
+                repositorioManutencao,
+                repositorioDocumento,
+                repositorioAlerta
+        );
+
+        var gerados = gerador.executar(dataReferencia);
+        var segundaExecucao = gerador.executar(dataReferencia);
+
+        assertThat(gerados).hasSize(5);
+        assertThat(segundaExecucao).isEmpty();
+        assertThat(repositorioAlerta.listar()).hasSize(5);
+        assertThat(gerados).extracting(Alerta::tipo)
+                .containsExactlyInAnyOrder(
+                        TipoAlerta.GARANTIA_VENCENDO,
+                        TipoAlerta.GARANTIA_VENCIDA,
+                        TipoAlerta.MANUTENCAO_PROXIMA,
+                        TipoAlerta.MANUTENCAO_ATRASADA,
+                        TipoAlerta.DOCUMENTO_AUSENTE
+                );
+        assertThat(gerados)
+                .filteredOn(alerta -> alerta.tipo() == TipoAlerta.GARANTIA_VENCIDA)
+                .singleElement()
+                .satisfies(alerta -> assertThat(alerta.severidade()).isEqualTo(SeveridadeAlerta.CRITICO));
+        assertThat(gerados)
+                .filteredOn(alerta -> alerta.tipo() == TipoAlerta.DOCUMENTO_AUSENTE)
+                .singleElement()
+                .satisfies(alerta -> assertThat(alerta.bemId()).isEqualTo(bemSemNota.id()));
+    }
+
+    @Test
     void deveFalharQuandoRecursoNaoExiste() {
         var repositorioBem = new RepositorioBemMemoria();
         var repositorioGarantia = new RepositorioGarantiaMemoria();

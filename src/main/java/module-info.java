@@ -9,6 +9,7 @@ module com.assetly {
     exports com.assetly.aplicacao.dados;
     exports com.assetly.aplicacao.excecao;
     exports com.assetly.aplicacao.repositorio;
+    exports com.assetly.aplicacao.servico;
     exports com.assetly.dominio.alerta;
     exports com.assetly.dominio.bem;
     exports com.assetly.dominio.compartilhado;

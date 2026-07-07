@@ -12,6 +12,7 @@ import com.assetly.aplicacao.casodeuso.EditarBem;
 import com.assetly.aplicacao.casodeuso.EditarDocumento;
 import com.assetly.aplicacao.casodeuso.EditarGarantia;
 import com.assetly.aplicacao.casodeuso.EditarManutencao;
+import com.assetly.aplicacao.casodeuso.GerarAlertasAutomaticos;
 import com.assetly.aplicacao.casodeuso.ListarAlertas;
 import com.assetly.aplicacao.casodeuso.ListarAlertasDoBem;
 import com.assetly.aplicacao.casodeuso.ListarBens;
@@ -31,6 +32,9 @@ import com.assetly.aplicacao.repositorio.RepositorioBem;
 import com.assetly.aplicacao.repositorio.RepositorioDocumento;
 import com.assetly.aplicacao.repositorio.RepositorioGarantia;
 import com.assetly.aplicacao.repositorio.RepositorioManutencao;
+import com.assetly.aplicacao.servico.ArmazenamentoDocumento;
+import com.assetly.infraestrutura.armazenamento.ArmazenamentoDocumentoLocal;
+import com.assetly.infraestrutura.armazenamento.CaminhosArmazenamentoLocal;
 import com.assetly.infraestrutura.banco.BancoDadosAssetly;
 import com.assetly.infraestrutura.repositorio.RepositorioAlertaSqlite;
 import com.assetly.infraestrutura.repositorio.RepositorioBemSqlite;
@@ -48,8 +52,16 @@ public final class ContextoAplicacao {
     private final RepositorioManutencao repositorioManutencao;
     private final RepositorioDocumento repositorioDocumento;
     private final RepositorioAlerta repositorioAlerta;
+    private final ArmazenamentoDocumento armazenamentoDocumento;
+    private final String rotuloAmbiente;
+    private final boolean ambienteTeste;
 
-    private ContextoAplicacao(BancoDadosAssetly bancoDados) {
+    private ContextoAplicacao(
+            BancoDadosAssetly bancoDados,
+            ArmazenamentoDocumento armazenamentoDocumento,
+            String rotuloAmbiente,
+            boolean ambienteTeste
+    ) {
         this.bancoDados = Objects.requireNonNull(bancoDados, "banco de dados é obrigatório");
         this.bancoDados.inicializar();
         var fabricaConexao = bancoDados.fabricaConexao();
@@ -58,10 +70,45 @@ public final class ContextoAplicacao {
         this.repositorioManutencao = new RepositorioManutencaoSqlite(fabricaConexao);
         this.repositorioDocumento = new RepositorioDocumentoSqlite(fabricaConexao);
         this.repositorioAlerta = new RepositorioAlertaSqlite(fabricaConexao);
+        this.armazenamentoDocumento = Objects.requireNonNull(armazenamentoDocumento, "armazenamento de documentos é obrigatório");
+        this.rotuloAmbiente = Objects.requireNonNull(rotuloAmbiente, "rótulo do ambiente é obrigatório");
+        this.ambienteTeste = ambienteTeste;
+        if (ambienteTeste) {
+            DadosFicticiosAplicacao.popularSeNecessario(
+                    repositorioBem,
+                    repositorioGarantia,
+                    repositorioManutencao,
+                    repositorioDocumento,
+                    repositorioAlerta,
+                    CaminhosArmazenamentoLocal.diretorioDocumentosTeste()
+            );
+        }
     }
 
     public static ContextoAplicacao localPadrao() {
-        return new ContextoAplicacao(BancoDadosAssetly.localPadrao());
+        return new ContextoAplicacao(
+                BancoDadosAssetly.localPadrao(),
+                ArmazenamentoDocumentoLocal.padrao(),
+                "Produção local",
+                false
+        );
+    }
+
+    public static ContextoAplicacao testeComDadosFicticios() {
+        return new ContextoAplicacao(
+                BancoDadosAssetly.localTeste(),
+                new ArmazenamentoDocumentoLocal(CaminhosArmazenamentoLocal.diretorioDocumentosTeste()),
+                "Teste",
+                true
+        );
+    }
+
+    public String rotuloAmbiente() {
+        return rotuloAmbiente;
+    }
+
+    public boolean ambienteTeste() {
+        return ambienteTeste;
     }
 
     public RepositorioBem repositorioBem() {
@@ -145,11 +192,11 @@ public final class ContextoAplicacao {
     }
 
     public RegistrarDocumento registrarDocumento() {
-        return new RegistrarDocumento(repositorioBem, repositorioDocumento);
+        return new RegistrarDocumento(repositorioBem, repositorioDocumento, armazenamentoDocumento);
     }
 
     public EditarDocumento editarDocumento() {
-        return new EditarDocumento(repositorioDocumento);
+        return new EditarDocumento(repositorioDocumento, armazenamentoDocumento);
     }
 
     public MarcarDocumentoAusente marcarDocumentoAusente() {
@@ -170,6 +217,16 @@ public final class ContextoAplicacao {
 
     public CriarAlerta criarAlerta() {
         return new CriarAlerta(repositorioBem, repositorioAlerta);
+    }
+
+    public GerarAlertasAutomaticos gerarAlertasAutomaticos() {
+        return new GerarAlertasAutomaticos(
+                repositorioBem,
+                repositorioGarantia,
+                repositorioManutencao,
+                repositorioDocumento,
+                repositorioAlerta
+        );
     }
 
     public TomarCienciaAlerta tomarCienciaAlerta() {
