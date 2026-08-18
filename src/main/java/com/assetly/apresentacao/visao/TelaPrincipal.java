@@ -29,20 +29,28 @@ import com.assetly.dominio.garantia.TipoGarantia;
 import com.assetly.dominio.manutencao.Manutencao;
 import com.assetly.dominio.manutencao.StatusManutencao;
 import com.assetly.dominio.manutencao.TipoManutencao;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.SelectionMode;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -61,15 +69,22 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
+import javafx.scene.input.MouseButton;
+import javafx.util.Duration;
 
+import java.awt.Desktop;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -89,12 +104,14 @@ public final class TelaPrincipal {
     private final TilePane painelResumo = new TilePane();
     private final VBox painelAlertas = new VBox(8);
     private final VBox painelAcoes = new VBox(8);
+    private Timeline atualizacaoTempoReal;
 
     public TelaPrincipal(ContextoAplicacao contexto) {
         this.contexto = Objects.requireNonNull(contexto, "contexto da aplicação é obrigatório");
         configurarRaiz();
         configurarTabelas();
         atualizarTudo();
+        iniciarAtualizacaoTempoReal();
     }
 
     public Parent raiz() {
@@ -104,12 +121,31 @@ public final class TelaPrincipal {
     public void atualizarTudo() {
         contexto.gerarAlertasAutomaticos().executar(LocalDate.now());
         var bens = contexto.listarBens().executar();
-        tabelaBens.setItems(FXCollections.observableArrayList(bens));
-        tabelaGarantias.setItems(FXCollections.observableArrayList(contexto.listarGarantias().executar()));
-        tabelaManutencoes.setItems(FXCollections.observableArrayList(contexto.listarManutencoes().executar()));
-        tabelaDocumentos.setItems(FXCollections.observableArrayList(contexto.listarDocumentos().executar()));
-        tabelaAlertas.setItems(FXCollections.observableArrayList(contexto.listarAlertas().executar()));
+        recarregarTabela(tabelaBens, bens, Bem::id);
+        recarregarTabela(tabelaGarantias, contexto.listarGarantias().executar(), Garantia::id);
+        recarregarTabela(tabelaManutencoes, contexto.listarManutencoes().executar(), Manutencao::id);
+        recarregarTabela(tabelaDocumentos, contexto.listarDocumentos().executar(), Documento::id);
+        recarregarTabela(tabelaAlertas, contexto.listarAlertas().executar(), Alerta::id);
         atualizarPainel();
+    }
+
+    private <T> void recarregarTabela(TableView<T> tabela, List<T> itens, Function<T, Object> chave) {
+        var selecionado = tabela.getSelectionModel().getSelectedItem();
+        var chaveSelecionada = selecionado == null ? null : chave.apply(selecionado);
+        tabela.setItems(FXCollections.observableArrayList(itens));
+        if (chaveSelecionada != null) {
+            tabela.getItems().stream()
+                    .filter(item -> Objects.equals(chave.apply(item), chaveSelecionada))
+                    .findFirst()
+                    .ifPresent(item -> tabela.getSelectionModel().select(item));
+        }
+    }
+
+    private void iniciarAtualizacaoTempoReal() {
+        atualizacaoTempoReal = new Timeline(new KeyFrame(Duration.seconds(5),
+                evento -> executarComTratamento(this::atualizarTudo)));
+        atualizacaoTempoReal.setCycleCount(Timeline.INDEFINITE);
+        atualizacaoTempoReal.play();
     }
 
     private void configurarRaiz() {
@@ -155,16 +191,10 @@ public final class TelaPrincipal {
         if (contexto.ambienteTeste()) {
             seloAmbiente.getStyleClass().add("selo-teste");
         }
-        var seloEscuro = new Label("Escuro fixo");
-        seloEscuro.getStyleClass().add("selo-identidade");
-        var selos = new HBox(8, seloAmbiente, seloEscuro);
+        var selos = new HBox(8, seloAmbiente);
         selos.setAlignment(Pos.CENTER_LEFT);
 
-        var atualizar = new Button("Atualizar");
-        atualizar.getStyleClass().add("botao-secundario");
-        atualizar.setOnAction(evento -> executarComTratamento(this::atualizarTudo));
-
-        var cabecalho = new HBox(18, identidade, espaco(), selos, atualizar);
+        var cabecalho = new HBox(18, identidade, espaco(), selos);
         cabecalho.setAlignment(Pos.CENTER_LEFT);
         cabecalho.setPadding(new Insets(8, 24, 8, 24));
         cabecalho.getStyleClass().add("cabecalho-aplicacao");
@@ -316,6 +346,7 @@ public final class TelaPrincipal {
     private Parent criarAbaDocumentos() {
         var barra = barraAcoes(
                 botaoPrimario("Novo", () -> abrirDialogoDocumento(null)),
+                botaoSecundario("Abrir", this::abrirDocumentoSelecionado),
                 botaoSecundario("Editar",
                         () -> abrirDialogoDocumento(
                                 selecionado(tabelaDocumentos, "Selecione um documento para editar."))),
@@ -376,7 +407,7 @@ public final class TelaPrincipal {
             case EM_MANUTENCAO -> "linha-aviso";
             case DESCARTADO -> "linha-perigo";
             case ARQUIVADO -> "linha-neutra";
-        });
+        }, this::menuContextoBem);
     }
 
     private void configurarTabelaGarantias() {
@@ -396,7 +427,7 @@ public final class TelaPrincipal {
             case ATIVA -> "linha-ok";
             case PERTO_DO_VENCIMENTO, NAO_INICIADA -> "linha-aviso";
             case VENCIDA -> "linha-perigo";
-        });
+        }, this::menuContextoGarantia);
     }
 
     private void configurarTabelaManutencoes() {
@@ -417,7 +448,7 @@ public final class TelaPrincipal {
             case AGENDADA -> "linha-informativa";
             case ATRASADA -> "linha-perigo";
             case CANCELADA -> "linha-neutra";
-        });
+        }, this::menuContextoManutencao);
     }
 
     private void configurarTabelaDocumentos() {
@@ -426,7 +457,7 @@ public final class TelaPrincipal {
                 coluna("Bem", documento -> nomeBem(documento.bemId())),
                 coluna("Tipo", documento -> textoEnum(documento.tipo())),
                 coluna("Nome", documento -> documento.nome().valor()),
-                coluna("Arquivo local", documento -> documento.caminhoLocal().valor().toString()),
+                colunaArquivoDocumento(),
                 coluna("Registrado", documento -> data(documento.registradoEm())),
                 colunaEtiqueta("Status", documento -> textoEnum(documento.status()),
                         documento -> classeEtiqueta(documento.status()))));
@@ -434,7 +465,7 @@ public final class TelaPrincipal {
             case DISPONIVEL -> "linha-ok";
             case AUSENTE -> "linha-aviso";
             case ARQUIVADO -> "linha-neutra";
-        });
+        }, this::menuContextoDocumento, this::abrirDocumento);
     }
 
     private void configurarTabelaAlertas() {
@@ -458,12 +489,106 @@ public final class TelaPrincipal {
                 case AVISO -> "linha-aviso";
                 case INFORMATIVO -> "linha-informativa";
             };
-        });
+        }, this::menuContextoAlerta);
+    }
+
+    private ContextMenu menuContextoBem(Bem bem) {
+        return menuContexto(
+                itemMenu("Editar", () -> abrirDialogoBem(bem)),
+                itemMenu("Detalhes", () -> mostrarDetalhesBem(bem)),
+                separadorMenu(),
+                itemMenu("Ativar", () -> alterarStatusBem(bem, StatusBem.ATIVO)),
+                itemMenu("Marcar em manutenção", () -> alterarStatusBem(bem, StatusBem.EM_MANUTENCAO)),
+                separadorMenu(),
+                itemMenu("Descartar", () -> alterarStatusBem(bem, StatusBem.DESCARTADO)),
+                itemMenu("Arquivar", () -> alterarStatusBem(bem, StatusBem.ARQUIVADO)));
+    }
+
+    private ContextMenu menuContextoGarantia(Garantia garantia) {
+        return menuContexto(itemMenu("Editar", () -> abrirDialogoGarantia(garantia)));
+    }
+
+    private ContextMenu menuContextoManutencao(Manutencao manutencao) {
+        return menuContexto(
+                itemMenu("Editar", () -> abrirDialogoManutencao(manutencao)),
+                itemMenu("Concluir", () -> concluirManutencao(manutencao)),
+                itemMenu("Cancelar", () -> cancelarManutencao(manutencao)));
+    }
+
+    private ContextMenu menuContextoDocumento(Documento documento) {
+        return menuContexto(
+                itemMenu("Abrir documento", () -> abrirDocumento(documento),
+                        documento.status() == StatusDocumento.AUSENTE),
+                itemMenu("Editar", () -> abrirDialogoDocumento(documento)),
+                separadorMenu(),
+                itemMenu("Marcar ausente", () -> marcarDocumentoAusente(documento)),
+                itemMenu("Arquivar", () -> arquivarDocumento(documento)));
+    }
+
+    private ContextMenu menuContextoAlerta(Alerta alerta) {
+        return menuContexto(
+                itemMenu("Marcar como ciente", () -> tomarCienciaAlerta(alerta)),
+                itemMenu("Resolver", () -> resolverAlerta(alerta)));
+    }
+
+    private ContextMenu menuContexto(MenuItem... itens) {
+        var menu = new ContextMenu(itens);
+        menu.getStyleClass().add("menu-contexto-tabela");
+        return menu;
+    }
+
+    private MenuItem itemMenu(String texto, Runnable acao) {
+        return itemMenu(texto, acao, false);
+    }
+
+    private MenuItem itemMenu(String texto, Runnable acao, boolean desabilitado) {
+        var item = new MenuItem(texto);
+        item.setDisable(desabilitado);
+        item.setOnAction(evento -> executarComTratamento(acao));
+        return item;
+    }
+
+    private SeparatorMenuItem separadorMenu() {
+        return new SeparatorMenuItem();
     }
 
     private <T> TableColumn<T, String> coluna(String titulo, Function<T, String> valor) {
         var coluna = new TableColumn<T, String>(titulo);
         coluna.setCellValueFactory(dados -> new ReadOnlyStringWrapper(valor.apply(dados.getValue())));
+        return coluna;
+    }
+
+    private TableColumn<Documento, String> colunaArquivoDocumento() {
+        TableColumn<Documento, String> coluna = coluna(
+                "Arquivo local",
+                (Documento documento) -> documento.caminhoLocal().valor().toString());
+        coluna.setCellFactory(tabela -> new TableCell<Documento, String>() {
+            {
+                setOnMouseClicked(evento -> {
+                    if (!isEmpty() && evento.getButton() == MouseButton.PRIMARY) {
+                        var documento = getTableView().getItems().get(getIndex());
+                        getTableView().getSelectionModel().select(getIndex());
+                        executarComTratamento(() -> abrirDocumento(documento));
+                        evento.consume();
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(String item, boolean vazio) {
+                super.updateItem(item, vazio);
+                getStyleClass().remove("celula-documento-abrivel");
+                if (vazio || item == null || item.isBlank()) {
+                    setText(null);
+                    setCursor(Cursor.DEFAULT);
+                    return;
+                }
+
+                setText(item);
+                setCursor(Cursor.HAND);
+                getStyleClass().add("celula-documento-abrivel");
+            }
+        });
         return coluna;
     }
 
@@ -500,18 +625,55 @@ public final class TelaPrincipal {
     }
 
     private <T> void configurarLinhasTabela(TableView<T> tabela, Function<T, String> classeCss) {
+        configurarLinhasTabela(tabela, classeCss, item -> null, item -> {
+        });
+    }
+
+    private <T> void configurarLinhasTabela(
+            TableView<T> tabela,
+            Function<T, String> classeCss,
+            Function<T, ContextMenu> menuContexto
+    ) {
+        configurarLinhasTabela(tabela, classeCss, menuContexto, item -> {
+        });
+    }
+
+    private <T> void configurarLinhasTabela(
+            TableView<T> tabela,
+            Function<T, String> classeCss,
+            Function<T, ContextMenu> menuContexto,
+            Consumer<T> acaoDuploClique
+    ) {
         tabela.setRowFactory(controle -> new TableRow<>() {
+            {
+                setOnContextMenuRequested(evento -> {
+                    if (!isEmpty()) {
+                        tabela.getSelectionModel().select(getIndex());
+                    }
+                });
+                setOnMouseClicked(evento -> {
+                    if (!isEmpty() && evento.getButton() == MouseButton.PRIMARY && evento.getClickCount() == 2) {
+                        tabela.getSelectionModel().select(getIndex());
+                        executarComTratamento(() -> acaoDuploClique.accept(getItem()));
+                    }
+                });
+            }
+
             @Override
             protected void updateItem(T item, boolean vazio) {
                 super.updateItem(item, vazio);
                 getStyleClass().removeAll("linha-ok", "linha-informativa", "linha-aviso", "linha-perigo",
                         "linha-neutra");
-                if (!vazio && item != null) {
-                    var classe = classeCss.apply(item);
-                    if (classe != null && !classe.isBlank()) {
-                        getStyleClass().add(classe);
-                    }
+                if (vazio || item == null) {
+                    setContextMenu(null);
+                    return;
                 }
+
+                var classe = classeCss.apply(item);
+                if (classe != null && !classe.isBlank()) {
+                    getStyleClass().add(classe);
+                }
+                setContextMenu(menuContexto.apply(item));
             }
         });
     }
@@ -850,6 +1012,10 @@ public final class TelaPrincipal {
 
     private void concluirManutencao() {
         var manutencao = selecionado(tabelaManutencoes, "Selecione uma manutenção para concluir.");
+        concluirManutencao(manutencao);
+    }
+
+    private void concluirManutencao(Manutencao manutencao) {
         var concluidaEm = dataPicker(LocalDate.now());
         var custo = campoTexto("Custo", "");
         var moeda = campoTexto("Moeda", "BRL");
@@ -869,42 +1035,93 @@ public final class TelaPrincipal {
 
     private void cancelarManutencao() {
         var manutencao = selecionado(tabelaManutencoes, "Selecione uma manutenção para cancelar.");
+        cancelarManutencao(manutencao);
+    }
+
+    private void cancelarManutencao(Manutencao manutencao) {
         contexto.cancelarManutencao().executar(manutencao.id());
         atualizarTudo();
     }
 
+    private void abrirDocumentoSelecionado() {
+        abrirDocumento(selecionado(tabelaDocumentos, "Selecione um documento para abrir."));
+    }
+
+    private void abrirDocumento(Documento documento) {
+        if (documento.status() == StatusDocumento.AUSENTE) {
+            throw new IllegalStateException("documento marcado como ausente não possui arquivo disponível para abrir.");
+        }
+        var arquivo = documento.caminhoLocal().valor().toAbsolutePath().normalize();
+        if (!Files.exists(arquivo)) {
+            throw new IllegalStateException("arquivo do documento não foi encontrado: " + arquivo);
+        }
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            throw new IllegalStateException("este sistema não permite abrir arquivos automaticamente.");
+        }
+
+        try {
+            Desktop.getDesktop().open(arquivo.toFile());
+        } catch (IOException excecao) {
+            throw new IllegalStateException("não foi possível abrir o documento: " + arquivo, excecao);
+        }
+    }
+
     private void marcarDocumentoAusente() {
         var documento = selecionado(tabelaDocumentos, "Selecione um documento.");
+        marcarDocumentoAusente(documento);
+    }
+
+    private void marcarDocumentoAusente(Documento documento) {
         contexto.marcarDocumentoAusente().executar(documento.id());
         atualizarTudo();
     }
 
     private void arquivarDocumento() {
         var documento = selecionado(tabelaDocumentos, "Selecione um documento.");
+        arquivarDocumento(documento);
+    }
+
+    private void arquivarDocumento(Documento documento) {
         contexto.arquivarDocumento().executar(documento.id());
         atualizarTudo();
     }
 
     private void tomarCienciaAlerta() {
         var alerta = selecionado(tabelaAlertas, "Selecione um alerta.");
+        tomarCienciaAlerta(alerta);
+    }
+
+    private void tomarCienciaAlerta(Alerta alerta) {
         contexto.tomarCienciaAlerta().executar(alerta.id());
         atualizarTudo();
     }
 
     private void resolverAlerta() {
         var alerta = selecionado(tabelaAlertas, "Selecione um alerta.");
+        resolverAlerta(alerta);
+    }
+
+    private void resolverAlerta(Alerta alerta) {
         contexto.resolverAlerta().executar(alerta.id());
         atualizarTudo();
     }
 
     private void alterarStatusBem(StatusBem status) {
         var bem = selecionado(tabelaBens, "Selecione um bem.");
+        alterarStatusBem(bem, status);
+    }
+
+    private void alterarStatusBem(Bem bem, StatusBem status) {
         contexto.alterarStatusBem().executar(new AlterarStatusBemComando(bem.id(), status));
         atualizarTudo();
     }
 
     private void mostrarDetalhesBem() {
         var bem = selecionado(tabelaBens, "Selecione um bem.");
+        mostrarDetalhesBem(bem);
+    }
+
+    private void mostrarDetalhesBem(Bem bem) {
         var garantias = contexto.repositorioGarantia().listarPorBem(bem.id()).size();
         var manutencoes = contexto.repositorioManutencao().listarPorBem(bem.id()).size();
         var documentos = contexto.repositorioDocumento().listarPorBem(bem.id()).size();
@@ -941,6 +1158,7 @@ public final class TelaPrincipal {
         var salvar = new ButtonType("Salvar", ButtonBar.ButtonData.OK_DONE);
         var dialogo = new Dialog<T>();
         dialogo.setTitle(titulo);
+        JanelaEscura.preparar(dialogo, titulo);
         dialogo.getDialogPane().getButtonTypes().addAll(salvar, ButtonType.CANCEL);
         dialogo.getDialogPane().setContent(conteudo);
         aplicarEstilo(dialogo.getDialogPane());
@@ -1017,20 +1235,120 @@ public final class TelaPrincipal {
     }
 
     private void escolherArquivo(TextField campo) {
-        var seletor = new FileChooser();
-        seletor.setTitle("Selecionar documento");
-        if (campo.getText() != null && !campo.getText().isBlank()) {
-            var caminhoAtual = java.nio.file.Path.of(campo.getText()).toAbsolutePath().normalize();
-            var diretorio = caminhoAtual.getParent();
-            if (diretorio != null && java.nio.file.Files.isDirectory(diretorio)) {
-                seletor.setInitialDirectory(diretorio.toFile());
+        selecionarArquivo(campo.getText()).ifPresent(arquivo -> campo.setText(arquivo.toString()));
+    }
+
+    private Optional<Path> selecionarArquivo(String caminhoAtual) {
+        var diretorioAtual = new AtomicReference<>(diretorioInicial(caminhoAtual));
+        var arquivoSelecionado = new AtomicReference<Path>();
+        var selecionar = new ButtonType("Selecionar", ButtonBar.ButtonData.OK_DONE);
+        var dialogo = new Dialog<Path>();
+        dialogo.setTitle("Selecionar documento");
+        JanelaEscura.preparar(dialogo, "Selecionar documento");
+        dialogo.getDialogPane().getButtonTypes().addAll(selecionar, ButtonType.CANCEL);
+
+        var instrucoes = new Label("Escolha o arquivo que será anexado ao bem.");
+        instrucoes.getStyleClass().add("texto-suave");
+        var diretorio = campoTexto("Diretório atual", diretorioAtual.get().toString());
+        diretorio.setEditable(false);
+        var lista = new ListView<Path>();
+        lista.getStyleClass().add("lista-arquivos");
+        lista.setCellFactory(controle -> new ListCell<>() {
+            @Override
+            protected void updateItem(Path item, boolean vazio) {
+                super.updateItem(item, vazio);
+                if (vazio || item == null) {
+                    setText(null);
+                    return;
+                }
+                setText((Files.isDirectory(item) ? "[Pasta] " : "[Arquivo] ") + item.getFileName());
+            }
+        });
+        lista.getSelectionModel().selectedItemProperty().addListener((observavel, anterior, atual) -> {
+            if (atual != null && Files.isRegularFile(atual)) {
+                arquivoSelecionado.set(atual);
+            }
+        });
+        lista.setOnMouseClicked(evento -> {
+            if (evento.getButton() != MouseButton.PRIMARY || evento.getClickCount() != 2) {
+                return;
+            }
+            var item = lista.getSelectionModel().getSelectedItem();
+            if (item == null) {
+                return;
+            }
+            if (Files.isDirectory(item)) {
+                diretorioAtual.set(item);
+                carregarArquivos(diretorioAtual.get(), diretorio, lista);
+                arquivoSelecionado.set(null);
+                return;
+            }
+            arquivoSelecionado.set(item);
+            dialogo.setResult(item);
+            dialogo.close();
+        });
+        var subir = botaoSecundario("Subir", () -> {
+            var pai = diretorioAtual.get().getParent();
+            if (pai != null) {
+                diretorioAtual.set(pai);
+                carregarArquivos(diretorioAtual.get(), diretorio, lista);
+                arquivoSelecionado.set(null);
+            }
+        });
+
+        carregarArquivos(diretorioAtual.get(), diretorio, lista);
+        VBox.setVgrow(lista, Priority.ALWAYS);
+        var linhaDiretorio = new HBox(8, diretorio, subir);
+        HBox.setHgrow(diretorio, Priority.ALWAYS);
+        var conteudo = new VBox(10, instrucoes, linhaDiretorio, lista);
+        conteudo.getStyleClass().add("seletor-arquivo");
+        dialogo.getDialogPane().setContent(conteudo);
+        aplicarEstilo(dialogo.getDialogPane());
+
+        var botaoSelecionar = (Button) dialogo.getDialogPane().lookupButton(selecionar);
+        botaoSelecionar.getStyleClass().add("botao-primario");
+        var botaoCancelar = (Button) dialogo.getDialogPane().lookupButton(ButtonType.CANCEL);
+        botaoCancelar.getStyleClass().add("botao-secundario");
+        botaoSelecionar.addEventFilter(javafx.event.ActionEvent.ACTION, evento -> {
+            var arquivo = arquivoSelecionado.get();
+            if (arquivo == null || !Files.isRegularFile(arquivo)) {
+                evento.consume();
+                mostrarErro(new IllegalStateException("selecione um arquivo válido."));
+            }
+        });
+        dialogo.setResultConverter(botao -> botao == selecionar ? arquivoSelecionado.get() : null);
+        return dialogo.showAndWait();
+    }
+
+    private Path diretorioInicial(String caminhoAtual) {
+        if (caminhoAtual != null && !caminhoAtual.isBlank()) {
+            var caminho = Path.of(caminhoAtual).toAbsolutePath().normalize();
+            if (Files.isDirectory(caminho)) {
+                return caminho;
+            }
+            var pai = caminho.getParent();
+            if (pai != null && Files.isDirectory(pai)) {
+                return pai;
             }
         }
+        return Path.of(System.getProperty("user.home")).toAbsolutePath().normalize();
+    }
 
-        var janela = raiz.getScene() == null ? null : raiz.getScene().getWindow();
-        var arquivo = seletor.showOpenDialog(janela);
-        if (arquivo != null) {
-            campo.setText(arquivo.toPath().toString());
+    private void carregarArquivos(Path diretorioAtual, TextField campoDiretorio, ListView<Path> lista) {
+        campoDiretorio.setText(diretorioAtual.toString());
+        if (lista == null) {
+            return;
+        }
+        try (var stream = Files.list(diretorioAtual)) {
+            var itens = stream
+                    .filter(caminho -> Files.isDirectory(caminho) || Files.isRegularFile(caminho))
+                    .sorted(Comparator
+                            .comparing((Path caminho) -> !Files.isDirectory(caminho))
+                            .thenComparing(caminho -> caminho.getFileName().toString().toLowerCase()))
+                    .toList();
+            lista.setItems(FXCollections.observableArrayList(itens));
+        } catch (IOException excecao) {
+            throw new IllegalStateException("não foi possível listar os arquivos do diretório selecionado.", excecao);
         }
     }
 
@@ -1082,8 +1400,9 @@ public final class TelaPrincipal {
     private void mostrarErro(RuntimeException excecao) {
         var alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
         alerta.setTitle("Erro");
-        alerta.setHeaderText("Não foi possível concluir a ação");
-        alerta.setContentText(mensagemErro(excecao));
+        JanelaEscura.preparar(alerta, "Erro");
+        alerta.setHeaderText(null);
+        alerta.setContentText("Não foi possível concluir a ação.\n\n" + mensagemErro(excecao));
         aplicarEstilo(alerta.getDialogPane());
         alerta.getDialogPane().getStyleClass().add("dialogo-erro");
         alerta.showAndWait();
@@ -1104,6 +1423,7 @@ public final class TelaPrincipal {
     private void mostrarInformacao(String titulo, String mensagem) {
         var alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
         alerta.setTitle(titulo);
+        JanelaEscura.preparar(alerta, titulo);
         alerta.setHeaderText(null);
         alerta.setContentText(mensagem);
         aplicarEstilo(alerta.getDialogPane());

@@ -62,3 +62,6 @@ function Obter-Maven {
 $maven = Obter-Maven
 Write-Host "Executando Assetly em ambiente: $env:ASSETLY_AMBIENTE"
 & $maven "javafx:run"
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}

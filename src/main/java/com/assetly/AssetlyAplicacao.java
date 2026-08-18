@@ -1,11 +1,13 @@
 package com.assetly;
 
 import com.assetly.apresentacao.ContextoAplicacao;
+import com.assetly.apresentacao.visao.JanelaEscura;
 import com.assetly.apresentacao.visao.TelaPrincipal;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 import java.util.List;
 
@@ -15,16 +17,18 @@ public class AssetlyAplicacao extends Application {
     public void start(Stage palco) {
         var contexto = contextoAplicacao(getParameters().getRaw());
         var telaPrincipal = new TelaPrincipal(contexto);
-        var cena = new Scene(telaPrincipal.raiz(), 1180, 760);
+        var titulo = contexto.ambienteTeste() ? "Assetly - Teste" : "Assetly";
+        var cena = new Scene(JanelaEscura.decorar(palco, titulo, telaPrincipal.raiz()), 1180, 790);
         var folhaEstilos = AssetlyAplicacao.class.getResource("/estilos/assetly.css");
         if (folhaEstilos != null) {
             cena.getStylesheets().add(folhaEstilos.toExternalForm());
         }
 
-        palco.setTitle(contexto.ambienteTeste() ? "Assetly - Teste" : "Assetly");
+        palco.initStyle(StageStyle.UNDECORATED);
+        palco.setTitle(titulo);
         aplicarIcones(palco);
         palco.setMinWidth(980);
-        palco.setMinHeight(640);
+        palco.setMinHeight(670);
         palco.setScene(cena);
         palco.show();
     }

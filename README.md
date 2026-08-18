@@ -107,11 +107,17 @@ O resultado deve indicar Java 21 ou superior. Se o comando não existir ou mostr
 
 Entre na pasta do projeto e execute:
 
+```bat
+.\executar.cmd
+```
+
+Se preferir chamar o script PowerShell diretamente:
+
 ```powershell
 .\executar.ps1
 ```
 
-Se o PowerShell bloquear a execução do script por política local, rode:
+Se o PowerShell bloquear a execução do script por política local, use o `executar.cmd` ou rode:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\executar.ps1
@@ -362,11 +368,17 @@ Mesmo assim, os dados continuam sendo responsabilidade do usuário. Se você usa
 
 Use:
 
+```bat
+.\executar.cmd
+```
+
+Ou rode o PowerShell com bypass apenas para essa chamada:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\executar.ps1
 ```
 
-Esse comando libera a execução apenas para essa chamada.
+O `executar.cmd` faz esse bypass localmente e pausa a janela se a inicialização falhar.
 
 ### O comando `java` não existe
 
@@ -432,6 +444,7 @@ Assetly/
 ├── README.md
 ├── LICENSE
 ├── ROADMAP.md
+├── executar.cmd
 ├── executar.ps1
 ├── pom.xml
 ├── docs/

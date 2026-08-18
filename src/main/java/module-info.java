@@ -1,4 +1,5 @@
 module com.assetly {
+    requires java.desktop;
     requires java.sql;
     requires javafx.controls;
     requires javafx.fxml;
@@ -10,6 +11,7 @@ module com.assetly {
     exports com.assetly.aplicacao.excecao;
     exports com.assetly.aplicacao.repositorio;
     exports com.assetly.aplicacao.servico;
+    exports com.assetly.apresentacao.visao;
     exports com.assetly.dominio.alerta;
     exports com.assetly.dominio.bem;
     exports com.assetly.dominio.compartilhado;
