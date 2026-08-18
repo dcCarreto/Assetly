@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Assetly.Aplicacao/Assetly.Aplicacao.csproj" />
+    <Project Path="src/Assetly.Apresentacao/Assetly.Apresentacao.csproj" />
+    <Project Path="src/Assetly.Dominio/Assetly.Dominio.csproj" />
+    <Project Path="src/Assetly.Infraestrutura/Assetly.Infraestrutura.csproj" />
+  </Folder>
+  <Folder Name="/testes/">
+    <Project Path="testes/Assetly.Testes/Assetly.Testes.csproj" />
+  </Folder>
+</Solution>

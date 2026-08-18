@@ -3,12 +3,18 @@ target/
 build/
 out/
 bin/
+obj/
 .gradle/
 .tools/
 *.class
 *.jar
 *.war
 *.ear
+
+# .NET
+*.user
+[Dd]ebug/
+[Rr]elease/
 
 # IDEs e editores
 .idea/
