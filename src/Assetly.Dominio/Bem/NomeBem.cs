@@ -8,7 +8,7 @@ public sealed record NomeBem
 
     public string Valor { get; }
 
-    public NomeBem(string valor)
+    public NomeBem(string? valor)
     {
         Valor = Validacao.ExigirTexto(valor, "nome do bem", TamanhoMaximo);
     }
