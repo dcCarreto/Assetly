@@ -361,9 +361,9 @@ internal sealed partial class TelaPrincipal
     {
         var severidade = EtiquetaApoio.CriarEtiqueta(Formatador.TextoEnum(alerta.Severidade), Formatador.ClasseEtiqueta(alerta.Severidade));
         var mensagem = UiApoio.Texto($"{NomeBem(alerta.BemId)} - {alerta.Mensagem}", 13, FontWeights.Normal, (Brush)Application.Current.Resources["TextoCelulaBrush"]);
-        mensagem.HorizontalAlignment = HorizontalAlignment.Stretch;
+        mensagem.VerticalAlignment = VerticalAlignment.Center;
 
-        var linha = UiApoio.Linha(10, severidade, mensagem);
+        var linha = UiApoio.LinhaComCrescimento(10, severidade, mensagem);
         linha.Margin = new Thickness(0, 0, 0, 6);
         return new Border { Background = new SolidColorBrush(Color.FromRgb(0x11, 0x1A, 0x29)), CornerRadius = new CornerRadius(7), Padding = new Thickness(10, 9, 10, 9), Child = linha };
     }
@@ -405,7 +405,7 @@ internal sealed partial class TelaPrincipal
         var detalheLabel = UiApoio.Texto(detalhe, 12, FontWeights.Normal, (Brush)Application.Current.Resources["TextoSuaveBrush"]);
         var textos = UiApoio.Coluna(2, tituloLabel, detalheLabel);
 
-        var linha = UiApoio.Linha(10, categoriaLabel, textos);
+        var linha = UiApoio.LinhaComCrescimento(10, categoriaLabel, textos);
         linha.Margin = new Thickness(0, 0, 0, 6);
         return new Border { Background = new SolidColorBrush(Color.FromRgb(0x11, 0x1A, 0x29)), CornerRadius = new CornerRadius(7), Padding = new Thickness(10, 9, 10, 9), Child = linha };
     }

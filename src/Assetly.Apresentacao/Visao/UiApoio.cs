@@ -36,4 +36,29 @@ internal static class UiApoio
         Foreground = cor,
         TextWrapping = TextWrapping.Wrap
     };
+
+    /// <summary>
+    /// Linha com um elemento de largura fixa à esquerda e um elemento elástico à direita
+    /// que ocupa o espaço restante — necessário para que TextBlocks com TextWrapping
+    /// realmente quebrem linha em vez de estourar a largura (StackPanel não restringe
+    /// a largura dos filhos, então TextWrapping nunca é acionado dentro de um).
+    /// </summary>
+    internal static Grid LinhaComCrescimento(double espaco, UIElement fixo, UIElement elastico)
+    {
+        var grade = new Grid();
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        if (elastico is FrameworkElement elementoElastico)
+        {
+            elementoElastico.Margin = new Thickness(espaco, 0, 0, 0);
+            elementoElastico.HorizontalAlignment = HorizontalAlignment.Stretch;
+        }
+
+        Grid.SetColumn(fixo, 0);
+        Grid.SetColumn(elastico, 1);
+        grade.Children.Add(fixo);
+        grade.Children.Add(elastico);
+        return grade;
+    }
 }
