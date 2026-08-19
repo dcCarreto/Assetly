@@ -1,6 +1,6 @@
 # Roteiro do Assetly
 
-Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco em um produto mínimo viável de área de trabalho com prioridade local em Java 21, JavaFX, Maven e SQLite.
+Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco em um produto mínimo viável de área de trabalho com prioridade local em .NET 10, WPF e SQLite. O projeto nasceu em Java 21/JavaFX/Maven (etapas 1 a 8) e foi reescrito integralmente para C#/.NET WPF na etapa 10; as etapas anteriores permanecem registradas como histórico.
 
 ## Situação Atual
 
@@ -22,13 +22,13 @@ Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco 
 
 ## Princípios do Projeto
 
-- Manter o domínio isolado de JavaFX, JDBC, SQLite e detalhes de infraestrutura.
+- Manter o domínio isolado de WPF, ADO.NET, SQLite e detalhes de infraestrutura.
 - Priorizar um produto mínimo viável simples, usável e fácil de rodar.
 - Evitar dependências desnecessárias no início.
 - Não versionar bancos locais, documentos reais, anexos, notas fiscais, fotos ou arquivos sensíveis.
 - Não fazer commits, pushes ou tags automaticamente.
 - Manter nomes de pacotes, classes e documentação de negócio em português.
-- Manter convenções do ecossistema Java/Maven e arquivos padrão do repositório em inglês, como `src/main/java`, `src/main/resources`, `src/test/java`, `README.md`, `LICENSE` e `ROADMAP.md`.
+- Manter convenções do ecossistema .NET e arquivos padrão do repositório em inglês, como `src/Assetly.Dominio`, `src/Assetly.Aplicacao`, `src/Assetly.Infraestrutura`, `src/Assetly.Apresentacao`, `testes/Assetly.Testes`, `README.md`, `LICENSE` e `ROADMAP.md`.
 - Manter a interface com tema escuro fixo, sem alternância de tema no produto mínimo viável.
 
 ## Etapa 1 - Base do Projeto
@@ -149,15 +149,32 @@ Situação: implementado. O polimento visual, a navegação lateral, o painel op
 
 Objetivo: facilitar a execução do Assetly fora do ambiente de desenvolvimento.
 
-- Definir estratégia de empacotamento com JavaFX.
+- Definir estratégia de empacotamento com .NET (self-contained deployment).
 - Gerar artefato executável local.
-- Avaliar empacotamento com `jlink` ou `jpackage`.
+- Avaliar empacotamento com `dotnet publish` ou MSIX.
 - Incluir ícone do aplicativo nos pacotes gerados.
 - Documentar requisitos de execução.
 
 Resultado esperado: usuário consegue baixar ou gerar uma versão executável do Assetly com menos configuração manual.
 
 Situação: planejado.
+
+## Etapa 10 - Port para C#/.NET WPF
+
+Objetivo: abandonar Java/JavaFX/Maven e reescrever o Assetly inteiramente em C#/.NET WPF, preservando funcionalidades, regras de negócio e identidade visual.
+
+- Portar o domínio (entidades, VOs, enums, invariantes) mantendo os 17 testes de domínio equivalentes.
+- Portar a camada de aplicação (27 casos de uso, incluindo o motor `GerarAlertasAutomaticos`) preservando comportamento e testes.
+- Portar a infraestrutura SQLite (migração, repositórios com upsert manual) mantendo o schema idêntico e compatibilidade com bancos já existentes em `~/.assetly` e `~/.assetly-teste`.
+- Portar o armazenamento local de documentos com a mesma normalização de nomes de arquivo.
+- Recriar a interface em WPF: tema escuro traduzido do `assetly.css` para um `ResourceDictionary`, janela sem chrome nativo via `WindowChrome`, as 6 telas (Painel, Bens, Garantias, Manutenções, Documentos, Alertas), diálogos de formulário, seletor de arquivo customizado e atualização em tempo real.
+- Portar o gerador de dados fictícios do ambiente de teste (PDFs, SVGs, CSV, TXT sintéticos).
+- Atualizar scripts de execução e documentação para o novo ecossistema .NET.
+- Remover por completo o código-fonte, build e ferramentas Java/Maven do repositório.
+
+Resultado esperado: Assetly funcionalmente e visualmente equivalente ao MVP Java, rodando 100% em C#/.NET WPF, sem nenhum vestígio da stack anterior no repositório.
+
+Situação: implementado. Solução `.NET 10` com cinco projetos (`Assetly.Dominio`, `Assetly.Aplicacao`, `Assetly.Infraestrutura`, `Assetly.Apresentacao`, `Assetly.Testes`), 28 testes automatizados verdes, e validação manual do aplicativo em execução (dashboard, tabelas, diálogos e semeadura do ambiente de teste). Java, Maven e JavaFX foram removidos do repositório.
 
 ## Funcionalidades Futuras
 

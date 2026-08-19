@@ -88,20 +88,18 @@ Se baixar por ZIP, o projeto funciona normalmente, mas você não terá o fluxo 
 Para executar o Assetly hoje, você precisa de:
 
 - Windows com PowerShell;
-- JDK 21 ou superior;
-- conexão com a internet na primeira execução para baixar dependências do Maven.
+- .NET SDK 10 ou superior;
+- conexão com a internet na primeira execução para baixar dependências do NuGet.
 
-O projeto inclui Maven Wrapper (`mvnw` e `mvnw.cmd`). Isso significa que você não precisa instalar Maven manualmente para executar o aplicativo ou rodar os testes. O wrapper baixa a versão configurada do Maven quando necessário.
-
-### Verificar Java
+### Verificar o .NET
 
 Abra o PowerShell e rode:
 
 ```powershell
-java -version
+dotnet --version
 ```
 
-O resultado deve indicar Java 21 ou superior. Se o comando não existir ou mostrar uma versão antiga, instale um JDK atual antes de executar o programa.
+O resultado deve indicar 10.0 ou superior. Se o comando não existir ou mostrar uma versão antiga, instale o [.NET SDK](https://dotnet.microsoft.com/download) atual antes de executar o programa.
 
 ## Primeira Execução
 
@@ -123,7 +121,7 @@ Se o PowerShell bloquear a execução do script por política local, use o `exec
 powershell -ExecutionPolicy Bypass -File .\executar.ps1
 ```
 
-Na primeira execução, o aplicativo compila o projeto, baixa dependências se necessário, cria o banco SQLite local e abre a janela principal.
+Na primeira execução, o aplicativo compila o projeto, baixa dependências do NuGet se necessário, cria o banco SQLite local e abre a janela principal.
 
 ## Escolher Produção ou Teste
 
@@ -380,23 +378,13 @@ powershell -ExecutionPolicy Bypass -File .\executar.ps1
 
 O `executar.cmd` faz esse bypass localmente e pausa a janela se a inicialização falhar.
 
-### O comando `java` não existe
+### O comando `dotnet` não existe
 
-Instale um JDK 21 ou superior e abra um novo terminal. Depois confirme:
-
-```powershell
-java -version
-```
-
-### O comando `mvn` não existe
-
-Use o Maven Wrapper incluído no projeto:
+Instale o [.NET SDK](https://dotnet.microsoft.com/download) 10 ou superior e abra um novo terminal. Depois confirme:
 
 ```powershell
-.\mvnw.cmd test
+dotnet --version
 ```
-
-O [executar.ps1](executar.ps1) também prioriza o wrapper, então o aplicativo pode ser iniciado sem Maven instalado no PATH.
 
 ### O aplicativo abriu em teste quando eu queria produção
 
@@ -428,14 +416,14 @@ Depois rode novamente:
 
 ## Desenvolvimento
 
-O projeto usa Java 21, JavaFX, Maven, SQLite, JUnit 5 e AssertJ.
+O projeto usa .NET 10, WPF, Microsoft.Data.Sqlite, xUnit e Shouldly.
 
-A arquitetura é organizada em camadas:
+A arquitetura é organizada em camadas, cada uma em seu próprio projeto:
 
-- `dominio`: entidades, objetos de valor, enums e regras centrais.
-- `aplicacao`: casos de uso, comandos e contratos de repositório.
-- `infraestrutura`: SQLite, migrações, repositórios e armazenamento local.
-- `apresentacao`: contexto da aplicação e interface JavaFX.
+- `Assetly.Dominio`: entidades, objetos de valor, enums e regras centrais.
+- `Assetly.Aplicacao`: casos de uso, comandos e contratos de repositório.
+- `Assetly.Infraestrutura`: SQLite, migrações, repositórios e armazenamento local.
+- `Assetly.Apresentacao`: composition root e interface WPF.
 
 Estrutura principal:
 
@@ -446,35 +434,35 @@ Assetly/
 ├── ROADMAP.md
 ├── executar.cmd
 ├── executar.ps1
-├── pom.xml
+├── Assetly.slnx
 ├── docs/
 │   └── imagens/
-└── src/
-    ├── main/
-    │   ├── java/
-    │   └── resources/
-    └── test/
-        └── java/
+├── src/
+│   ├── Assetly.Dominio/
+│   ├── Assetly.Aplicacao/
+│   ├── Assetly.Infraestrutura/
+│   └── Assetly.Apresentacao/
+└── testes/
+    └── Assetly.Testes/
 ```
 
 ### Executar Testes
 
-Com Maven Wrapper:
-
 ```powershell
-.\mvnw.cmd test
+dotnet test
 ```
 
 Antes de propor uma alteração, confira:
 
 ```powershell
-.\mvnw.cmd test
+dotnet build Assetly.slnx
+dotnet test
 git status --short
 ```
 
 ## O Que Ainda Está Planejado
 
-- Empacotamento com `jlink` ou `jpackage`.
+- Empacotamento com `dotnet publish` (self-contained) ou MSIX.
 - Instalador para Windows.
 - Exportação CSV e JSON.
 - OCR para notas fiscais.
