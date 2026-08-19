@@ -4,20 +4,19 @@ Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco 
 
 ## Situação Atual
 
-- Base Maven/Java 21/JavaFX criada.
+- Base .NET 10/WPF criada, organizada em cinco projetos (`Assetly.Dominio`, `Assetly.Aplicacao`, `Assetly.Infraestrutura`, `Assetly.Apresentacao`, `Assetly.Testes`).
 - Domínio principal implementado e coberto por testes unitários.
 - Casos de uso, comandos e contratos de repositório implementados.
 - Persistência SQLite local implementada com migração versionada.
-- Interface JavaFX funcional implementada.
+- Interface WPF funcional implementada.
 - Identidade visual escura fixa implementada.
 - Navegação lateral, painel operacional, indicadores, prioridades e estados visuais implementados.
 - Ícone estilizado do aplicativo criado e aplicado na janela e no cabeçalho.
 - Documentos locais são copiados para armazenamento privado em `~/.assetly/documentos/`.
 - Alertas automáticos geram avisos de garantia, manutenção e nota fiscal ausente sem duplicar registros.
 - Ambiente de teste separado implementado em `~/.assetly-teste/`, com dados fictícios completos e anexos físicos em PDF, SVG, CSV e TXT.
-- Script `executar.ps1` permite alternar produção/teste mudando uma única linha de variável de ambiente.
-- Maven Wrapper adicionado para executar o projeto sem Maven instalado manualmente.
-- CI básico no GitHub Actions adicionado para rodar testes em pushes e pull requests para `main`.
+- Alternância produção/teste via perfis de execução da Visual Studio ou argumento `--teste`/variável `ASSETLY_AMBIENTE` pela linha de comando.
+- CI básico no GitHub Actions (setup-dotnet) adicionado para rodar testes em pushes e pull requests para `main`.
 - README atualizado com execução, privacidade, interface, documentos locais e alertas automáticos.
 
 ## Princípios do Projeto

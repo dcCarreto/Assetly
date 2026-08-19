@@ -103,22 +103,22 @@ O resultado deve indicar 10.0 ou superior. Se o comando não existir ou mostrar 
 
 ## Primeira Execução
 
-Entre na pasta do projeto e execute:
+### Pela Visual Studio
 
-```bat
-.\executar.cmd
-```
+Abra `Assetly.slnx` na Visual Studio. O projeto `Assetly.Apresentacao` é o único executável da solução e já é reconhecido como projeto de inicialização automaticamente. Escolha o perfil desejado no dropdown ao lado do botão Run — **Assetly (Produção)** ou **Assetly (Teste)** — e pressione `F5`.
 
-Se preferir chamar o script PowerShell diretamente:
+### Pela linha de comando
 
-```powershell
-.\executar.ps1
-```
-
-Se o PowerShell bloquear a execução do script por política local, use o `executar.cmd` ou rode:
+Na raiz do projeto:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\executar.ps1
+dotnet run --project src\Assetly.Apresentacao
+```
+
+Para abrir direto no ambiente de teste:
+
+```powershell
+dotnet run --project src\Assetly.Apresentacao -- --teste
 ```
 
 Na primeira execução, o aplicativo compila o projeto, baixa dependências do NuGet se necessário, cria o banco SQLite local e abre a janela principal.
@@ -143,31 +143,21 @@ Use teste para experimentar o sistema sem risco.
 
 O ambiente de teste cria uma base demonstrativa com bens, garantias, manutenções, alertas e arquivos anexados. Esses arquivos são documentos físicos reais, gerados localmente, e aparecem no módulo `Documentos`.
 
-### Alternar com Uma Linha
+### Alternar Ambiente
 
-Abra [executar.ps1](executar.ps1) e altere somente esta linha:
+Pela Visual Studio, use o dropdown de perfis de execução (**Assetly (Produção)** / **Assetly (Teste)**) ao lado do botão Run.
 
-```powershell
-$env:ASSETLY_AMBIENTE = $env:ASSETLY_AMBIENTE_PRODUCAO
-```
-
-Para executar com dados fictícios, deixe assim:
+Pela linha de comando, use o argumento `--teste`:
 
 ```powershell
-$env:ASSETLY_AMBIENTE = $env:ASSETLY_AMBIENTE_TESTE
+dotnet run --project src\Assetly.Apresentacao -- --teste
 ```
 
-Depois salve o arquivo e rode:
-
-```powershell
-.\executar.ps1
-```
-
-Você também pode executar o ambiente de teste sem editar o script:
+Ou defina a variável de ambiente antes de rodar:
 
 ```powershell
 $env:ASSETLY_AMBIENTE = 'teste'
-.\executar.ps1
+dotnet run --project src\Assetly.Apresentacao
 ```
 
 Para voltar ao ambiente de produção no mesmo terminal:
@@ -322,7 +312,7 @@ Remove-Item -LiteralPath $pastaTeste -Recurse -Force
 Depois rode novamente:
 
 ```powershell
-.\executar.ps1
+dotnet run --project src\Assetly.Apresentacao -- --teste
 ```
 
 Use esse comando apenas para o ambiente de teste. Não remova `~/.assetly` se essa pasta já contém seus dados reais.
@@ -362,22 +352,6 @@ Mesmo assim, os dados continuam sendo responsabilidade do usuário. Se você usa
 
 ## Solução de Problemas
 
-### O PowerShell diz que o script não pode ser executado
-
-Use:
-
-```bat
-.\executar.cmd
-```
-
-Ou rode o PowerShell com bypass apenas para essa chamada:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\executar.ps1
-```
-
-O `executar.cmd` faz esse bypass localmente e pausa a janela se a inicialização falhar.
-
 ### O comando `dotnet` não existe
 
 Instale o [.NET SDK](https://dotnet.microsoft.com/download) 10 ou superior e abra um novo terminal. Depois confirme:
@@ -388,30 +362,18 @@ dotnet --version
 
 ### O aplicativo abriu em teste quando eu queria produção
 
-Abra [executar.ps1](executar.ps1) e deixe a linha de ambiente assim:
+Pela Visual Studio, troque o perfil de execução para **Assetly (Produção)** no dropdown ao lado do botão Run. Pela linha de comando, confirme que a variável `ASSETLY_AMBIENTE` não está definida no terminal (`Remove-Item Env:ASSETLY_AMBIENTE`) e rode sem o argumento `--teste`:
 
 ```powershell
-$env:ASSETLY_AMBIENTE = $env:ASSETLY_AMBIENTE_PRODUCAO
-```
-
-Depois rode novamente:
-
-```powershell
-.\executar.ps1
+dotnet run --project src\Assetly.Apresentacao
 ```
 
 ### O aplicativo abriu em produção quando eu queria teste
 
-Abra [executar.ps1](executar.ps1) e deixe a linha de ambiente assim:
+Pela Visual Studio, troque o perfil de execução para **Assetly (Teste)**. Pela linha de comando:
 
 ```powershell
-$env:ASSETLY_AMBIENTE = $env:ASSETLY_AMBIENTE_TESTE
-```
-
-Depois rode novamente:
-
-```powershell
-.\executar.ps1
+dotnet run --project src\Assetly.Apresentacao -- --teste
 ```
 
 ## Desenvolvimento
@@ -432,8 +394,6 @@ Assetly/
 ├── README.md
 ├── LICENSE
 ├── ROADMAP.md
-├── executar.cmd
-├── executar.ps1
 ├── Assetly.slnx
 ├── docs/
 │   └── imagens/
