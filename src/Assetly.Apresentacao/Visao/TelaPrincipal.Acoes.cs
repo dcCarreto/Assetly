@@ -195,7 +195,7 @@ internal sealed partial class TelaPrincipal
         var barra = new WrapPanel();
         foreach (var botao in botoes)
         {
-            botao.Margin = new Thickness(0, 0, 8, 8);
+            botao.Margin = new Thickness(0, 0, 12, 12);
             barra.Children.Add(botao);
         }
 
@@ -205,7 +205,7 @@ internal sealed partial class TelaPrincipal
             BorderBrush = (Brush)Application.Current.Resources["CardBordaBrush"],
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10),
+            Padding = new Thickness(14, 14, 14, 2),
             Child = barra
         };
     }

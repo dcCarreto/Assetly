@@ -105,7 +105,7 @@ internal sealed partial class TelaPrincipal
             Background = new SolidColorBrush(Color.FromRgb(0x10, 0x1A, 0x2A)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(0x26, 0x36, 0x4F)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(999),
+            CornerRadius = new CornerRadius(7),
             Padding = new Thickness(10, 6, 10, 6),
             VerticalAlignment = VerticalAlignment.Center,
             Child = UiApoio.Texto(_contexto.RotuloAmbiente, 12, FontWeights.Bold, new SolidColorBrush(Color.FromRgb(0xB6, 0xC5, 0xD8)))

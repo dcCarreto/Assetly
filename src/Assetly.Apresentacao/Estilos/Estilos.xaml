@@ -196,7 +196,7 @@
     <!-- Botões de ação -->
     <Style x:Key="BotaoBaseStyle" TargetType="Button">
         <Setter Property="FontWeight" Value="Black"/>
-        <Setter Property="Padding" Value="13,8"/>
+        <Setter Property="Padding" Value="18,11"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Template">
