@@ -1,7 +1,9 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -25,6 +27,7 @@ internal static class JanelaEscura
         });
 
         AplicarMoldura(janela);
+        CorrigirLimitesMaximizados(janela);
 
         var raiz = new DockPanel();
         var barra = CriarBarraTitulo(janela, titulo, comMaximizar: true);
@@ -32,11 +35,98 @@ internal static class JanelaEscura
         raiz.Children.Add(barra);
         raiz.Children.Add(conteudo);
         janela.Content = raiz;
+    }
 
-        janela.StateChanged += (_, _) => raiz.Margin = janela.WindowState == WindowState.Maximized
-            ? new Thickness(SystemParameters.WindowResizeBorderThickness.Left, SystemParameters.WindowResizeBorderThickness.Top,
-                SystemParameters.WindowResizeBorderThickness.Right, SystemParameters.WindowResizeBorderThickness.Bottom)
-            : new Thickness(0);
+    /// <summary>
+    /// Sem chrome nativo (WindowStyle.None), o WPF nao encolhe automaticamente os
+    /// limites da janela maximizada para excluir a barra de tarefas — ela cobre a
+    /// barra de tarefas por padrao. Este e o hook padrao (WM_GETMINMAXINFO) usado
+    /// para corrigir isso, restringindo a maximizacao a area de trabalho do monitor.
+    /// </summary>
+    private static void CorrigirLimitesMaximizados(Window janela)
+    {
+        janela.SourceInitialized += (_, _) =>
+        {
+            var identificador = new WindowInteropHelper(janela).Handle;
+            HwndSource.FromHwnd(identificador)?.AddHook(AoReceberMensagem);
+        };
+    }
+
+    private static IntPtr AoReceberMensagem(IntPtr hwnd, int mensagem, IntPtr wParam, IntPtr lParam, ref bool tratado)
+    {
+        const int wmGetMinMaxInfo = 0x0024;
+        if (mensagem == wmGetMinMaxInfo)
+        {
+            AjustarMinMaxInfo(hwnd, lParam);
+            tratado = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static void AjustarMinMaxInfo(IntPtr hwnd, IntPtr lParam)
+    {
+        var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+
+        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        if (monitor != IntPtr.Zero)
+        {
+            var infoMonitor = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
+            GetMonitorInfo(monitor, ref infoMonitor);
+
+            var areaTrabalho = infoMonitor.rcWork;
+            var areaMonitor = infoMonitor.rcMonitor;
+
+            minMaxInfo.ptMaxPosition.X = areaTrabalho.Left - areaMonitor.Left;
+            minMaxInfo.ptMaxPosition.Y = areaTrabalho.Top - areaMonitor.Top;
+            minMaxInfo.ptMaxSize.X = areaTrabalho.Right - areaTrabalho.Left;
+            minMaxInfo.ptMaxSize.Y = areaTrabalho.Bottom - areaTrabalho.Top;
+        }
+
+        Marshal.StructureToPtr(minMaxInfo, lParam, true);
+    }
+
+    private const int MonitorDefaultToNearest = 2;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr handle, int flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo infoMonitor);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RectNativo
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int cbSize;
+        public RectNativo rcMonitor;
+        public RectNativo rcWork;
+        public int dwFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PontoNativo
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public PontoNativo ptReserved;
+        public PontoNativo ptMaxSize;
+        public PontoNativo ptMaxPosition;
+        public PontoNativo ptMinTrackSize;
+        public PontoNativo ptMaxTrackSize;
     }
 
     internal static void PrepararDialogo(Window dialogo, string titulo, UIElement conteudo)

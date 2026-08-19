@@ -22,7 +22,7 @@ internal sealed partial class TelaPrincipal
     private readonly DataGrid _tabelaDocumentos = new();
     private readonly DataGrid _tabelaAlertas = new();
     private readonly StackPanel _painelOperacao = new() { Orientation = Orientation.Horizontal };
-    private readonly UniformGrid _painelResumo = new() { Columns = 4 };
+    private readonly WrapPanel _painelResumo = new();
     private readonly StackPanel _painelAlertas = new();
     private readonly StackPanel _painelAcoes = new();
     private DispatcherTimer? _atualizacaoTempoReal;
