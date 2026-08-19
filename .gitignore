@@ -1,15 +1,8 @@
 # Compilação e dependências
-target/
 build/
 out/
 bin/
 obj/
-.gradle/
-.tools/
-*.class
-*.jar
-*.war
-*.ear
 
 # .NET
 *.user
@@ -18,12 +11,8 @@ obj/
 
 # IDEs e editores
 .idea/
-*.iml
+.vs/
 .vscode/
-.metadata/
-.project
-.classpath
-.settings/
 
 # Sistema operacional
 .DS_Store

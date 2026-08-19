@@ -17,12 +17,16 @@ jobs:
       - name: Baixar código
         uses: actions/checkout@v4
 
-      - name: Configurar Java
-        uses: actions/setup-java@v4
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
         with:
-          distribution: temurin
-          java-version: "21"
-          cache: maven
+          dotnet-version: "10.0.x"
+
+      - name: Restaurar dependências
+        run: dotnet restore Assetly.slnx
+
+      - name: Compilar
+        run: dotnet build Assetly.slnx --no-restore --configuration Release
 
       - name: Rodar testes
-        run: .\mvnw.cmd -B test
+        run: dotnet test Assetly.slnx --no-build --configuration Release
