@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Assetly (Produção)": {
+      "commandName": "Project"
+    },
+    "Assetly (Teste)": {
+      "commandName": "Project",
+      "commandLineArgs": "--teste"
+    }
+  }
+}
