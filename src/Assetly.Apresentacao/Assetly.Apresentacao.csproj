@@ -12,6 +12,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Recursos\Imagens\assetly.ico</ApplicationIcon>
+    <AssemblyName>Assetly</AssemblyName>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Recursos\Imagens\*.png" />
+    <Resource Include="Recursos\Imagens\assetly.ico" />
+  </ItemGroup>
 
 </Project>
