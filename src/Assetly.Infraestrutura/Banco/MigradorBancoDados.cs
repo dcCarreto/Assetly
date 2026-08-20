@@ -7,7 +7,8 @@ public sealed class MigradorBancoDados
 {
     private static readonly IReadOnlyList<Migracao> Migracoes =
     [
-        new Migracao(1, "V001__estrutura_inicial.sql", "Assetly.Infraestrutura.Banco.Migracoes.V001__estrutura_inicial.sql")
+        new Migracao(1, "V001__estrutura_inicial.sql", "Assetly.Infraestrutura.Banco.Migracoes.V001__estrutura_inicial.sql"),
+        new Migracao(2, "V002__saude.sql", "Assetly.Infraestrutura.Banco.Migracoes.V002__saude.sql")
     ];
 
     private readonly FabricaConexaoSqlite _fabricaConexao;

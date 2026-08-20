@@ -4,7 +4,8 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Estilos/Estilos.xaml"/>
+                <ResourceDictionary Source="Temas/Cores.xaml"/>
+                <ResourceDictionary Source="Temas/Tema.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

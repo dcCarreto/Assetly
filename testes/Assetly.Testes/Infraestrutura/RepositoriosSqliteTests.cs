@@ -4,6 +4,7 @@ using Assetly.Dominio.Compartilhado;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 using Assetly.Infraestrutura.Banco;
 using Assetly.Infraestrutura.Repositorio;
 using Shouldly;
@@ -25,7 +26,7 @@ public class RepositoriosSqliteTests
         using var comando = conexao.CreateCommand();
         comando.CommandText = "SELECT COUNT(*) AS total FROM schema_migrations";
         var total = (long)comando.ExecuteScalar()!;
-        total.ShouldBe(1L);
+        total.ShouldBe(2L);
     }
 
     [Fact]
@@ -63,6 +64,8 @@ public class RepositoriosSqliteTests
         var repositorioManutencao = new RepositorioManutencaoSqlite(banco.FabricaConexao);
         var repositorioDocumento = new RepositorioDocumentoSqlite(banco.FabricaConexao);
         var repositorioAlerta = new RepositorioAlertaSqlite(banco.FabricaConexao);
+        var repositorioSaude = new RepositorioSaudeSqlite(banco.FabricaConexao);
+        var repositorioGastoSaude = new RepositorioGastoSaudeSqlite(banco.FabricaConexao);
         var bem = Bem.Criar(new NomeBem("Impressora"), TipoBem.Eletronico);
 
         repositorioBem.Salvar(bem);
@@ -88,10 +91,21 @@ public class RepositoriosSqliteTests
         alerta.TomarCiencia();
         repositorioAlerta.Salvar(alerta);
 
+        var saude = Saude.Criar(
+            bem.Id, TipoSaude.Convenio, "Amil", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), "0800-123456");
+        saude.Cancelar(new DateOnly(2026, 6, 1));
+        repositorioSaude.Salvar(saude);
+
+        var gastoSaude = GastoSaude.Registrar(
+            bem.Id, TipoGastoSaude.Farmacia, "Antibiótico", new DateOnly(2026, 3, 10), Dinheiro.De(89.90m, "BRL"));
+        repositorioGastoSaude.Salvar(gastoSaude);
+
         repositorioGarantia.ListarPorBem(bem.Id).Single().StatusEm(new DateOnly(2026, 12, 15)).ShouldBe(StatusGarantia.PertoDoVencimento);
         repositorioManutencao.ListarPorBem(bem.Id).Single().Status.ShouldBe(StatusManutencao.Concluida);
         repositorioDocumento.ListarPorBem(bem.Id).Single().Status.ShouldBe(StatusDocumento.Ausente);
         repositorioAlerta.ListarPorBem(bem.Id).Single().Status.ShouldBe(StatusAlerta.Ciente);
+        repositorioSaude.ListarPorBem(bem.Id).Single().StatusEm(new DateOnly(2026, 7, 1)).ShouldBe(StatusSaude.Cancelada);
+        repositorioGastoSaude.ListarPorBem(bem.Id).Single().Valor.Valor.ShouldBe(89.90m);
     }
 
     private static BancoDadosAssetly BancoTemporario()

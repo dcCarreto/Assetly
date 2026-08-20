@@ -7,6 +7,7 @@ using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 using Shouldly;
 
 namespace Assetly.Testes.Aplicacao;
@@ -167,6 +168,47 @@ public class CasosUsoAplicacaoTests
         excecaoGarantia.Message.ShouldContain("Bem não encontrado");
     }
 
+    [Fact]
+    public void DeveRegistrarEditarECancelarSaude()
+    {
+        var repositorioBem = new RepositorioBemMemoria();
+        var repositorioSaude = new RepositorioSaudeMemoria();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando(
+            "Titular do plano", TipoBem.Outro, null, null, null, null));
+
+        var saude = new RegistrarSaude(repositorioBem, repositorioSaude).Executar(new RegistrarSaudeComando(
+            bem.Id, TipoSaude.Convenio, "Amil", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), "0800-123456"));
+
+        var editada = new EditarSaude(repositorioSaude).Executar(new EditarSaudeComando(
+            saude.Id, TipoSaude.Convenio, "Amil One", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), "0800-654321"));
+
+        new ListarSaudeDoBem(repositorioBem, repositorioSaude).Executar(bem.Id).ShouldBe([editada]);
+        editada.Fornecedor.ShouldBe("Amil One");
+
+        new CancelarSaude(repositorioSaude).Executar(saude.Id, new DateOnly(2026, 6, 1));
+        editada.StatusEm(new DateOnly(2026, 7, 1)).ShouldBe(StatusSaude.Cancelada);
+    }
+
+    [Fact]
+    public void DeveRegistrarEEditarGastoDeSaude()
+    {
+        var repositorioBem = new RepositorioBemMemoria();
+        var repositorioGastoSaude = new RepositorioGastoSaudeMemoria();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando(
+            "Titular do plano", TipoBem.Outro, null, null, null, null));
+
+        var gasto = new RegistrarGastoSaude(repositorioBem, repositorioGastoSaude).Executar(new RegistrarGastoSaudeComando(
+            bem.Id, TipoGastoSaude.Farmacia, "Antibiótico", new DateOnly(2026, 3, 10), 89.90m, "BRL"));
+
+        var editado = new EditarGastoSaude(repositorioGastoSaude).Executar(new EditarGastoSaudeComando(
+            gasto.Id, TipoGastoSaude.Farmacia, "Antibiótico + analgésico", new DateOnly(2026, 3, 11), 120.00m, "BRL"));
+
+        new ListarGastosSaudeDoBem(repositorioBem, repositorioGastoSaude).Executar(bem.Id).ShouldBe([editado]);
+        editado.Descricao.ShouldBe("Antibiótico + analgésico");
+        editado.Valor.Valor.ShouldBe(120.00m);
+        new ListarGastosSaude(repositorioGastoSaude).Executar().ShouldBe([editado]);
+    }
+
     private sealed class RepositorioBemMemoria : IRepositorioBem
     {
         private readonly Dictionary<BemId, Bem> _dados = new();
@@ -232,5 +274,33 @@ public class CasosUsoAplicacaoTests
             _dados.Values.Where(a => a.BemId.Equals(bemId)).ToList();
 
         public void Salvar(Alerta alerta) => _dados[alerta.Id] = alerta;
+    }
+
+    private sealed class RepositorioSaudeMemoria : IRepositorioSaude
+    {
+        private readonly Dictionary<SaudeId, Saude> _dados = new();
+
+        public Saude? BuscarPorId(SaudeId id) => _dados.GetValueOrDefault(id);
+
+        public IReadOnlyList<Saude> Listar() => _dados.Values.ToList();
+
+        public IReadOnlyList<Saude> ListarPorBem(BemId bemId) =>
+            _dados.Values.Where(s => s.BemId.Equals(bemId)).ToList();
+
+        public void Salvar(Saude saude) => _dados[saude.Id] = saude;
+    }
+
+    private sealed class RepositorioGastoSaudeMemoria : IRepositorioGastoSaude
+    {
+        private readonly Dictionary<GastoSaudeId, GastoSaude> _dados = new();
+
+        public GastoSaude? BuscarPorId(GastoSaudeId id) => _dados.GetValueOrDefault(id);
+
+        public IReadOnlyList<GastoSaude> Listar() => _dados.Values.ToList();
+
+        public IReadOnlyList<GastoSaude> ListarPorBem(BemId bemId) =>
+            _dados.Values.Where(g => g.BemId.Equals(bemId)).ToList();
+
+        public void Salvar(GastoSaude gastoSaude) => _dados[gastoSaude.Id] = gastoSaude;
     }
 }

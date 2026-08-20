@@ -1,0 +1,211 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================= Tipografia ================= -->
+    <FontFamily x:Key="FontUi">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="FontMono">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- ================= Fundos ================= -->
+    <Color x:Key="BgBaseColor">#071019</Color>
+    <SolidColorBrush x:Key="BgBase" Color="{StaticResource BgBaseColor}"/>
+
+    <Color x:Key="BgChromeColor">#040B12</Color>
+    <SolidColorBrush x:Key="BgChrome" Color="{StaticResource BgChromeColor}"/>
+
+    <Color x:Key="BgSidebarColor">#071019</Color>
+    <SolidColorBrush x:Key="BgSidebar" Color="{StaticResource BgSidebarColor}"/>
+
+    <Color x:Key="BgSurface1Color">#0C1826</Color>
+    <SolidColorBrush x:Key="BgSurface1" Color="{StaticResource BgSurface1Color}"/>
+
+    <Color x:Key="BgSurface2Color">#132335</Color>
+    <SolidColorBrush x:Key="BgSurface2" Color="{StaticResource BgSurface2Color}"/>
+
+    <!-- ================= Gradientes ================= -->
+    <LinearGradientBrush x:Key="RootGradient" StartPoint="0,0" EndPoint="0.62,1">
+        <GradientStop Color="#0F2033" Offset="0"/>
+        <GradientStop Color="#081524" Offset="0.55"/>
+        <GradientStop Color="#040B12" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="LogoGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#2DD4BF" Offset="0"/>
+        <GradientStop Color="#4F9CF9" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="PrimaryButtonGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#14B8A6" Offset="0"/>
+        <GradientStop Color="#0D9488" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="PrimaryButtonHoverGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#2DD4BF" Offset="0"/>
+        <GradientStop Color="#14B8A6" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="PrimaryButtonPressedGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#0D9488" Offset="0"/>
+        <GradientStop Color="#0F766E" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- ================= Accent ================= -->
+    <Color x:Key="AccentPrimaryColor">#2DD4BF</Color>
+    <SolidColorBrush x:Key="AccentPrimary" Color="{StaticResource AccentPrimaryColor}"/>
+
+    <Color x:Key="AccentPrimaryHaloColor">#332DD4BF</Color>
+    <SolidColorBrush x:Key="AccentPrimaryHalo" Color="{StaticResource AccentPrimaryHaloColor}"/>
+
+    <!-- ================= Botão primário ================= -->
+    <Color x:Key="ButtonPrimaryTextColor">#022C26</Color>
+    <SolidColorBrush x:Key="ButtonPrimaryText" Color="{StaticResource ButtonPrimaryTextColor}"/>
+
+    <Color x:Key="ButtonDisabledBgColor">#132335</Color>
+    <SolidColorBrush x:Key="ButtonDisabledBg" Color="{StaticResource ButtonDisabledBgColor}"/>
+
+    <Color x:Key="ButtonDisabledTextColor">#566A7D</Color>
+    <SolidColorBrush x:Key="ButtonDisabledText" Color="{StaticResource ButtonDisabledTextColor}"/>
+
+    <!-- ================= Botão secundário ================= -->
+    <Color x:Key="ButtonSecondaryBorderColor">#24384F</Color>
+    <SolidColorBrush x:Key="ButtonSecondaryBorder" Color="{StaticResource ButtonSecondaryBorderColor}"/>
+
+    <Color x:Key="ButtonSecondaryTextColor">#DCE6EE</Color>
+    <SolidColorBrush x:Key="ButtonSecondaryText" Color="{StaticResource ButtonSecondaryTextColor}"/>
+
+    <!-- ================= Botão de perigo ================= -->
+    <Color x:Key="ButtonDangerBgColor">#37121A</Color>
+    <SolidColorBrush x:Key="ButtonDangerBg" Color="{StaticResource ButtonDangerBgColor}"/>
+
+    <Color x:Key="ButtonDangerBorderColor">#C33341</Color>
+    <SolidColorBrush x:Key="ButtonDangerBorder" Color="{StaticResource ButtonDangerBorderColor}"/>
+
+    <Color x:Key="ButtonDangerTextColor">#FFB3BC</Color>
+    <SolidColorBrush x:Key="ButtonDangerText" Color="{StaticResource ButtonDangerTextColor}"/>
+
+    <Color x:Key="ButtonDangerHoverBgColor">#4A1721</Color>
+    <SolidColorBrush x:Key="ButtonDangerHoverBg" Color="{StaticResource ButtonDangerHoverBgColor}"/>
+
+    <!-- ================= Texto (camadas de contraste) ================= -->
+    <Color x:Key="TextTitleColor">#F6FAFB</Color>
+    <SolidColorBrush x:Key="TextTitle" Color="{StaticResource TextTitleColor}"/>
+
+    <Color x:Key="TextBodyColor">#DCE6EE</Color>
+    <SolidColorBrush x:Key="TextBody" Color="{StaticResource TextBodyColor}"/>
+
+    <Color x:Key="TextSecondaryColor">#93A7B8</Color>
+    <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource TextSecondaryColor}"/>
+
+    <Color x:Key="TextLabelColor">#7E93A6</Color>
+    <SolidColorBrush x:Key="TextLabel" Color="{StaticResource TextLabelColor}"/>
+
+    <Color x:Key="TextMutedColor">#566A7D</Color>
+    <SolidColorBrush x:Key="TextMuted" Color="{StaticResource TextMutedColor}"/>
+
+    <!-- ================= Cards ================= -->
+    <Color x:Key="CardBgColor">#0D1826</Color>
+    <SolidColorBrush x:Key="CardBg" Color="{StaticResource CardBgColor}"/>
+
+    <Color x:Key="CardBorderColor">#1E3149</Color>
+    <SolidColorBrush x:Key="CardBorder" Color="{StaticResource CardBorderColor}"/>
+
+    <!-- ================= Inputs ================= -->
+    <Color x:Key="InputBgColor">#081320</Color>
+    <SolidColorBrush x:Key="InputBg" Color="{StaticResource InputBgColor}"/>
+
+    <Color x:Key="InputBorderColor">#24384F</Color>
+    <SolidColorBrush x:Key="InputBorder" Color="{StaticResource InputBorderColor}"/>
+
+    <SolidColorBrush x:Key="InputPlaceholder" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="InputFocusBorder" Color="{StaticResource AccentPrimaryColor}"/>
+    <SolidColorBrush x:Key="InputErrorBorder" Color="{StaticResource ButtonDangerBorderColor}"/>
+    <SolidColorBrush x:Key="InputErrorText" Color="{StaticResource ButtonDangerTextColor}"/>
+
+    <!-- ================= Status semântico (fundo / borda / texto) ================= -->
+    <Color x:Key="StatusOkBgColor">#06291B</Color>
+    <SolidColorBrush x:Key="StatusOkBg" Color="{StaticResource StatusOkBgColor}"/>
+    <Color x:Key="StatusOkBorderColor">#15803D</Color>
+    <SolidColorBrush x:Key="StatusOkBorder" Color="{StaticResource StatusOkBorderColor}"/>
+    <Color x:Key="StatusOkTextColor">#8CEFAF</Color>
+    <SolidColorBrush x:Key="StatusOkText" Color="{StaticResource StatusOkTextColor}"/>
+
+    <Color x:Key="StatusInfoBgColor">#062A3D</Color>
+    <SolidColorBrush x:Key="StatusInfoBg" Color="{StaticResource StatusInfoBgColor}"/>
+    <Color x:Key="StatusInfoBorderColor">#0284C7</Color>
+    <SolidColorBrush x:Key="StatusInfoBorder" Color="{StaticResource StatusInfoBorderColor}"/>
+    <Color x:Key="StatusInfoTextColor">#9BDCFB</Color>
+    <SolidColorBrush x:Key="StatusInfoText" Color="{StaticResource StatusInfoTextColor}"/>
+
+    <Color x:Key="StatusAvisoBgColor">#2E2106</Color>
+    <SolidColorBrush x:Key="StatusAvisoBg" Color="{StaticResource StatusAvisoBgColor}"/>
+    <Color x:Key="StatusAvisoBorderColor">#C2740A</Color>
+    <SolidColorBrush x:Key="StatusAvisoBorder" Color="{StaticResource StatusAvisoBorderColor}"/>
+    <Color x:Key="StatusAvisoTextColor">#FBD778</Color>
+    <SolidColorBrush x:Key="StatusAvisoText" Color="{StaticResource StatusAvisoTextColor}"/>
+
+    <Color x:Key="StatusPerigoBgColor">#37121A</Color>
+    <SolidColorBrush x:Key="StatusPerigoBg" Color="{StaticResource StatusPerigoBgColor}"/>
+    <Color x:Key="StatusPerigoBorderColor">#C33341</Color>
+    <SolidColorBrush x:Key="StatusPerigoBorder" Color="{StaticResource StatusPerigoBorderColor}"/>
+    <Color x:Key="StatusPerigoTextColor">#FFB3BC</Color>
+    <SolidColorBrush x:Key="StatusPerigoText" Color="{StaticResource StatusPerigoTextColor}"/>
+
+    <Color x:Key="StatusNeutroBgColor">#1A2635</Color>
+    <SolidColorBrush x:Key="StatusNeutroBg" Color="{StaticResource StatusNeutroBgColor}"/>
+    <Color x:Key="StatusNeutroBorderColor">#40566F</Color>
+    <SolidColorBrush x:Key="StatusNeutroBorder" Color="{StaticResource StatusNeutroBorderColor}"/>
+    <Color x:Key="StatusNeutroTextColor">#C3D0DD</Color>
+    <SolidColorBrush x:Key="StatusNeutroText" Color="{StaticResource StatusNeutroTextColor}"/>
+
+    <!-- ================= Tabela / listas ================= -->
+    <Color x:Key="RowDividerColor">#142438</Color>
+    <SolidColorBrush x:Key="RowDivider" Color="{StaticResource RowDividerColor}"/>
+
+    <Color x:Key="RowHoverColor">#101E2C</Color>
+    <SolidColorBrush x:Key="RowHover" Color="{StaticResource RowHoverColor}"/>
+
+    <Color x:Key="SelectionBarBgColor">#101E2E</Color>
+    <SolidColorBrush x:Key="SelectionBarBg" Color="{StaticResource SelectionBarBgColor}"/>
+
+    <Color x:Key="TableFooterBgColor">#0A1421</Color>
+    <SolidColorBrush x:Key="TableFooterBg" Color="{StaticResource TableFooterBgColor}"/>
+
+    <Color x:Key="DialogScrimColor">#9E040B12</Color>
+    <SolidColorBrush x:Key="DialogScrim" Color="{StaticResource DialogScrimColor}"/>
+
+    <!-- Tingimento de linha por status — mais sutil que o fundo do badge (evita que a
+         maioria das linhas OK vire um bloco só de cor); OK é transparente de propósito. -->
+    <Color x:Key="StatusOkRowTintColor">#00000000</Color>
+    <SolidColorBrush x:Key="StatusOkRowTint" Color="{StaticResource StatusOkRowTintColor}"/>
+
+    <Color x:Key="StatusInfoRowTintColor">#071A26</Color>
+    <SolidColorBrush x:Key="StatusInfoRowTint" Color="{StaticResource StatusInfoRowTintColor}"/>
+
+    <Color x:Key="StatusAvisoRowTintColor">#1B1408</Color>
+    <SolidColorBrush x:Key="StatusAvisoRowTint" Color="{StaticResource StatusAvisoRowTintColor}"/>
+
+    <Color x:Key="StatusPerigoRowTintColor">#221015</Color>
+    <SolidColorBrush x:Key="StatusPerigoRowTint" Color="{StaticResource StatusPerigoRowTintColor}"/>
+
+    <Color x:Key="StatusNeutroRowTintColor">#0E1826</Color>
+    <SolidColorBrush x:Key="StatusNeutroRowTint" Color="{StaticResource StatusNeutroRowTintColor}"/>
+
+    <!-- ================= Menu lateral ================= -->
+    <Color x:Key="SidebarIconNormalColor">#2A4359</Color>
+    <SolidColorBrush x:Key="SidebarIconNormal" Color="{StaticResource SidebarIconNormalColor}"/>
+    <SolidColorBrush x:Key="SidebarIconSelected" Color="{StaticResource AccentPrimaryColor}"/>
+    <Color x:Key="SidebarIconMutedColor">#24384F</Color>
+    <SolidColorBrush x:Key="SidebarIconMuted" Color="{StaticResource SidebarIconMutedColor}"/>
+
+    <!-- ================= Barra de título ================= -->
+    <SolidColorBrush x:Key="TitleBarGlyph" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TitleBarButtonHoverBg" Color="{StaticResource BgSurface1Color}"/>
+    <SolidColorBrush x:Key="TitleBarCloseHoverBg" Color="{StaticResource ButtonDangerBorderColor}"/>
+    <SolidColorBrush x:Key="TitleBarCloseHoverGlyph" Color="{StaticResource TextTitleColor}"/>
+
+    <!-- ================= Efeitos ================= -->
+    <!-- Este tema não usa sombras em cards (bordas comunicam elevação). O halo de foco
+         é a única exceção, implementado como DropShadowEffect por ser a alternativa mais
+         simples às duas oferecidas na especificação para o halo de 3px a 20% de opacidade. -->
+    <DropShadowEffect x:Key="FocusHalo" Color="{StaticResource AccentPrimaryColor}" Opacity="0.35" BlurRadius="6" ShadowDepth="0"/>
+
+</ResourceDictionary>

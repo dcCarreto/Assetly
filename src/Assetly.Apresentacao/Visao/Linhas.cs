@@ -3,6 +3,7 @@ using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 
 namespace Assetly.Apresentacao.Visao;
 
@@ -25,3 +26,10 @@ internal sealed record DocumentoLinha(
 internal sealed record AlertaLinha(
     AlertaId Id, string Bem, string Tipo, string Severidade, string SeveridadeClasse, string Mensagem,
     string Criado, string Prazo, string Status, string StatusClasse, string LinhaClasse, Alerta Origem);
+
+internal sealed record SaudeLinha(
+    SaudeId Id, string Bem, string Tipo, string Fornecedor, string Inicio, string Fim,
+    string Status, string StatusClasse, string LinhaClasse, string Contato, Saude Origem);
+
+internal sealed record GastoSaudeLinha(
+    GastoSaudeId Id, string Bem, string Tipo, string Descricao, string Data, string Valor, GastoSaude Origem);

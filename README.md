@@ -1,12 +1,12 @@
 # Assetly
 
-Assetly é um aplicativo de área de trabalho para organizar bens pessoais, garantias, documentos, manutenções e alertas em um banco local. Ele foi pensado para quem quer manter o controle dos próprios itens importantes sem depender de conta online, assinatura, nuvem ou telemetria.
+Assetly é um aplicativo de área de trabalho para organizar bens pessoais, garantias, documentos, manutenções, convênios e gastos de saúde e alertas em um banco local. Ele foi pensado para quem quer manter o controle dos próprios itens importantes sem depender de conta online, assinatura, nuvem ou telemetria.
 
 O programa ainda está em fase de produto mínimo viável. Isso significa que ele já possui uma base funcional para uso e testes, mas ainda não tem instalador final para Windows nem pacote de distribuição pronto. Por enquanto, o download e a execução são feitos a partir do repositório do projeto.
 
 ## Visão Geral
 
-Com o Assetly, você pode registrar itens como notebook, eletrodomésticos, ferramentas, bicicleta, móveis e outros bens. Para cada bem, é possível acompanhar garantias, anexar documentos, registrar manutenções e receber alertas sobre prazos importantes.
+Com o Assetly, você pode registrar itens como notebook, eletrodomésticos, ferramentas, bicicleta, móveis e outros bens. Para cada bem, é possível acompanhar garantias, anexar documentos, registrar manutenções, controlar convênios e gastos de saúde e receber alertas sobre prazos importantes.
 
 O foco do projeto é simples:
 
@@ -15,28 +15,6 @@ O foco do projeto é simples:
 - avisar sobre garantias vencendo, garantias vencidas, manutenções próximas, manutenções atrasadas e ausência de nota fiscal;
 - oferecer um ambiente de teste completo para experimentar o aplicativo sem misturar dados fictícios com dados reais.
 
-## Imagens do Programa
-
-As imagens abaixo são capturas reais da interface atual, geradas a partir do ambiente de teste do Assetly. Elas usam dados fictícios e documentos demonstrativos criados pelo próprio aplicativo.
-
-### Painel Inicial
-
-O painel mostra os indicadores principais, alertas abertos e prioridades. Ele serve como ponto de partida para saber rapidamente o que precisa de atenção.
-
-![Painel do Assetly em ambiente de teste](docs/imagens/readme-painel.png)
-
-### Cadastro de Bens
-
-A tela de bens concentra o inventário. Ela mostra tipo, status, data de compra, valor e observações de cada item registrado.
-
-![Tela de bens do Assetly](docs/imagens/readme-bens.png)
-
-### Documentos Anexados
-
-A tela de documentos lista os arquivos vinculados aos bens. No ambiente de teste, o Assetly gera anexos físicos reais em PDF, SVG, CSV e TXT.
-
-![Tela de documentos do Assetly](docs/imagens/readme-documentos.png)
-
 ## O Que Já Funciona
 
 - Cadastro, edição, listagem e mudança de status de bens.
@@ -44,6 +22,8 @@ A tela de documentos lista os arquivos vinculados aos bens. No ambiente de teste
 - Registro de manutenções preventivas, corretivas, inspeções e limpezas.
 - Cadastro de documentos vinculados aos bens.
 - Cópia dos documentos selecionados para um diretório local privado.
+- Controle de convênios de saúde (plano, ortodontia, farmácia, emergência), com vigência e cancelamento.
+- Registro de gastos de saúde (farmácia, consultas, exames, procedimentos).
 - Geração automática de alertas.
 - Painel com indicadores, alertas e prioridades.
 - Tema escuro fixo.
@@ -280,6 +260,31 @@ O Assetly gera alertas automáticos para:
 
 Você pode marcar um alerta como ciente ou resolvido. Um alerta resolvido deixa de aparecer como pendência acionável.
 
+### 7. Controlar Convênios de Saúde
+
+Entre em `Convênios` e clique em `Novo convênio`.
+
+Informe:
+
+- bem (ou titular) relacionado;
+- tipo (convênio, ortodontia, farmácia, emergência);
+- fornecedor e contato;
+- data inicial e final de vigência.
+
+O Assetly indica convênios ativos, próximos do vencimento, vencidos ou cancelados. Um convênio cancelado é um estado definitivo e não pode mais ser editado.
+
+### 8. Registrar Gastos de Saúde
+
+Entre em `Gastos de saúde` e clique em `Novo gasto`.
+
+Informe:
+
+- bem (ou titular) relacionado;
+- tipo (farmácia, consulta, exame, procedimento);
+- descrição, data e valor.
+
+Use esse módulo para acompanhar despesas avulsas de farmácia, consultas e exames, independentemente de estarem cobertas por um convênio.
+
 ## Ambiente de Teste Completo
 
 O ambiente de teste foi criado para validação do produto. Ele é útil para ver o aplicativo funcionando sem cadastrar nada manualmente.
@@ -395,8 +400,6 @@ Assetly/
 ├── LICENSE
 ├── ROADMAP.md
 ├── Assetly.slnx
-├── docs/
-│   └── imagens/
 ├── src/
 │   ├── Assetly.Dominio/
 │   ├── Assetly.Aplicacao/

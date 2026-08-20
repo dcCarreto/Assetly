@@ -4,40 +4,79 @@ using System.Windows.Media;
 
 namespace Assetly.Apresentacao.Visao;
 
+/// <summary>
+/// Cinco categorias semânticas de status usadas em toda a aplicação. Tanto o badge de uma célula
+/// quanto o tingimento da linha da tabela resolvem para uma destas categorias antes de buscar cor —
+/// única fonte de verdade para a paleta de status (ver Temas/Cores.xaml, tokens "Status*").
+/// </summary>
+internal enum StatusSemantica
+{
+    Ok,
+    Informativo,
+    Aviso,
+    Perigo,
+    Neutro
+}
+
 internal static class EtiquetaApoio
 {
-    internal static (Brush Fundo, Brush Borda, Brush Texto) Cores(string classeEtiqueta)
-    {
-        var recursos = Application.Current.Resources;
-        return classeEtiqueta switch
-        {
-            "etiqueta-ativo" or "etiqueta-ativa" or "etiqueta-disponivel" or "etiqueta-concluida" or "etiqueta-resolvido"
-                => ((Brush)recursos["EtiquetaOkFundo"], (Brush)recursos["EtiquetaOkBorda"], (Brush)recursos["EtiquetaOkTexto"]),
-            "etiqueta-informativo" or "etiqueta-aberto" or "etiqueta-agendada"
-                => ((Brush)recursos["EtiquetaInfoFundo"], (Brush)recursos["EtiquetaInfoBorda"], (Brush)recursos["EtiquetaInfoTexto"]),
-            "etiqueta-aviso" or "etiqueta-ciente" or "etiqueta-nao-iniciada" or "etiqueta-perto-do-vencimento"
-                or "etiqueta-em-manutencao" or "etiqueta-ausente"
-                => ((Brush)recursos["EtiquetaAvisoFundo"], (Brush)recursos["EtiquetaAvisoBorda"], (Brush)recursos["EtiquetaAvisoTexto"]),
-            "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-cancelada" or "etiqueta-descartado" or "etiqueta-critico"
-                => ((Brush)recursos["EtiquetaPerigoFundo"], (Brush)recursos["EtiquetaPerigoBorda"], (Brush)recursos["EtiquetaPerigoTexto"]),
-            "etiqueta-arquivado"
-                => ((Brush)recursos["EtiquetaArquivadoFundo"], (Brush)recursos["EtiquetaArquivadoBorda"], (Brush)recursos["EtiquetaArquivadoTexto"]),
-            _ => ((Brush)recursos["EtiquetaNeutraFundo"], (Brush)recursos["EtiquetaNeutraBorda"], (Brush)recursos["EtiquetaNeutraTexto"])
-        };
-    }
+    internal static (Brush Fundo, Brush Borda, Brush Texto) Cores(string classeEtiqueta) =>
+        Cores(ClassificarEtiqueta(classeEtiqueta));
 
+    /// <summary>
+    /// Fundo de linha de tabela — tingimento sutil (tokens "Status*RowTint"), deliberadamente mais
+    /// discreto que o fundo do badge para que a maioria das linhas (status OK) não vire um bloco de
+    /// cor só; OK resolve para transparente.
+    /// </summary>
     internal static Brush LinhaFundo(string? classeLinha)
     {
+        var prefixo = PrefixoStatus(ClassificarLinha(classeLinha));
+        return (Brush)Application.Current.Resources[prefixo + "RowTint"];
+    }
+
+    internal static Brush LinhaBorda(string? classeLinha) => Cores(ClassificarLinha(classeLinha)).Borda;
+
+    private static StatusSemantica ClassificarEtiqueta(string classeEtiqueta) => classeEtiqueta switch
+    {
+        "etiqueta-ativo" or "etiqueta-ativa" or "etiqueta-disponivel" or "etiqueta-concluida" or "etiqueta-resolvido"
+            => StatusSemantica.Ok,
+        "etiqueta-informativo" or "etiqueta-aberto" or "etiqueta-agendada"
+            => StatusSemantica.Informativo,
+        "etiqueta-aviso" or "etiqueta-ciente" or "etiqueta-nao-iniciada" or "etiqueta-perto-do-vencimento"
+            or "etiqueta-em-manutencao" or "etiqueta-ausente"
+            => StatusSemantica.Aviso,
+        "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-cancelada" or "etiqueta-descartado" or "etiqueta-critico"
+            => StatusSemantica.Perigo,
+        "etiqueta-arquivado" => StatusSemantica.Neutro,
+        _ => StatusSemantica.Neutro
+    };
+
+    private static StatusSemantica ClassificarLinha(string? classeLinha) => classeLinha switch
+    {
+        "linha-ok" => StatusSemantica.Ok,
+        "linha-informativa" => StatusSemantica.Informativo,
+        "linha-aviso" => StatusSemantica.Aviso,
+        "linha-perigo" => StatusSemantica.Perigo,
+        _ => StatusSemantica.Neutro
+    };
+
+    private static string PrefixoStatus(StatusSemantica semantica) => semantica switch
+    {
+        StatusSemantica.Ok => "StatusOk",
+        StatusSemantica.Informativo => "StatusInfo",
+        StatusSemantica.Aviso => "StatusAviso",
+        StatusSemantica.Perigo => "StatusPerigo",
+        _ => "StatusNeutro"
+    };
+
+    private static (Brush Fundo, Brush Borda, Brush Texto) Cores(StatusSemantica semantica)
+    {
         var recursos = Application.Current.Resources;
-        return classeLinha switch
-        {
-            "linha-ok" => (Brush)recursos["LinhaOkBrush"],
-            "linha-informativa" => (Brush)recursos["LinhaInformativaBrush"],
-            "linha-aviso" => (Brush)recursos["LinhaAvisoBrush"],
-            "linha-perigo" => (Brush)recursos["LinhaPerigoBrush"],
-            "linha-neutra" => (Brush)recursos["LinhaNeutraBrush"],
-            _ => (Brush)recursos["CardFundoBrush"]
-        };
+        var prefixo = PrefixoStatus(semantica);
+        return (
+            (Brush)recursos[prefixo + "Bg"],
+            (Brush)recursos[prefixo + "Border"],
+            (Brush)recursos[prefixo + "Text"]);
     }
 
     internal static Border CriarEtiqueta(string texto, string classeCss)
@@ -45,13 +84,13 @@ internal static class EtiquetaApoio
         var (fundo, borda, corTexto) = Cores(classeCss);
         return new Border
         {
-            Style = (Style)Application.Current.Resources["EtiquetaStyle"],
+            Style = (Style)Application.Current.Resources["BadgeStyle"],
             Background = fundo,
             BorderBrush = borda,
             Child = new TextBlock
             {
                 Text = texto,
-                Style = (Style)Application.Current.Resources["EtiquetaTextoStyle"],
+                Style = (Style)Application.Current.Resources["BadgeTextoStyle"],
                 Foreground = corTexto
             }
         };

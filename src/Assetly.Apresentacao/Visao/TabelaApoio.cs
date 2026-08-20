@@ -31,42 +31,77 @@ internal static class TabelaApoio
         }
     }
 
-    internal static DataGridTextColumn ColunaTexto(string titulo, string caminho) => new()
+    /// <summary>Coluna de texto — recorte com reticências e ToolTip com o valor completo em qualquer largura.</summary>
+    internal static DataGridTextColumn ColunaTexto(string titulo, string caminho, DataGridLength largura, double larguraMinima = 0, string? estiloBase = null)
     {
-        Header = titulo,
-        Binding = new Binding(caminho),
-        Width = new DataGridLength(1, DataGridLengthUnitType.Star)
-    };
+        var estilo = new Style(typeof(TextBlock));
+        if (estiloBase is not null)
+        {
+            estilo.BasedOn = (Style)Application.Current.Resources[estiloBase];
+        }
 
-    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse)
+        estilo.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
+        estilo.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, new Binding(caminho)));
+
+        return new DataGridTextColumn
+        {
+            Header = titulo,
+            Binding = new Binding(caminho),
+            Width = largura,
+            MinWidth = larguraMinima,
+            ElementStyle = estilo
+        };
+    }
+
+    /// <summary>Coluna de dado monoespaçado alinhado à direita — datas e valores monetários.</summary>
+    internal static DataGridTemplateColumn ColunaTextoMono(string titulo, string caminho, DataGridLength largura)
+    {
+        var fabricaTexto = new FrameworkElementFactory(typeof(TextBlock));
+        fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["CelulaMonoStyle"]);
+        fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminho));
+        fabricaTexto.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
+
+        return new DataGridTemplateColumn
+        {
+            Header = titulo,
+            CellTemplate = new DataTemplate { VisualTree = fabricaTexto },
+            Width = largura
+        };
+    }
+
+    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse, DataGridLength largura)
     {
         var fabricaBorda = new FrameworkElementFactory(typeof(Border));
-        fabricaBorda.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["EtiquetaStyle"]);
-        fabricaBorda.SetBinding(Border.BackgroundProperty, new Binding(caminhoClasse) { Converter = new EtiquetaFundoConverter() });
-        fabricaBorda.SetBinding(Border.BorderBrushProperty, new Binding(caminhoClasse) { Converter = new EtiquetaBordaConverter() });
+        fabricaBorda.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeStyle"]);
+        fabricaBorda.SetBinding(Border.BackgroundProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter() });
+        fabricaBorda.SetBinding(Border.BorderBrushProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter(), ConverterParameter = "Borda" });
 
         var fabricaTexto = new FrameworkElementFactory(typeof(TextBlock));
-        fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["EtiquetaTextoStyle"]);
+        fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeTextoStyle"]);
         fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminhoTexto));
-        fabricaTexto.SetBinding(TextBlock.ForegroundProperty, new Binding(caminhoClasse) { Converter = new EtiquetaTextoCorConverter() });
+        fabricaTexto.SetBinding(TextBlock.ForegroundProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter(), ConverterParameter = "Texto" });
         fabricaBorda.AppendChild(fabricaTexto);
 
         return new DataGridTemplateColumn
         {
             Header = titulo,
             CellTemplate = new DataTemplate { VisualTree = fabricaBorda },
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+            Width = largura
         };
     }
 
-    internal static DataGridTemplateColumn ColunaArquivo(string titulo, string caminho, Action<object> aoAbrir)
+    /// <summary>Coluna de arquivo — mostra só o nome (ver NomeArquivoConverter); o caminho completo vai para o ToolTip.</summary>
+    internal static DataGridTemplateColumn ColunaArquivo(string titulo, string caminho, DataGridLength largura, Action<object> aoAbrir)
     {
         var fabricaTexto = new FrameworkElementFactory(typeof(TextBlock));
-        fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminho));
+        fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["CelulaDestaqueStyle"]);
+        fabricaTexto.SetValue(TextBlock.FontWeightProperty, FontWeights.Normal);
+        fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminho) { Converter = new NomeArquivoConverter() });
+        fabricaTexto.SetBinding(FrameworkElement.ToolTipProperty, new Binding(caminho));
         fabricaTexto.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
-        fabricaTexto.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x7D, 0xD3, 0xFC)));
+        fabricaTexto.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        fabricaTexto.SetValue(TextBlock.ForegroundProperty, (Brush)Application.Current.Resources["AccentPrimary"]);
         fabricaTexto.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
-        fabricaTexto.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
         fabricaTexto.AddHandler(UIElement.MouseLeftButtonUpEvent, new MouseButtonEventHandler((remetente, evento) =>
         {
             var elemento = (FrameworkElement)remetente;
@@ -82,7 +117,7 @@ internal static class TabelaApoio
         {
             Header = titulo,
             CellTemplate = new DataTemplate { VisualTree = fabricaTexto },
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+            Width = largura
         };
     }
 
@@ -97,7 +132,9 @@ internal static class TabelaApoio
         {
             if (e.Row.Item is T item)
             {
-                e.Row.Background = EtiquetaApoio.LinhaFundo(classeLinha(item));
+                var classe = classeLinha(item);
+                e.Row.Background = EtiquetaApoio.LinhaFundo(classe);
+                e.Row.BorderBrush = EtiquetaApoio.LinhaBorda(classe);
             }
         };
 

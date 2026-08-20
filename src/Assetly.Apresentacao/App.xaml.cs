@@ -10,6 +10,12 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (e.Args.Contains("--tema"))
+        {
+            ThemeGalleryWindow.Mostrar();
+            return;
+        }
+
         var contexto = ContextoAplicacaoParaArgumentos(e.Args);
         var telaPrincipal = new TelaPrincipal(contexto);
         var titulo = contexto.AmbienteTeste ? "Assetly - Teste" : "Assetly";
@@ -24,7 +30,7 @@ public partial class App : Application
             Icon = new BitmapImage(new Uri("pack://application:,,,/Assetly;component/Recursos/Imagens/assetly-icon-32.png"))
         };
 
-        JanelaEscura.Decorar(janela, titulo, telaPrincipal.Raiz);
+        JanelaEscura.Decorar(janela, titulo, telaPrincipal.Raiz, telaPrincipal.SeloAmbiente);
         MainWindow = janela;
         janela.Show();
     }

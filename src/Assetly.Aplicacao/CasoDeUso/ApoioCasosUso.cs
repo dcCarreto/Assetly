@@ -6,6 +6,7 @@ using Assetly.Dominio.Compartilhado;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 
 namespace Assetly.Aplicacao.CasoDeUso;
 
@@ -25,6 +26,12 @@ internal static class ApoioCasosUso
 
     internal static Alerta ExigirAlerta(IRepositorioAlerta repositorio, AlertaId id) =>
         repositorio.BuscarPorId(id) ?? throw new RecursoNaoEncontradoExcecao($"Alerta não encontrado: {id.Valor}");
+
+    internal static Saude ExigirSaude(IRepositorioSaude repositorio, SaudeId id) =>
+        repositorio.BuscarPorId(id) ?? throw new RecursoNaoEncontradoExcecao($"Registro de saúde não encontrado: {id.Valor}");
+
+    internal static GastoSaude ExigirGastoSaude(IRepositorioGastoSaude repositorio, GastoSaudeId id) =>
+        repositorio.BuscarPorId(id) ?? throw new RecursoNaoEncontradoExcecao($"Gasto de saúde não encontrado: {id.Valor}");
 
     internal static Dinheiro? DinheiroOpcional(decimal? valor, string? codigoMoeda)
     {

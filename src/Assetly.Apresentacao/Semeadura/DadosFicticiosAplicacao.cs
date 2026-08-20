@@ -10,7 +10,7 @@ using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
 
-namespace Assetly.Apresentacao;
+namespace Assetly.Apresentacao.Semeadura;
 
 internal static class DadosFicticiosAplicacao
 {

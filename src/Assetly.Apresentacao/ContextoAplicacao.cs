@@ -1,6 +1,7 @@
 using Assetly.Aplicacao.CasoDeUso;
 using Assetly.Aplicacao.Repositorio;
 using Assetly.Aplicacao.Servico;
+using Assetly.Apresentacao.Semeadura;
 using Assetly.Infraestrutura.Armazenamento;
 using Assetly.Infraestrutura.Banco;
 using Assetly.Infraestrutura.Repositorio;
@@ -26,6 +27,10 @@ public sealed class ContextoAplicacao
 
     public IRepositorioAlerta RepositorioAlerta { get; }
 
+    public IRepositorioSaude RepositorioSaude { get; }
+
+    public IRepositorioGastoSaude RepositorioGastoSaude { get; }
+
     private ContextoAplicacao(
         BancoDadosAssetly bancoDados,
         IArmazenamentoDocumento armazenamentoDocumento,
@@ -40,6 +45,8 @@ public sealed class ContextoAplicacao
         RepositorioManutencao = new RepositorioManutencaoSqlite(fabricaConexao);
         RepositorioDocumento = new RepositorioDocumentoSqlite(fabricaConexao);
         RepositorioAlerta = new RepositorioAlertaSqlite(fabricaConexao);
+        RepositorioSaude = new RepositorioSaudeSqlite(fabricaConexao);
+        RepositorioGastoSaude = new RepositorioGastoSaudeSqlite(fabricaConexao);
         _armazenamentoDocumento = armazenamentoDocumento ?? throw new ArgumentNullException(nameof(armazenamentoDocumento), "armazenamento de documentos é obrigatório");
         RotuloAmbiente = rotuloAmbiente ?? throw new ArgumentNullException(nameof(rotuloAmbiente), "rótulo do ambiente é obrigatório");
         AmbienteTeste = ambienteTeste;
@@ -120,4 +127,22 @@ public sealed class ContextoAplicacao
     public ListarAlertas ListarAlertas() => new(RepositorioAlerta);
 
     public ListarAlertasDoBem ListarAlertasDoBem() => new(RepositorioBem, RepositorioAlerta);
+
+    public RegistrarSaude RegistrarSaude() => new(RepositorioBem, RepositorioSaude);
+
+    public EditarSaude EditarSaude() => new(RepositorioSaude);
+
+    public CancelarSaude CancelarSaude() => new(RepositorioSaude);
+
+    public ListarSaude ListarSaude() => new(RepositorioSaude);
+
+    public ListarSaudeDoBem ListarSaudeDoBem() => new(RepositorioBem, RepositorioSaude);
+
+    public RegistrarGastoSaude RegistrarGastoSaude() => new(RepositorioBem, RepositorioGastoSaude);
+
+    public EditarGastoSaude EditarGastoSaude() => new(RepositorioGastoSaude);
+
+    public ListarGastosSaude ListarGastosSaude() => new(RepositorioGastoSaude);
+
+    public ListarGastosSaudeDoBem ListarGastosSaudeDoBem() => new(RepositorioBem, RepositorioGastoSaude);
 }

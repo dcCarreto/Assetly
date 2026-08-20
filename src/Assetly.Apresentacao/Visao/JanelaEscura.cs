@@ -1,21 +1,31 @@
-using System.IO;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using Shell = System.Windows.Shell;
 
 namespace Assetly.Apresentacao.Visao;
 
 internal static class JanelaEscura
 {
-    private const double AlturaBarraTitulo = 30;
+    private const double AlturaBarraTitulo = 38;
+    private const string FonteGlifos = "Segoe MDL2 Assets";
+    private const string GlifoMinimizar = "\uE921";
+    private const string GlifoMaximizar = "\uE922";
+    private const string GlifoRestaurar = "\uE923";
+    private const string GlifoFechar = "\uE8BB";
 
-    internal static void Decorar(Window janela, string titulo, UIElement conteudo)
+    /// <summary>
+    /// Alterna o scrim (esmaecimento) da janela principal enquanto um dialogo modal esta aberto.
+    /// Definido pela tela principal em sua construcao; PrepararDialogo o aciona automaticamente
+    /// em todo dialogo (contador interno em TelaPrincipal cobre dialogos aninhados).
+    /// </summary>
+    internal static Action<bool>? AlternarScrim;
+
+    internal static void Decorar(Window janela, string titulo, UIElement conteudo, UIElement? extraNaBarra = null)
     {
         Shell.WindowChrome.SetWindowChrome(janela, new Shell.WindowChrome
         {
@@ -30,7 +40,7 @@ internal static class JanelaEscura
         CorrigirLimitesMaximizados(janela);
 
         var raiz = new DockPanel();
-        var barra = CriarBarraTitulo(janela, titulo, comMaximizar: true);
+        var barra = CriarBarraTitulo(janela, titulo, comMaximizar: true, extraNaBarra);
         DockPanel.SetDock(barra, Dock.Top);
         raiz.Children.Add(barra);
         raiz.Children.Add(conteudo);
@@ -136,35 +146,47 @@ internal static class JanelaEscura
             CaptionHeight = AlturaBarraTitulo,
             ResizeBorderThickness = new Thickness(0),
             GlassFrameThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(0),
+            CornerRadius = new CornerRadius(10),
             UseAeroCaptionButtons = false
         });
 
-        AplicarMoldura(dialogo);
+        AplicarMoldura(dialogo, ehDialogo: true);
         dialogo.ResizeMode = ResizeMode.NoResize;
 
         var raiz = new DockPanel();
-        var barra = CriarBarraTitulo(dialogo, titulo, comMaximizar: false);
+        var barra = CriarBarraTitulo(dialogo, titulo, comMaximizar: false, extraNaBarra: null);
         DockPanel.SetDock(barra, Dock.Top);
         raiz.Children.Add(barra);
         raiz.Children.Add(conteudo);
         dialogo.Content = raiz;
+
+        dialogo.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                dialogo.Close();
+                e.Handled = true;
+            }
+        };
+        dialogo.Loaded += (_, _) => AlternarScrim?.Invoke(true);
+        dialogo.Closed += (_, _) => AlternarScrim?.Invoke(false);
     }
 
-    private static void AplicarMoldura(Window janela)
+    private static void AplicarMoldura(Window janela, bool ehDialogo = false)
     {
         janela.WindowStyle = WindowStyle.None;
-        janela.Background = (Brush)Application.Current.Resources["CorJanelaEscuraFundo"];
-        janela.BorderBrush = (Brush)Application.Current.Resources["CorJanelaEscuraBorda"];
+        janela.Background = (Brush)Application.Current.Resources[ehDialogo ? "CardBg" : "BgChrome"];
+        janela.BorderBrush = (Brush)Application.Current.Resources["CardBorder"];
         janela.BorderThickness = new Thickness(1);
     }
 
-    private static UIElement CriarBarraTitulo(Window janela, string titulo, bool comMaximizar)
+    private static UIElement CriarBarraTitulo(Window janela, string titulo, bool comMaximizar, UIElement? extraNaBarra)
     {
         var linha = new Grid { Height = AlturaBarraTitulo };
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -182,66 +204,77 @@ internal static class JanelaEscura
         };
         Grid.SetColumn(tituloTexto, 1);
 
-        var minimizar = CriarBotaoJanela("Minimizar", CriarGlifoMinimizar());
+        linha.Children.Add(icone);
+        linha.Children.Add(tituloTexto);
+
+        if (extraNaBarra is not null)
+        {
+            if (extraNaBarra is FrameworkElement extraElemento)
+            {
+                extraElemento.Margin = new Thickness(0, 0, 10, 0);
+            }
+
+            Grid.SetColumn(extraNaBarra, 3);
+            linha.Children.Add(extraNaBarra);
+        }
+
+        var minimizar = CriarBotaoJanela("Minimizar", CriarGlifo(GlifoMinimizar));
         minimizar.Click += (_, _) => janela.WindowState = WindowState.Minimized;
         minimizar.Visibility = comMaximizar ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumn(minimizar, 3);
+        Grid.SetColumn(minimizar, 4);
         Shell.WindowChrome.SetIsHitTestVisibleInChrome(minimizar, true);
 
-        var maximizar = CriarBotaoJanela("Maximizar", CriarGlifoMaximizar());
+        var glifoMaximizar = CriarGlifo(GlifoMaximizar);
+        var maximizar = CriarBotaoJanela("Maximizar", glifoMaximizar);
         maximizar.Click += (_, _) => janela.WindowState =
             janela.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         maximizar.Visibility = comMaximizar ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumn(maximizar, 4);
+        Grid.SetColumn(maximizar, 5);
         Shell.WindowChrome.SetIsHitTestVisibleInChrome(maximizar, true);
+        if (comMaximizar)
+        {
+            janela.StateChanged += (_, _) =>
+                glifoMaximizar.Text = janela.WindowState == WindowState.Maximized ? GlifoRestaurar : GlifoMaximizar;
+        }
 
-        var fechar = CriarBotaoJanela("Fechar", CriarGlifoFechar());
+        var fechar = CriarBotaoJanela("Fechar", CriarGlifo(GlifoFechar));
         fechar.Style = (Style)Application.Current.Resources["BotaoJanelaFecharStyle"];
         fechar.Click += (_, _) => janela.Close();
-        Grid.SetColumn(fechar, 5);
+        Grid.SetColumn(fechar, 6);
         Shell.WindowChrome.SetIsHitTestVisibleInChrome(fechar, true);
 
-        linha.Children.Add(icone);
-        linha.Children.Add(tituloTexto);
         linha.Children.Add(minimizar);
         linha.Children.Add(maximizar);
         linha.Children.Add(fechar);
 
         return new Border
         {
-            Background = (Brush)Application.Current.Resources["BarraTituloBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["CorJanelaEscuraBorda"],
+            Background = (Brush)Application.Current.Resources["BgChrome"],
+            BorderBrush = (Brush)Application.Current.Resources["CardBorder"],
             BorderThickness = new Thickness(0, 0, 0, 1),
             Height = AlturaBarraTitulo,
             Child = linha
         };
     }
 
-    private static FrameworkElement CriarIcone()
+    private static FrameworkElement CriarIcone() => new Border
     {
-        var uri = new Uri("pack://application:,,,/Assetly;component/Recursos/Imagens/assetly-icon-16.png");
-        try
+        Width = 15,
+        Height = 15,
+        CornerRadius = new CornerRadius(4),
+        Background = (Brush)Application.Current.Resources["LogoGradient"],
+        VerticalAlignment = VerticalAlignment.Center,
+        Child = new TextBlock
         {
-            return new Image
-            {
-                Source = new BitmapImage(uri),
-                Width = 16,
-                Height = 16,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            Text = "A",
+            Foreground = (Brush)Application.Current.Resources["BgChrome"],
+            FontFamily = (FontFamily)Application.Current.Resources["FontUi"],
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 9,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
         }
-        catch (IOException)
-        {
-            return new TextBlock
-            {
-                Text = "A",
-                Foreground = (Brush)Application.Current.Resources["CorAccent"],
-                FontWeight = FontWeights.ExtraBold,
-                FontSize = 12,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
-    }
+    };
 
     private static Button CriarBotaoJanela(string descricao, UIElement glifo)
     {
@@ -255,25 +288,12 @@ internal static class JanelaEscura
         return botao;
     }
 
-    private static UIElement CriarGlifoMinimizar() =>
-        new Line { X1 = 0, Y1 = 0, X2 = 12, Y2 = 0, StrokeThickness = 2, Stroke = LinhaCor(), VerticalAlignment = VerticalAlignment.Center };
-
-    private static UIElement CriarGlifoMaximizar() => new Rectangle
+    private static TextBlock CriarGlifo(string glifo) => new()
     {
-        Width = 10,
-        Height = 10,
-        Stroke = LinhaCor(),
-        StrokeThickness = 1.5,
-        Fill = Brushes.Transparent
+        Text = glifo,
+        FontFamily = new FontFamily(FonteGlifos),
+        FontSize = 10,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center
     };
-
-    private static UIElement CriarGlifoFechar()
-    {
-        var canvas = new Canvas { Width = 12, Height = 12 };
-        canvas.Children.Add(new Line { X1 = 0, Y1 = 0, X2 = 12, Y2 = 12, StrokeThickness = 1.5, Stroke = LinhaCor() });
-        canvas.Children.Add(new Line { X1 = 12, Y1 = 0, X2 = 0, Y2 = 12, StrokeThickness = 1.5, Stroke = LinhaCor() });
-        return canvas;
-    }
-
-    private static Brush LinhaCor() => new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1));
 }

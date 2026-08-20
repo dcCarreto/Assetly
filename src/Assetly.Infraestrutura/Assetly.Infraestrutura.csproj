@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Banco\Migracoes\V001__estrutura_inicial.sql" />
+    <EmbeddedResource Include="Banco\Migracoes\V002__saude.sql" />
   </ItemGroup>
 
   <PropertyGroup>

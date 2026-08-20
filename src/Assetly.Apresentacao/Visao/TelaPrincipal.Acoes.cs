@@ -3,12 +3,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Assetly.Aplicacao.Dados;
 using Assetly.Dominio.Alerta;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 
 namespace Assetly.Apresentacao.Visao;
 
@@ -26,9 +28,9 @@ internal sealed partial class TelaPrincipal
         var custo = CampoTexto("Custo", string.Empty);
         var moeda = CampoTexto("Moeda", "BRL");
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Concluída em", concluidaEm);
-        AdicionarLinha(grade, 1, "Custo", custo);
-        AdicionarLinha(grade, 2, "Moeda", moeda);
+        AdicionarCampo(grade, 0, 0, "Concluída em", concluidaEm);
+        AdicionarCampo(grade, 0, 1, "Custo", custo);
+        AdicionarCampo(grade, 1, 0, "Moeda", moeda);
 
         if (MostrarFormulario("Concluir manutenção", grade, () => _contexto.ConcluirManutencao().Executar(new ConcluirManutencaoComando(
                 manutencao.Id, DataObrigatoria(concluidaEm, "conclusão"), DecimalOpcional(custo.Text), TextoOpcional(moeda.Text)))))
@@ -45,6 +47,11 @@ internal sealed partial class TelaPrincipal
 
     private void CancelarManutencao(Manutencao manutencao)
     {
+        if (!MostrarConfirmacao("Cancelar manutenção", "A manutenção selecionada será marcada como cancelada. Deseja continuar?", "Cancelar manutenção"))
+        {
+            return;
+        }
+
         _contexto.CancelarManutencao().Executar(manutencao.Id);
         AtualizarTudo();
     }
@@ -97,6 +104,11 @@ internal sealed partial class TelaPrincipal
 
     private void ArquivarDocumento(Documento documento)
     {
+        if (!MostrarConfirmacao("Arquivar documento", "O documento selecionado será movido para o arquivo. Deseja continuar?", "Arquivar"))
+        {
+            return;
+        }
+
         _contexto.ArquivarDocumento().Executar(documento.Id);
         AtualizarTudo();
     }
@@ -133,7 +145,34 @@ internal sealed partial class TelaPrincipal
 
     private void AlterarStatusBem(Bem bem, StatusBem status)
     {
+        if (status is StatusBem.Descartado or StatusBem.Arquivado
+            && !MostrarConfirmacao(status == StatusBem.Descartado ? "Descartar bem" : "Arquivar bem",
+                status == StatusBem.Descartado
+                    ? "O bem selecionado será marcado como descartado. Deseja continuar?"
+                    : "O bem selecionado será movido para o arquivo. Deseja continuar?",
+                status == StatusBem.Descartado ? "Descartar" : "Arquivar"))
+        {
+            return;
+        }
+
         _contexto.AlterarStatusBem().Executar(new AlterarStatusBemComando(bem.Id, status));
+        AtualizarTudo();
+    }
+
+    private void CancelarSaude()
+    {
+        var saude = Selecionado<SaudeLinha>(_tabelaSaude, "Selecione um convênio para cancelar.");
+        CancelarSaude(saude.Origem);
+    }
+
+    private void CancelarSaude(Saude saude)
+    {
+        if (!MostrarConfirmacao("Cancelar convênio", "O convênio selecionado será marcado como cancelado. Deseja continuar?", "Cancelar convênio"))
+        {
+            return;
+        }
+
+        _contexto.CancelarSaude().Executar(saude.Id, Hoje());
         AtualizarTudo();
     }
 
@@ -190,29 +229,79 @@ internal sealed partial class TelaPrincipal
         }
     }
 
-    private static FrameworkElement BarraAcoes(params Button[] botoes)
+    /// <summary>
+    /// Barra de ações ancorada no rodapé do contêiner da tabela — só aparece quando há seleção.
+    /// Ações seguras ficam à esquerda; destrutivas, encostadas na borda direita, bem afastadas das
+    /// seguras para que um erro de clique não seja plausível.
+    /// </summary>
+    private Border BarraContextual(DataGrid tabela, (string Texto, Action Acao)[] seguras, (string Texto, Action Acao)[] destrutivas)
     {
-        var barra = new WrapPanel();
-        foreach (var botao in botoes)
-        {
-            botao.Margin = new Thickness(0, 0, 12, 12);
-            barra.Children.Add(botao);
-        }
+        var recursos = Application.Current.Resources;
 
-        return new Border
+        var contagem = new TextBlock
         {
-            Background = (Brush)Application.Current.Resources["CardFundoBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["CardBordaBrush"],
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(14, 14, 14, 2),
-            Child = barra
+            Text = "1 selecionado",
+            FontFamily = (FontFamily)recursos["FontMono"],
+            FontSize = 11,
+            Foreground = (Brush)recursos["TextTitle"],
+            VerticalAlignment = VerticalAlignment.Center
         };
+
+        var limpar = new Button { Style = (Style)recursos["BotaoLimparSelecaoStyle"], VerticalAlignment = VerticalAlignment.Center };
+        limpar.Click += (_, _) => tabela.SelectedItem = null;
+
+        var divisor = new Border { Width = 1, Height = 18, Background = (Brush)recursos["InputBorder"], VerticalAlignment = VerticalAlignment.Center };
+
+        var elementosEsquerda = new List<UIElement> { limpar, contagem, divisor };
+        elementosEsquerda.AddRange(seguras.Select(a => (UIElement)BotaoSecundario(a.Texto, a.Acao)));
+        var painelEsquerda = UiApoio.Linha(10, elementosEsquerda.ToArray());
+
+        var painelDireita = UiApoio.Linha(8, destrutivas.Select(a => (UIElement)BotaoPerigo(a.Texto, a.Acao)).ToArray());
+
+        var grade = new Grid();
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(painelEsquerda, 0);
+        Grid.SetColumn(painelDireita, 1);
+        grade.Children.Add(painelEsquerda);
+        grade.Children.Add(painelDireita);
+
+        var barra = new Border
+        {
+            Background = (Brush)recursos["SelectionBarBg"],
+            BorderBrush = (Brush)recursos["InputBorder"],
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(14, 0, 12, 0),
+            Height = 46,
+            Visibility = Visibility.Collapsed,
+            Child = grade
+        };
+
+        tabela.SelectionChanged += (_, _) => barra.Visibility = tabela.SelectedItem is null ? Visibility.Collapsed : Visibility.Visible;
+        return barra;
     }
 
-    private Button BotaoPrimario(string texto, Action acao)
+    /// <summary>Botão primário de criação — mesmo estilo do botão primário, com um glifo "+" desenhado à esquerda do rótulo.</summary>
+    private Button BotaoPrimarioCriacao(string texto, Action acao)
     {
-        var botao = new Button { Content = texto, Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"] };
+        var recursos = Application.Current.Resources;
+        System.Windows.Shapes.Rectangle Traco(double largura, double altura) => new()
+        {
+            Width = largura,
+            Height = altura,
+            Fill = (Brush)recursos["ButtonPrimaryText"],
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        var glifo = new Grid { Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center };
+        glifo.Children.Add(Traco(10, 1.5));
+        glifo.Children.Add(Traco(1.5, 10));
+
+        var rotulo = new TextBlock { Text = texto, VerticalAlignment = VerticalAlignment.Center };
+        var conteudo = UiApoio.Linha(7, glifo, rotulo);
+
+        var botao = new Button { Content = conteudo, Style = (Style)recursos["BotaoPrimarioStyle"] };
         botao.Click += (_, _) => ExecutarComTratamento(acao);
         return botao;
     }
@@ -229,5 +318,42 @@ internal sealed partial class TelaPrincipal
         var botao = new Button { Content = texto, Style = (Style)Application.Current.Resources["BotaoPerigoStyle"] };
         botao.Click += (_, _) => ExecutarComTratamento(acao);
         return botao;
+    }
+
+    /// <summary>Atalhos de teclado comuns às telas de tabela: Ctrl+N cria, Ctrl+F foca a busca,
+    /// F2 edita a seleção, Delete aciona a ação destrutiva principal (com confirmação já embutida
+    /// nela, quando existir), Esc limpa a seleção.</summary>
+    private static void ConfigurarAtalhosTabela(UIElement raiz, DataGrid tabela, TextBox busca, Action criar, Action? editar, Action? destrutivaPrincipal)
+    {
+        raiz.Focusable = true;
+        raiz.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.N && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                criar();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                busca.Focus();
+                busca.SelectAll();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F2 && editar is not null && tabela.SelectedItem is not null)
+            {
+                editar();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Delete && destrutivaPrincipal is not null && tabela.SelectedItem is not null)
+            {
+                destrutivaPrincipal();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape && tabela.SelectedItem is not null)
+            {
+                tabela.SelectedItem = null;
+                e.Handled = true;
+            }
+        };
     }
 }

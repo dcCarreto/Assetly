@@ -9,6 +9,7 @@ using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Saude;
 
 namespace Assetly.Apresentacao.Visao;
 
@@ -23,12 +24,12 @@ internal sealed partial class TelaPrincipal
         var moeda = CampoTexto("Moeda", bem?.PrecoCompra?.CodigoMoeda ?? "BRL");
         var observacoes = AreaTexto(bem?.Observacoes ?? string.Empty);
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Nome", nome);
-        AdicionarLinha(grade, 1, "Tipo", tipo);
-        AdicionarLinha(grade, 2, "Compra", compradoEm);
-        AdicionarLinha(grade, 3, "Preço", preco);
-        AdicionarLinha(grade, 4, "Moeda", moeda);
-        AdicionarLinha(grade, 5, "Observações", observacoes);
+        AdicionarCampo(grade, 0, 0, "Nome", nome, ocupaLinhaToda: true);
+        AdicionarCampo(grade, 1, 0, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 1, "Compra", compradoEm);
+        AdicionarCampo(grade, 2, 0, "Preço", preco);
+        AdicionarCampo(grade, 2, 1, "Moeda", moeda);
+        AdicionarCampo(grade, 3, 0, "Observações", observacoes, ocupaLinhaToda: true);
 
         var salvou = MostrarFormulario(bem is null ? "Novo bem" : "Editar bem", grade, () =>
         {
@@ -62,12 +63,12 @@ internal sealed partial class TelaPrincipal
         var terminaEm = DataPicker(garantia?.Periodo.TerminaEm ?? Hoje().AddYears(1));
         var suporte = CampoTexto("Contato de suporte", garantia?.ContatoSuporte ?? string.Empty);
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Bem", bem);
-        AdicionarLinha(grade, 1, "Tipo", tipo);
-        AdicionarLinha(grade, 2, "Fornecedor", fornecedor);
-        AdicionarLinha(grade, 3, "Início", iniciaEm);
-        AdicionarLinha(grade, 4, "Fim", terminaEm);
-        AdicionarLinha(grade, 5, "Suporte", suporte);
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Fornecedor", fornecedor);
+        AdicionarCampo(grade, 1, 1, "Suporte", suporte);
+        AdicionarCampo(grade, 2, 0, "Início", iniciaEm);
+        AdicionarCampo(grade, 2, 1, "Fim", terminaEm);
 
         var salvou = MostrarFormulario(garantia is null ? "Nova garantia" : "Editar garantia", grade, () =>
         {
@@ -99,10 +100,10 @@ internal sealed partial class TelaPrincipal
         var descricao = CampoTexto("Descrição", manutencao?.Descricao ?? string.Empty);
         var data = DataPicker(manutencao?.AgendadaPara ?? Hoje());
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Bem", bem);
-        AdicionarLinha(grade, 1, "Tipo", tipo);
-        AdicionarLinha(grade, 2, "Descrição", descricao);
-        AdicionarLinha(grade, 3, "Agendada para", data);
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Descrição", descricao, ocupaLinhaToda: true);
+        AdicionarCampo(grade, 2, 0, "Agendada para", data);
 
         var salvou = MostrarFormulario(manutencao is null ? "Nova manutenção" : "Editar manutenção", grade, () =>
         {
@@ -133,11 +134,11 @@ internal sealed partial class TelaPrincipal
         var caminho = CampoTexto("Arquivo de origem", documento?.CaminhoLocal.Valor ?? string.Empty);
         var registradoEm = DataPicker(documento?.RegistradoEm ?? Hoje());
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Bem", bem);
-        AdicionarLinha(grade, 1, "Tipo", tipo);
-        AdicionarLinha(grade, 2, "Nome", nome);
-        AdicionarLinha(grade, 3, "Arquivo", SeletorArquivo(caminho));
-        AdicionarLinha(grade, 4, "Registrado em", registradoEm);
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Nome", nome);
+        AdicionarCampo(grade, 1, 1, "Registrado em", registradoEm);
+        AdicionarCampo(grade, 2, 0, "Arquivo", SeletorArquivo(caminho), ocupaLinhaToda: true);
 
         var salvou = MostrarFormulario(documento is null ? "Novo documento" : "Editar documento", grade, () =>
         {
@@ -167,16 +168,95 @@ internal sealed partial class TelaPrincipal
         var criadoEm = DataPicker(Hoje());
         var prazoEm = DataPicker(null);
         var grade = GradeFormulario();
-        AdicionarLinha(grade, 0, "Bem", bem);
-        AdicionarLinha(grade, 1, "Tipo", tipo);
-        AdicionarLinha(grade, 2, "Severidade", severidade);
-        AdicionarLinha(grade, 3, "Mensagem", mensagem);
-        AdicionarLinha(grade, 4, "Criado em", criadoEm);
-        AdicionarLinha(grade, 5, "Prazo", prazoEm);
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Severidade", severidade);
+        AdicionarCampo(grade, 1, 1, "Criado em", criadoEm);
+        AdicionarCampo(grade, 2, 0, "Prazo", prazoEm);
+        AdicionarCampo(grade, 3, 0, "Mensagem", mensagem, ocupaLinhaToda: true);
 
         var salvou = MostrarFormulario("Novo alerta", grade, () => _contexto.CriarAlerta().Executar(new CriarAlertaComando(
             ExigirBemSelecionado(bem).Id, ValorEnum<TipoAlerta>(tipo), ValorEnum<SeveridadeAlerta>(severidade), mensagem.Text,
             DataObrigatoria(criadoEm, "criação"), ValorData(prazoEm))));
+
+        if (salvou)
+        {
+            AtualizarTudo();
+        }
+    }
+
+    private void AbrirDialogoSaude(Saude? saude)
+    {
+        var bemSelecionado = saude is null ? null : _contexto.BuscarBem().Executar(saude.BemId);
+        var bem = ComboBens(bemSelecionado);
+        bem.IsEnabled = saude is null;
+        var tipo = Combo(saude?.Tipo ?? TipoSaude.Convenio);
+        var fornecedor = CampoTexto("Fornecedor", saude?.Fornecedor ?? string.Empty);
+        var contato = CampoTexto("Contato", saude?.Contato ?? string.Empty);
+        var iniciaEm = DataPicker(saude?.Periodo.IniciaEm ?? Hoje());
+        var terminaEm = DataPicker(saude?.Periodo.TerminaEm ?? Hoje().AddYears(1));
+        var grade = GradeFormulario();
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Fornecedor", fornecedor);
+        AdicionarCampo(grade, 1, 1, "Contato", contato);
+        AdicionarCampo(grade, 2, 0, "Início", iniciaEm);
+        AdicionarCampo(grade, 2, 1, "Fim", terminaEm);
+
+        var salvou = MostrarFormulario(saude is null ? "Novo convênio" : "Editar convênio", grade, () =>
+        {
+            var inicio = DataObrigatoria(iniciaEm, "início");
+            var fim = DataObrigatoria(terminaEm, "fim");
+            if (saude is null)
+            {
+                _contexto.RegistrarSaude().Executar(new RegistrarSaudeComando(
+                    ExigirBemSelecionado(bem).Id, ValorEnum<TipoSaude>(tipo), fornecedor.Text, inicio, fim, contato.Text));
+            }
+            else
+            {
+                _contexto.EditarSaude().Executar(new EditarSaudeComando(saude.Id, ValorEnum<TipoSaude>(tipo), fornecedor.Text, inicio, fim, contato.Text));
+            }
+        });
+
+        if (salvou)
+        {
+            AtualizarTudo();
+        }
+    }
+
+    private void AbrirDialogoGastoSaude(GastoSaude? gasto)
+    {
+        var bemSelecionado = gasto is null ? null : _contexto.BuscarBem().Executar(gasto.BemId);
+        var bem = ComboBens(bemSelecionado);
+        bem.IsEnabled = gasto is null;
+        var tipo = Combo(gasto?.Tipo ?? TipoGastoSaude.Farmacia);
+        var descricao = CampoTexto("Descrição", gasto?.Descricao ?? string.Empty);
+        var data = DataPicker(gasto?.Data ?? Hoje());
+        var valor = CampoTexto("Valor", gasto?.Valor.Valor.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+        var moeda = CampoTexto("Moeda", gasto?.Valor.CodigoMoeda ?? "BRL");
+        var grade = GradeFormulario();
+        AdicionarCampo(grade, 0, 0, "Bem", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo", tipo);
+        AdicionarCampo(grade, 1, 0, "Descrição", descricao, ocupaLinhaToda: true);
+        AdicionarCampo(grade, 2, 0, "Data", data);
+        AdicionarCampo(grade, 2, 1, "Valor", valor);
+        AdicionarCampo(grade, 3, 0, "Moeda", moeda);
+
+        var salvou = MostrarFormulario(gasto is null ? "Novo gasto" : "Editar gasto", grade, () =>
+        {
+            var dataValor = DataObrigatoria(data, "do gasto");
+            var valorDecimal = DecimalOpcional(valor.Text) ?? throw new ArgumentException("valor do gasto é obrigatório");
+            if (gasto is null)
+            {
+                _contexto.RegistrarGastoSaude().Executar(new RegistrarGastoSaudeComando(
+                    ExigirBemSelecionado(bem).Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, moeda.Text));
+            }
+            else
+            {
+                _contexto.EditarGastoSaude().Executar(new EditarGastoSaudeComando(
+                    gasto.Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, moeda.Text));
+            }
+        });
 
         if (salvou)
         {
@@ -190,32 +270,22 @@ internal sealed partial class TelaPrincipal
         var janela = new Window
         {
             Title = titulo,
-            SizeToContent = SizeToContent.WidthAndHeight,
+            Width = 600,
+            SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Owner = Application.Current.MainWindow,
-            ResizeMode = ResizeMode.NoResize,
-            MinWidth = 420
+            ResizeMode = ResizeMode.NoResize
         };
 
-        var salvar = new Button { Content = "Salvar", Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(0, 0, 8, 0) };
+        var salvar = new Button { Content = "Salvar", Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0) };
         var cancelar = new Button { Content = "Cancelar", Style = (Style)Application.Current.Resources["BotaoSecundarioStyle"], MinWidth = 96 };
-        var botoes = UiApoio.Linha(8, salvar, cancelar);
-        botoes.HorizontalAlignment = HorizontalAlignment.Right;
+        var raizRodape = RodapeFormulario(cancelar, salvar);
+        DockPanel.SetDock(raizRodape, Dock.Bottom);
 
-        var barraBotoes = new Border
-        {
-            Background = (Brush)Application.Current.Resources["CorJanelaEscuraFundo"],
-            BorderBrush = (Brush)Application.Current.Resources["CardBordaBrush"],
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(16, 12, 16, 12),
-            Child = botoes
-        };
-        DockPanel.SetDock(barraBotoes, Dock.Bottom);
-
-        var corpo = new Border { Padding = new Thickness(16), Child = conteudo };
+        var corpo = new Border { Padding = new Thickness(22, 20, 22, 20), Child = conteudo };
 
         var raizConteudo = new DockPanel();
-        raizConteudo.Children.Add(barraBotoes);
+        raizConteudo.Children.Add(raizRodape);
         raizConteudo.Children.Add(corpo);
 
         salvar.Click += (_, _) =>
@@ -238,10 +308,36 @@ internal sealed partial class TelaPrincipal
         return salvou;
     }
 
+    /// <summary>Rodapé padrão de diálogo de formulário: nota de campo obrigatório à esquerda, ações à direita (Salvar sempre a mais à direita).</summary>
+    private static Border RodapeFormulario(params Button[] botoesNaOrdem)
+    {
+        var nota = UiApoio.Texto("* campo obrigatório", 11.5, FontWeights.Normal, (Brush)Application.Current.Resources["TextMuted"]);
+        nota.VerticalAlignment = VerticalAlignment.Center;
+
+        var botoes = UiApoio.Linha(8, botoesNaOrdem.Cast<UIElement>().ToArray());
+
+        var grade = new Grid();
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(nota, 0);
+        Grid.SetColumn(botoes, 1);
+        grade.Children.Add(nota);
+        grade.Children.Add(botoes);
+
+        return new Border
+        {
+            Background = (Brush)Application.Current.Resources["TableFooterBg"],
+            BorderBrush = (Brush)Application.Current.Resources["CardBorder"],
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(22, 14, 22, 14),
+            Child = grade
+        };
+    }
+
     private ComboBox ComboBens(Bem? selecionado)
     {
         var itens = _contexto.ListarBens().Executar().Select(b => new ItemBem(b)).ToList();
-        var combo = new ComboBox { Style = (Style)Application.Current.Resources["ComboStyle"], ItemsSource = itens, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var combo = new ComboBox { Style = (Style)Application.Current.Resources["ComboDialogoStyle"], ItemsSource = itens, HorizontalAlignment = HorizontalAlignment.Stretch };
         if (selecionado is not null)
         {
             combo.SelectedItem = itens.FirstOrDefault(i => i.Bem.Id.Equals(selecionado.Id)) ?? itens.FirstOrDefault();
@@ -262,7 +358,7 @@ internal sealed partial class TelaPrincipal
         var itens = Enum.GetValues<TEnum>().Select(v => new ItemEnum<TEnum>(v, Formatador.TextoEnum(v))).ToList();
         return new ComboBox
         {
-            Style = (Style)Application.Current.Resources["ComboStyle"],
+            Style = (Style)Application.Current.Resources["ComboDialogoStyle"],
             ItemsSource = itens,
             SelectedItem = itens.First(i => EqualityComparer<TEnum>.Default.Equals(i.Valor, selecionado)),
             HorizontalAlignment = HorizontalAlignment.Stretch
@@ -275,7 +371,7 @@ internal sealed partial class TelaPrincipal
     private static TextBox CampoTexto(string prompt, string? valor) => new()
     {
         Text = valor ?? string.Empty,
-        Style = (Style)Application.Current.Resources["CampoTextoStyle"],
+        Style = (Style)Application.Current.Resources["CampoTextoDialogoStyle"],
         ToolTip = prompt,
         HorizontalAlignment = HorizontalAlignment.Stretch
     };
@@ -289,7 +385,7 @@ internal sealed partial class TelaPrincipal
 
     private static DatePicker DataPicker(DateOnly? valor) => new()
     {
-        Style = (Style)Application.Current.Resources["DatePickerStyle"],
+        Style = (Style)Application.Current.Resources["DatePickerDialogoStyle"],
         SelectedDate = valor?.ToDateTime(TimeOnly.MinValue),
         HorizontalAlignment = HorizontalAlignment.Stretch
     };
@@ -300,30 +396,47 @@ internal sealed partial class TelaPrincipal
     private static DateOnly DataObrigatoria(DatePicker campo, string nome) =>
         ValorData(campo) ?? throw new ArgumentException($"data de {nome} é obrigatória");
 
+    /// <summary>Grade de 2 colunas iguais para os campos do formulário — campos longos (Nome, Observações,
+    /// Descrição, Mensagem) ocupam as 2 colunas.</summary>
     private static Grid GradeFormulario()
     {
         var grade = new Grid();
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         return grade;
     }
 
-    private static void AdicionarLinha(Grid grade, int linha, string rotulo, FrameworkElement campo)
+    private static void AdicionarCampo(Grid grade, int linha, int coluna, string rotulo, FrameworkElement campo, bool ocupaLinhaToda = false)
     {
         while (grade.RowDefinitions.Count <= linha)
         {
             grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         }
 
-        var topo = linha == 0 ? 0 : 10;
-        var label = new TextBlock { Text = rotulo, Style = (Style)Application.Current.Resources["RotuloFormularioStyle"], Margin = new Thickness(0, topo, 10, 0) };
-        campo.Margin = new Thickness(campo.Margin.Left, topo, campo.Margin.Right, campo.Margin.Bottom);
-        Grid.SetRow(label, linha);
-        Grid.SetColumn(label, 0);
-        Grid.SetRow(campo, linha);
-        Grid.SetColumn(campo, 1);
-        grade.Children.Add(label);
-        grade.Children.Add(campo);
+        var rotuloLabel = new TextBlock
+        {
+            Text = rotulo.ToUpperInvariant(),
+            Style = (Style)Application.Current.Resources["RotuloKpiStyle"],
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        campo.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var bloco = UiApoio.Coluna(0, rotuloLabel, campo);
+
+        var topo = linha == 0 ? 0 : 16;
+        bloco.Margin = new Thickness(coluna == 1 && !ocupaLinhaToda ? 18 : 0, topo, 0, 0);
+
+        Grid.SetRow(bloco, linha);
+        if (ocupaLinhaToda)
+        {
+            Grid.SetColumn(bloco, 0);
+            Grid.SetColumnSpan(bloco, 2);
+        }
+        else
+        {
+            Grid.SetColumn(bloco, coluna);
+        }
+
+        grade.Children.Add(bloco);
     }
 
     private FrameworkElement SeletorArquivo(TextBox campo)
@@ -366,8 +479,8 @@ internal sealed partial class TelaPrincipal
         };
 
         var instrucoes = UiApoio.Texto("Escolha o arquivo que será anexado ao bem.", 13, FontWeights.Normal,
-            (Brush)Application.Current.Resources["TextoSuaveBrush"]);
-        var diretorioCampo = new TextBox { Style = (Style)Application.Current.Resources["CampoTextoStyle"], IsReadOnly = true };
+            (Brush)Application.Current.Resources["TextSecondary"]);
+        var diretorioCampo = new TextBox { Style = (Style)Application.Current.Resources["CampoTextoDialogoStyle"], IsReadOnly = true };
         var lista = new ListBox { Style = (Style)Application.Current.Resources["ListaArquivosStyle"] };
 
         void Recarregar(string diretorio)
@@ -441,14 +554,14 @@ internal sealed partial class TelaPrincipal
         conteudo.Margin = new Thickness(16);
         lista.MinHeight = 260;
 
-        var salvar = new Button { Content = "Selecionar", Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(0, 0, 8, 0) };
+        var salvar = new Button { Content = "Selecionar", Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0) };
         var cancelar = new Button { Content = "Cancelar", Style = (Style)Application.Current.Resources["BotaoSecundarioStyle"], MinWidth = 96 };
-        var botoes = UiApoio.Linha(8, salvar, cancelar);
+        var botoes = UiApoio.Linha(8, cancelar, salvar);
         botoes.HorizontalAlignment = HorizontalAlignment.Right;
         var barraBotoes = new Border
         {
-            Background = (Brush)Application.Current.Resources["CorJanelaEscuraFundo"],
-            BorderBrush = (Brush)Application.Current.Resources["CardBordaBrush"],
+            Background = (Brush)Application.Current.Resources["TableFooterBg"],
+            BorderBrush = (Brush)Application.Current.Resources["CardBorder"],
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(16, 12, 16, 12),
             Child = botoes
@@ -502,7 +615,7 @@ internal sealed partial class TelaPrincipal
 
     private void MostrarErro(Exception excecao)
     {
-        MostrarAlerta("Erro", $"Não foi possível concluir a ação.\n\n{MensagemErro(excecao)}", perigo: true);
+        MostrarAlerta("Erro", $"Não foi possível concluir a ação.\n\n{MensagemErro(excecao)}");
     }
 
     private static string MensagemErro(Exception excecao)
@@ -520,15 +633,15 @@ internal sealed partial class TelaPrincipal
         return "Ocorreu um erro inesperado. Verifique os dados informados e tente novamente.";
     }
 
-    private void MostrarInformacao(string titulo, string mensagem) => MostrarAlerta(titulo, mensagem, perigo: false);
+    private void MostrarInformacao(string titulo, string mensagem) => MostrarAlerta(titulo, mensagem);
 
-    private void MostrarAlerta(string titulo, string mensagem, bool perigo)
+    private void MostrarAlerta(string titulo, string mensagem)
     {
         var texto = new TextBlock
         {
             Text = mensagem,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = (Brush)Application.Current.Resources["TextoCelulaBrush"],
+            Foreground = (Brush)Application.Current.Resources["TextBody"],
             Margin = new Thickness(16)
         };
 
@@ -553,6 +666,55 @@ internal sealed partial class TelaPrincipal
 
         JanelaEscura.PrepararDialogo(janela, titulo, raizConteudo);
         janela.ShowDialog();
+    }
+
+    /// <summary>Diálogo de confirmação Sim/Não usado antes de ações destrutivas (descartar, arquivar, cancelar).</summary>
+    private bool MostrarConfirmacao(string titulo, string mensagem, string textoConfirmar)
+    {
+        var confirmou = false;
+        var texto = new TextBlock
+        {
+            Text = mensagem,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)Application.Current.Resources["TextBody"],
+            Margin = new Thickness(16)
+        };
+
+        var janela = new Window
+        {
+            Title = titulo,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Application.Current.MainWindow,
+            ResizeMode = ResizeMode.NoResize,
+            MinWidth = 380,
+            MaxWidth = 480
+        };
+
+        var confirmar = new Button { Content = textoConfirmar, Style = (Style)Application.Current.Resources["BotaoPerigoStyle"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0) };
+        var cancelar = new Button { Content = "Cancelar", Style = (Style)Application.Current.Resources["BotaoSecundarioStyle"], MinWidth = 96 };
+        confirmar.Click += (_, _) => { confirmou = true; janela.Close(); };
+        cancelar.Click += (_, _) => janela.Close();
+
+        var botoes = UiApoio.Linha(8, cancelar, confirmar);
+        botoes.HorizontalAlignment = HorizontalAlignment.Right;
+        var barraBotoes = new Border
+        {
+            Background = (Brush)Application.Current.Resources["TableFooterBg"],
+            BorderBrush = (Brush)Application.Current.Resources["CardBorder"],
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(16, 12, 16, 12),
+            Child = botoes
+        };
+        DockPanel.SetDock(barraBotoes, Dock.Bottom);
+
+        var raizConteudo = new DockPanel();
+        raizConteudo.Children.Add(barraBotoes);
+        raizConteudo.Children.Add(texto);
+
+        JanelaEscura.PrepararDialogo(janela, titulo, raizConteudo);
+        janela.ShowDialog();
+        return confirmou;
     }
 
     private static decimal? DecimalOpcional(string? valor)
