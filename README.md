@@ -1,4 +1,25 @@
-# Assetly
+<p align="center">
+  <img src="src/Assetly.Apresentacao/Recursos/Imagens/assetly-icon-128.png" alt="Ícone do Assetly" width="96">
+</p>
+
+<h1 align="center">Assetly</h1>
+
+<p align="center">
+  Seus bens, garantias, notas fiscais, carros, imóveis e patrimônio — organizados no seu computador, sem conta e sem nuvem.
+</p>
+
+<p align="center">
+  <a href="https://github.com/dcCarreto/Assetly/releases/latest"><img src="https://img.shields.io/github/v/release/dcCarreto/Assetly?label=vers%C3%A3o&color=2dd4bf" alt="Versão mais recente"></a>
+  <a href="https://github.com/dcCarreto/Assetly/actions/workflows/ci.yml"><img src="https://github.com/dcCarreto/Assetly/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4" alt="Windows 10 e 11">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue" alt="Licença MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dcCarreto/Assetly/releases/latest"><b>⬇ Baixar o instalador para Windows</b></a>
+</p>
+
+![Painel do Assetly](docs/imagens/painel.png)
 
 Assetly é um aplicativo de área de trabalho para organizar bens pessoais, garantias, documentos e notas fiscais, manutenções, convênios e gastos de saúde, automóveis, imóveis, patrimônio e alertas em um banco local. Ele foi pensado para quem quer manter o controle dos próprios itens importantes sem depender de conta online, assinatura, nuvem ou telemetria.
 
@@ -42,6 +63,18 @@ O foco do projeto é simples:
 - Ambiente de produção local e ambiente de teste isolado com dados fictícios e anexos reais.
 - Instalador para Windows (Inno Setup) com atualização automática verificada por SHA-256.
 
+### Telas
+
+| Bens | Patrimônio |
+| --- | --- |
+| ![Módulo Bens: tabela com status, tipo, compra, valor e responsável](docs/imagens/bens.png) | ![Módulo Patrimônio: valor de compra, valor estimado hoje, depreciação, distribuição por tipo e evolução anual](docs/imagens/patrimonio.png) |
+
+| Backup e sincronização |
+| --- |
+| ![Módulo Backup: destino, backup automático, proteção por senha, sincronização e restauração](docs/imagens/backup.png) |
+
+As imagens mostram o ambiente de teste, com dados fictícios.
+
 ## Instalar (recomendado)
 
 1. Acesse as [Releases do Assetly](https://github.com/dcCarreto/Assetly/releases) e baixe `Assetly-Setup-AAAA.MM.DD.exe` da versão mais recente (o nome traz a data da versão).
@@ -65,7 +98,7 @@ Há duas formas práticas de baixar o código.
 Use esta opção se você já tem Git instalado e quer manter o projeto fácil de atualizar.
 
 ```powershell
-cd C:\Users\denis\source\repos
+cd $HOME\source\repos
 git clone https://github.com/dcCarreto/Assetly.git
 cd Assetly
 ```
@@ -524,6 +557,7 @@ Assetly/
 ├── LICENSE
 ├── ROADMAP.md
 ├── Assetly.slnx
+├── docs/imagens/          # capturas de tela do README (geradas pelo autoteste)
 ├── instalador/            # script do Inno Setup e imagens do instalador
 ├── .github/workflows/     # CI (testes + autoteste) e Release (por data)
 ├── src/
@@ -541,16 +575,19 @@ O Assetly **não usa número de versão**: cada versão é identificada pela dat
 
 Tudo é feito pelo workflow [`.github/workflows/release.yml`](.github/workflows/release.yml). Para lançar, use uma das formas:
 
+- **Pelo site:** GitHub → Actions → **Release** → **Run workflow**, escolha o branch e, se quiser, escreva o que mudou. A data (e o sequencial) é calculada sozinha.
+- **Pelo terminal:**
+
 ```powershell
 # 1) Calcula a data (e o sequencial) sozinho:
-gh workflow run release.yml --ref desenvolvimento -f observacoes="O que mudou nesta versão"
+gh workflow run release.yml --ref main -f observacoes="O que mudou nesta versão"
 
 # 2) Ou envie uma tag com a data de hoje:
 git tag 2026.11.23
 git push origin 2026.11.23
 ```
 
-(Também dá para usar o botão **Run workflow** em GitHub → Actions → Release, quando o workflow estiver no branch padrão.)
+O trabalho do dia a dia acontece no branch `desenvolvimento`; o `main` recebe o que já foi lançado.
 
 Antes de publicar, o workflow verifica tudo e **cancela a release se algo falhar**:
 

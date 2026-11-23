@@ -22,7 +22,8 @@ Este roteiro organiza o desenvolvimento do Assetly em etapas pequenas, com foco 
 - Instalador Inno Setup por usuário e atualização automática pelas Releases do GitHub, com SHA-256 conferido; versões identificadas pela data de publicação (`AAAA.MM.DD`).
 - Patrimônio com depreciação estimada, modo família, notas fiscais eletrônicas (QR Code da NFC-e e OCR), exportação CSV/JSON, backup criptografado e sincronização opcional entre computadores.
 - CI no GitHub Actions roda os testes e o autoteste do programa em `main` e `desenvolvimento`; o workflow de Release testa, empacota, instala, testa o programa instalado e só então publica.
-- README atualizado com execução, executável, privacidade, interface, backup/restauração, atalhos e solução de problemas.
+- README atualizado com capturas de tela, instalação, execução, privacidade, todos os módulos, backup/restauração/sincronização, atalhos, processo de release e solução de problemas.
+- Primeira release publicada: `2026.11.23`.
 
 ## Princípios do Projeto
 
