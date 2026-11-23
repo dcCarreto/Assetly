@@ -75,7 +75,8 @@ jobs:
             $versao = "${{ github.ref_name }}"
             if ($versao -notmatch '^\d{4}\.\d{2}\.\d{2}(\.\d+)?$') { throw "Tag inválida: $versao. Use a data: AAAA.MM.DD ou AAAA.MM.DD.N" }
             if (-not $versao.StartsWith($hoje)) { throw "A tag $versao não é a data de hoje ($hoje, horário de Brasília)." }
-            if (gh release view $versao 2>$null) { throw "Já existe uma release $versao." }
+            gh release view $versao *> $null
+            if ($LASTEXITCODE -eq 0) { throw "Já existe uma release $versao." }
           } else {
             $doDia = $existentes | Where-Object { $_ -match "^$([regex]::Escape($hoje))(\.(\d+))?$" } |
               ForEach-Object { if ($Matches[2]) { [int]$Matches[2] } else { 1 } }
@@ -87,6 +88,8 @@ jobs:
           "valor=$versao" >> $env:GITHUB_OUTPUT
           "exibicao=$exibicao" >> $env:GITHUB_OUTPUT
           Write-Host "Versão: $versao ($exibicao)"
+          # "gh release view" devolve código de erro quando a release ainda não existe (o caso normal).
+          exit 0
 
       - name: Testes automatizados
         run: dotnet test Assetly.slnx --configuration Release
