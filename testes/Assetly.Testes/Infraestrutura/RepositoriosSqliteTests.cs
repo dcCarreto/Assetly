@@ -1,9 +1,11 @@
 using Assetly.Dominio.Alerta;
+using Assetly.Dominio.Backup;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Compartilhado;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Preferencias;
 using Assetly.Dominio.Saude;
 using Assetly.Infraestrutura.Banco;
 using Assetly.Infraestrutura.Repositorio;
@@ -26,7 +28,7 @@ public class RepositoriosSqliteTests
         using var comando = conexao.CreateCommand();
         comando.CommandText = "SELECT COUNT(*) AS total FROM schema_migrations";
         var total = (long)comando.ExecuteScalar()!;
-        total.ShouldBe(2L);
+        total.ShouldBe(8L);
     }
 
     [Fact]
@@ -106,6 +108,164 @@ public class RepositoriosSqliteTests
         repositorioAlerta.ListarPorBem(bem.Id).Single().Status.ShouldBe(StatusAlerta.Ciente);
         repositorioSaude.ListarPorBem(bem.Id).Single().StatusEm(new DateOnly(2026, 7, 1)).ShouldBe(StatusSaude.Cancelada);
         repositorioGastoSaude.ListarPorBem(bem.Id).Single().Valor.Valor.ShouldBe(89.90m);
+    }
+
+    [Fact]
+    public void DeveObterConfiguracaoPadraoQuandoNadaFoiSalvo()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var repositorio = new RepositorioConfiguracaoBackupSqlite(banco.FabricaConexao);
+
+        var configuracao = repositorio.Obter();
+
+        configuracao.CaminhoDestino.ShouldBeNull();
+        configuracao.AutoBackupHabilitado.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DeveSalvarERecuperarConfiguracaoDeBackup()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var repositorio = new RepositorioConfiguracaoBackupSqlite(banco.FabricaConexao);
+
+        var configuracao = repositorio.Obter();
+        configuracao.DefinirDestino(@"D:\Backups\Assetly");
+        configuracao.HabilitarAutoBackup(FrequenciaBackup.Semanal);
+        configuracao.RegistrarBackupConcluido(new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero));
+        repositorio.Salvar(configuracao);
+
+        var recuperada = repositorio.Obter();
+
+        recuperada.CaminhoDestino.ShouldBe(@"D:\Backups\Assetly");
+        recuperada.AutoBackupHabilitado.ShouldBeTrue();
+        recuperada.Frequencia.ShouldBe(FrequenciaBackup.Semanal);
+        recuperada.UltimoBackupEm.ShouldBe(new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void DeveObterPreferenciasPadraoQuandoNadaFoiSalvo()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var repositorio = new RepositorioConfiguracaoPreferenciasSqlite(banco.FabricaConexao);
+
+        var preferencias = repositorio.Obter();
+
+        preferencias.Tema.ShouldBe(TemaVisual.Escuro);
+        preferencias.CorDestaque.ShouldBe(CorDestaque.Ciano);
+        preferencias.OrdemModulos.ShouldBeEmpty();
+        preferencias.ModuloInicial.ShouldBeNull();
+    }
+
+    [Fact]
+    public void DeveSalvarERecuperarPreferencias()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var repositorio = new RepositorioConfiguracaoPreferenciasSqlite(banco.FabricaConexao);
+
+        var preferencias = repositorio.Obter();
+        preferencias.SincronizarModulos(["Painel", "Bens", "Garantias"]);
+        preferencias.DefinirTema(TemaVisual.Claro);
+        preferencias.DefinirCorDestaque(CorDestaque.Verde);
+        preferencias.OcultarModulo("Bens");
+        preferencias.DefinirModuloInicial("Garantias");
+        repositorio.Salvar(preferencias);
+
+        var recuperada = repositorio.Obter();
+
+        recuperada.Tema.ShouldBe(TemaVisual.Claro);
+        recuperada.CorDestaque.ShouldBe(CorDestaque.Verde);
+        recuperada.OrdemModulos.ShouldBe(["Painel", "Bens", "Garantias"]);
+        recuperada.ModulosOcultos.ShouldContain("Bens");
+        recuperada.ModuloInicial.ShouldBe("Garantias");
+    }
+
+    [Fact]
+    public void DeveExcluirBemEmCascataComTodosOsRegistrosLigados()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var fabrica = banco.FabricaConexao;
+        var repositorioBem = new RepositorioBemSqlite(fabrica);
+        var repositorioGarantia = new RepositorioGarantiaSqlite(fabrica);
+        var repositorioManutencao = new RepositorioManutencaoSqlite(fabrica);
+        var repositorioAlerta = new RepositorioAlertaSqlite(fabrica);
+        var repositorioSaude = new RepositorioSaudeSqlite(fabrica);
+        var repositorioGasto = new RepositorioGastoSaudeSqlite(fabrica);
+        var bem = Bem.Criar(new NomeBem("Notebook"), TipoBem.Eletronico);
+        var outro = Bem.Criar(new NomeBem("Monitor"), TipoBem.Eletronico);
+        repositorioBem.Salvar(bem);
+        repositorioBem.Salvar(outro);
+        repositorioGarantia.Salvar(Garantia.Criar(bem.Id, TipoGarantia.Loja, "Loja", new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1)));
+        repositorioManutencao.Salvar(Manutencao.Agendar(bem.Id, TipoManutencao.Limpeza, "Limpeza", new DateOnly(2026, 8, 1)));
+        repositorioAlerta.Salvar(Alerta.CriarAutomatico(bem.Id, TipoAlerta.DocumentoAusente, SeveridadeAlerta.Aviso, "Nota fiscal ausente.", new DateOnly(2026, 7, 1), null));
+        repositorioSaude.Salvar(Saude.Criar(bem.Id, TipoSaude.Convenio, "Amil", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), null));
+        var gastoOutro = GastoSaude.Registrar(outro.Id, TipoGastoSaude.Farmacia, "Remédio", new DateOnly(2026, 3, 1), Dinheiro.De(20m, "BRL"));
+        repositorioGasto.Salvar(gastoOutro);
+
+        repositorioBem.Excluir(bem.Id);
+
+        repositorioBem.Listar().Select(b => b.Id).ShouldBe([outro.Id]);
+        repositorioGarantia.Listar().ShouldBeEmpty();
+        repositorioManutencao.Listar().ShouldBeEmpty();
+        repositorioAlerta.Listar().ShouldBeEmpty();
+        repositorioSaude.Listar().ShouldBeEmpty();
+        repositorioGasto.Listar().Select(g => g.Id).ShouldBe([gastoOutro.Id]);
+
+        repositorioGasto.Excluir(gastoOutro.Id);
+        repositorioGasto.Listar().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void DevePersistirMarcacaoDeAlertaAutomatico()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var repositorioBem = new RepositorioBemSqlite(banco.FabricaConexao);
+        var repositorioAlerta = new RepositorioAlertaSqlite(banco.FabricaConexao);
+        var bem = Bem.Criar(new NomeBem("Câmera"), TipoBem.Eletronico);
+        repositorioBem.Salvar(bem);
+        var automatico = Alerta.CriarAutomatico(bem.Id, TipoAlerta.ConvenioVencendo, SeveridadeAlerta.Aviso, "Convênio vence em 01/01/2027.", new DateOnly(2026, 12, 1), null);
+        var manual = Alerta.Criar(bem.Id, TipoAlerta.GarantiaVencendo, SeveridadeAlerta.Aviso, "Lembrete", new DateOnly(2026, 12, 1), null);
+        repositorioAlerta.Salvar(automatico);
+        repositorioAlerta.Salvar(manual);
+
+        repositorioAlerta.BuscarPorId(automatico.Id)!.Automatico.ShouldBeTrue();
+        repositorioAlerta.BuscarPorId(automatico.Id)!.Tipo.ShouldBe(TipoAlerta.ConvenioVencendo);
+        repositorioAlerta.BuscarPorId(manual.Id)!.Automatico.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void MigracaoV005DeveMarcarAlertasAutomaticosJaExistentes()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var bem = Bem.Criar(new NomeBem("Sofá"), TipoBem.Movel);
+        new RepositorioBemSqlite(banco.FabricaConexao).Salvar(bem);
+
+        using (var conexao = banco.FabricaConexao.Abrir())
+        {
+            using var comando = conexao.CreateCommand();
+            // Volta o banco ao estado anterior à V005 e insere alertas como as versões antigas gravavam.
+            comando.CommandText = $"""
+                ALTER TABLE alertas DROP COLUMN automatico;
+                DELETE FROM schema_migrations WHERE versao = 5;
+                INSERT INTO alertas (id, bem_id, tipo, severidade, mensagem, criado_em, prazo_em, status)
+                VALUES ('{Guid.NewGuid()}', '{bem.Id.Valor}', 'DOCUMENTO_AUSENTE', 'AVISO', 'Nota fiscal ausente.', '2026-01-01', NULL, 'ABERTO'),
+                       ('{Guid.NewGuid()}', '{bem.Id.Valor}', 'MANUTENCAO_ATRASADA', 'CRITICO', 'Manutenção atrasada desde 01/01/2026: Limpeza.', '2026-01-02', '2026-01-01', 'ABERTO'),
+                       ('{Guid.NewGuid()}', '{bem.Id.Valor}', 'GARANTIA_VENCENDO', 'AVISO', 'Lembrete criado à mão', '2026-01-01', NULL, 'ABERTO');
+                """;
+            comando.ExecuteNonQuery();
+        }
+
+        banco.Inicializar();
+
+        var alertas = new RepositorioAlertaSqlite(banco.FabricaConexao).Listar();
+        alertas.Count(a => a.Automatico).ShouldBe(2);
+        alertas.Single(a => !a.Automatico).Mensagem.ShouldBe("Lembrete criado à mão");
     }
 
     private static BancoDadosAssetly BancoTemporario()

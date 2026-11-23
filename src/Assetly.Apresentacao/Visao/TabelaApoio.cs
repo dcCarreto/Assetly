@@ -16,11 +16,37 @@ internal static class TabelaApoio
         grade.RowStyle = (Style)Application.Current.Resources["LinhaTabelaStyle"];
     }
 
+    /// <summary>
+    /// Troca as linhas da tabela preservando o que o usuário fez nela: seleção, ordenação por coluna e
+    /// posição de rolagem. Como a tela recarrega a cada ciclo de atualização, sem isso a ordenação se
+    /// perdia e a lista voltava ao topo a cada poucos segundos. Quando nada mudou, não toca na tabela.
+    /// </summary>
     internal static void RecarregarTabela<T>(DataGrid grade, IReadOnlyList<T> itens, Func<T, object> chave) where T : class
     {
+        if (grade.ItemsSource is IReadOnlyList<T> atuais && MesmoConteudo(atuais, itens))
+        {
+            return;
+        }
+
         var selecionado = grade.SelectedItem as T;
         var chaveSelecionada = selecionado is null ? null : chave(selecionado);
+        var ordenacoes = grade.Items.SortDescriptions.ToList();
+        var direcoes = grade.Columns.Select(coluna => coluna.SortDirection).ToList();
+        var rolagem = EncontrarDescendente<ScrollViewer>(grade);
+        var deslocamento = rolagem?.VerticalOffset ?? 0;
+
         grade.ItemsSource = itens;
+
+        foreach (var ordenacao in ordenacoes)
+        {
+            grade.Items.SortDescriptions.Add(ordenacao);
+        }
+
+        for (var i = 0; i < direcoes.Count && i < grade.Columns.Count; i++)
+        {
+            grade.Columns[i].SortDirection = direcoes[i];
+        }
+
         if (chaveSelecionada is not null)
         {
             var encontrado = itens.FirstOrDefault(item => Equals(chave(item), chaveSelecionada));
@@ -29,6 +55,51 @@ internal static class TabelaApoio
                 grade.SelectedItem = encontrado;
             }
         }
+
+        if (rolagem is not null && deslocamento > 0)
+        {
+            grade.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => rolagem.ScrollToVerticalOffset(deslocamento));
+        }
+    }
+
+    /// <summary>As linhas são records posicionais: o <c>ToString()</c> gerado lista todos os valores
+    /// exibidos (a entidade de origem aparece só pelo nome do tipo), então serve de assinatura barata
+    /// do conteúdo para detectar "nada mudou".</summary>
+    private static bool MesmoConteudo<T>(IReadOnlyList<T> atuais, IReadOnlyList<T> novos) where T : class
+    {
+        if (atuais.Count != novos.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < atuais.Count; i++)
+        {
+            if (!string.Equals(atuais[i].ToString(), novos[i].ToString(), StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static TDescendente? EncontrarDescendente<TDescendente>(DependencyObject origem) where TDescendente : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(origem); i++)
+        {
+            var filho = VisualTreeHelper.GetChild(origem, i);
+            if (filho is TDescendente encontrado)
+            {
+                return encontrado;
+            }
+
+            if (EncontrarDescendente<TDescendente>(filho) is { } profundo)
+            {
+                return profundo;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Coluna de texto — recorte com reticências e ToolTip com o valor completo em qualquer largura.</summary>
@@ -54,7 +125,7 @@ internal static class TabelaApoio
     }
 
     /// <summary>Coluna de dado monoespaçado alinhado à direita — datas e valores monetários.</summary>
-    internal static DataGridTemplateColumn ColunaTextoMono(string titulo, string caminho, DataGridLength largura)
+    internal static DataGridTemplateColumn ColunaTextoMono(string titulo, string caminho, DataGridLength largura, string? ordenarPor = null)
     {
         var fabricaTexto = new FrameworkElementFactory(typeof(TextBlock));
         fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["CelulaMonoStyle"]);
@@ -65,11 +136,13 @@ internal static class TabelaApoio
         {
             Header = titulo,
             CellTemplate = new DataTemplate { VisualTree = fabricaTexto },
+            ClipboardContentBinding = new Binding(caminho),
+            SortMemberPath = ordenarPor ?? caminho,
             Width = largura
         };
     }
 
-    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse, DataGridLength largura)
+    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse, DataGridLength largura, string? ordenarPor = null)
     {
         var fabricaBorda = new FrameworkElementFactory(typeof(Border));
         fabricaBorda.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeStyle"]);
@@ -86,6 +159,8 @@ internal static class TabelaApoio
         {
             Header = titulo,
             CellTemplate = new DataTemplate { VisualTree = fabricaBorda },
+            ClipboardContentBinding = new Binding(caminhoTexto),
+            SortMemberPath = ordenarPor ?? caminhoTexto,
             Width = largura
         };
     }
@@ -117,6 +192,8 @@ internal static class TabelaApoio
         {
             Header = titulo,
             CellTemplate = new DataTemplate { VisualTree = fabricaTexto },
+            ClipboardContentBinding = new Binding(caminho),
+            SortMemberPath = caminho,
             Width = largura
         };
     }

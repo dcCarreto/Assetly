@@ -39,6 +39,7 @@ public sealed class RegistrarDocumento
             new CaminhoDocumentoLocal(caminhoArmazenado),
             comando.RegistradoEm);
 
+        documento.VincularNotaEletronica(string.IsNullOrWhiteSpace(comando.ChaveAcesso) ? null : ChaveAcessoNfe.Criar(comando.ChaveAcesso), comando.UrlConsulta);
         _repositorioDocumento.Salvar(documento);
         return documento;
     }

@@ -12,6 +12,12 @@ public sealed class Documento
     public DateOnly RegistradoEm { get; private set; }
     public StatusDocumento Status { get; private set; }
 
+    /// <summary>Chave de acesso (44 dígitos) quando o documento é uma nota fiscal eletrônica.</summary>
+    public string ChaveAcesso { get; private set; } = string.Empty;
+
+    /// <summary>Endereço de consulta da nota na Sefaz (lido do QR Code), quando houver.</summary>
+    public string UrlConsulta { get; private set; } = string.Empty;
+
     private Documento(
         DocumentoId id,
         BemId bemId,
@@ -44,11 +50,15 @@ public sealed class Documento
         NomeDocumento nome,
         CaminhoDocumentoLocal caminhoLocal,
         DateOnly registradoEm,
-        StatusDocumento status)
+        StatusDocumento status,
+        string? chaveAcesso = null,
+        string? urlConsulta = null)
     {
         var documento = new Documento(id, bemId, tipo, nome, caminhoLocal, registradoEm)
         {
-            Status = status
+            Status = status,
+            ChaveAcesso = chaveAcesso ?? string.Empty,
+            UrlConsulta = urlConsulta ?? string.Empty
         };
         return documento;
     }
@@ -68,6 +78,31 @@ public sealed class Documento
         CaminhoLocal = caminhoLocal ?? throw new ArgumentNullException(nameof(caminhoLocal), "caminho do documento é obrigatório");
         RegistradoEm = registradoEm;
         Status = StatusDocumento.Disponivel;
+    }
+
+    /// <summary>Associa (ou remove, com nulo) a chave de acesso e o link de consulta de uma nota eletrônica.</summary>
+    public void VincularNotaEletronica(ChaveAcessoNfe? chave, string? urlConsulta)
+    {
+        ChaveAcesso = chave?.Valor ?? string.Empty;
+        var url = (urlConsulta ?? string.Empty).Trim();
+        if (url.Length > 0 && !(url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException("o link de consulta da nota deve começar com http:// ou https://");
+        }
+
+        UrlConsulta = chave is null ? string.Empty : url;
+    }
+
+    public void AlterarDataRegistro(DateOnly registradoEm)
+    {
+        RegistradoEm = registradoEm;
+    }
+
+    /// <summary>Atualiza só o caminho do arquivo (mesmo arquivo, outro local — ex.: após restaurar um
+    /// backup em outro perfil de usuário), sem mexer em status nem data de registro.</summary>
+    public void RelocalizarArquivo(CaminhoDocumentoLocal caminhoLocal)
+    {
+        CaminhoLocal = caminhoLocal ?? throw new ArgumentNullException(nameof(caminhoLocal), "caminho do documento é obrigatório");
     }
 
     public void MarcarAusente()

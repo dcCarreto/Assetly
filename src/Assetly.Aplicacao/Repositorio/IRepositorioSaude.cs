@@ -12,4 +12,6 @@ public interface IRepositorioSaude
     IReadOnlyList<Saude> ListarPorBem(BemId bemId);
 
     void Salvar(Saude saude);
+
+    void Excluir(SaudeId id);
 }

@@ -14,6 +14,11 @@ public sealed class Alerta
     public DateOnly? PrazoEm { get; }
     public StatusAlerta Status { get; private set; }
 
+    /// <summary>Verdadeiro para alertas gerados por <c>GerarAlertasAutomaticos</c>: só estes são
+    /// resolvidos automaticamente quando a condição que os originou deixa de existir. Alertas
+    /// criados manualmente pelo usuário nunca são tocados pelo gerador.</summary>
+    public bool Automatico { get; }
+
     private Alerta(
         AlertaId id,
         BemId bemId,
@@ -21,7 +26,8 @@ public sealed class Alerta
         SeveridadeAlerta severidade,
         string? mensagem,
         DateOnly criadoEm,
-        DateOnly? prazoEm)
+        DateOnly? prazoEm,
+        bool automatico)
     {
         Id = id;
         BemId = bemId;
@@ -30,6 +36,7 @@ public sealed class Alerta
         Mensagem = Validacao.ExigirTexto(mensagem, "mensagem do alerta", 240);
         CriadoEm = criadoEm;
         PrazoEm = prazoEm;
+        Automatico = automatico;
         Status = StatusAlerta.Aberto;
     }
 
@@ -40,7 +47,16 @@ public sealed class Alerta
         string? mensagem,
         DateOnly criadoEm,
         DateOnly? prazoEm) =>
-        new(AlertaId.Novo(), bemId, tipo, severidade, mensagem, criadoEm, prazoEm);
+        new(AlertaId.Novo(), bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico: false);
+
+    public static Alerta CriarAutomatico(
+        BemId bemId,
+        TipoAlerta tipo,
+        SeveridadeAlerta severidade,
+        string? mensagem,
+        DateOnly criadoEm,
+        DateOnly? prazoEm) =>
+        new(AlertaId.Novo(), bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico: true);
 
     public static Alerta Restaurar(
         AlertaId id,
@@ -50,9 +66,10 @@ public sealed class Alerta
         string? mensagem,
         DateOnly criadoEm,
         DateOnly? prazoEm,
-        StatusAlerta status)
+        StatusAlerta status,
+        bool automatico = false)
     {
-        var alerta = new Alerta(id, bemId, tipo, severidade, mensagem, criadoEm, prazoEm)
+        var alerta = new Alerta(id, bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico)
         {
             Status = status
         };
@@ -74,5 +91,11 @@ public sealed class Alerta
     public void Resolver()
     {
         Status = StatusAlerta.Resolvido;
+    }
+
+    /// <summary>Devolve um alerta resolvido para a lista de pendências (ex.: resolvido por engano).</summary>
+    public void Reabrir()
+    {
+        Status = StatusAlerta.Aberto;
     }
 }

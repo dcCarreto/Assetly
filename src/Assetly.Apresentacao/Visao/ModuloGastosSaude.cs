@@ -1,0 +1,164 @@
+using System.Windows;
+using System.Windows.Controls;
+using Assetly.Aplicacao.Dados;
+using Assetly.Dominio.Saude;
+using static Assetly.Apresentacao.Visao.AcoesApoio;
+using static Assetly.Apresentacao.Visao.ContextoApoio;
+using static Assetly.Apresentacao.Visao.DialogoApoio;
+using static Assetly.Apresentacao.Visao.LayoutApoio;
+
+namespace Assetly.Apresentacao.Visao;
+
+internal sealed class ModuloGastosSaude : IModulo
+{
+    private readonly ContextoAplicacao _contexto;
+    private readonly DataGrid _tabela = new();
+    private readonly FiltroTabela<GastoSaudeLinha> _filtro;
+    private readonly TextBlock _resumoEsquerda = new();
+    private readonly TextBlock _resumoDireita = new();
+    private int _contador;
+
+    public string Titulo => "Gastos de saúde";
+    public string Descricao => "Farmácia e despesas";
+    public bool ComContador => true;
+    public UIElement Conteudo { get; }
+    public int Contador => _contador;
+
+    internal ModuloGastosSaude(ContextoAplicacao contexto)
+    {
+        _contexto = contexto;
+        ConfigurarTabela();
+
+        var (direita, busca) = CabecalhoBuscaCriacao("Buscar por titular, tipo ou descrição", "Novo gasto", () => AbrirDialogoGastoSaude(null));
+
+        _filtro = new FiltroTabela<GastoSaudeLinha>(_tabela, l => l.Id, l => $"{l.Bem} {l.Tipo} {l.Descricao}",
+        [
+            new("Todos", _ => true),
+            new("Este ano", l => l.Origem.Data.Year == Hoje().Year),
+            new("Farmácia", l => l.Origem.Tipo == TipoGastoSaude.Farmacia),
+            new("Consultas", l => l.Origem.Tipo == TipoGastoSaude.Consulta),
+            new("Exames", l => l.Origem.Tipo == TipoGastoSaude.Exame),
+            new("Procedimentos", l => l.Origem.Tipo == TipoGastoSaude.Procedimento)
+        ]);
+        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+
+        var contextual = BarraContextual(_tabela,
+        [
+            ("Editar", () => AbrirDialogoGastoSaude(SelecionadoAtual().Origem))
+        ],
+        [
+            ("Excluir", () => ExcluirGasto(SelecionadoAtual()))
+        ]);
+
+        Conteudo = TelaComTabela("Gastos de saúde", "Farmácia, consultas, exames e demais despesas.", direita,
+            _filtro.Barra, _tabela, contextual, BarraResumoTabela(_resumoEsquerda, _resumoDireita));
+
+        ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoGastoSaude(null),
+            () => AbrirDialogoGastoSaude(SelecionadoAtual().Origem), () => ExcluirGasto(SelecionadoAtual()));
+    }
+
+    public void Atualizar()
+    {
+        var gastos = _contexto.ListarGastosSaude().Executar();
+        _contador = gastos.Count;
+        _filtro.AtualizarDados(ConstruirLinhas(gastos));
+    }
+
+    private GastoSaudeLinha SelecionadoAtual() => Selecionado<GastoSaudeLinha>(_tabela, "Selecione um gasto.");
+
+    private void ConfigurarTabela()
+    {
+        TabelaApoio.AplicarEstiloBase(_tabela);
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Titular", nameof(GastoSaudeLinha.Bem), Estrela(1.3), estiloBase: "CelulaDestaqueStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Tipo", nameof(GastoSaudeLinha.Tipo), new DataGridLength(140)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Descrição", nameof(GastoSaudeLinha.Descricao), Estrela(2.2), estiloBase: "CelulaSecundariaStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Data", nameof(GastoSaudeLinha.Data), new DataGridLength(104), nameof(GastoSaudeLinha.DataOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Valor", nameof(GastoSaudeLinha.Valor), new DataGridLength(132), nameof(GastoSaudeLinha.ValorOrdenacao)));
+        TabelaApoio.ConfigurarLinhas<GastoSaudeLinha>(_tabela, _ => "linha-neutra", MenuContexto, gasto => AbrirDialogoGastoSaude(gasto.Origem));
+    }
+
+    private IReadOnlyList<GastoSaudeLinha> ConstruirLinhas(IReadOnlyList<GastoSaude> gastos)
+    {
+        var nomeBem = NomesBens(_contexto);
+        var anoAtual = Hoje().Year;
+        var doAno = gastos.Where(g => g.Data.Year == anoAtual).ToList();
+        _resumoEsquerda.Text = $"{gastos.Count} gastos · {doAno.Count} em {anoAtual} ({Formatador.Total(doAno.Select(g => (Dominio.Compartilhado.Dinheiro?)g.Valor))})";
+        _resumoDireita.Text = $"Total geral {Formatador.Total(gastos.Select(g => (Dominio.Compartilhado.Dinheiro?)g.Valor))}";
+
+        return gastos.Select(g => new GastoSaudeLinha(
+            g.Id,
+            nomeBem(g.BemId),
+            Formatador.TextoEnum(g.Tipo),
+            g.Descricao,
+            Formatador.Data(g.Data),
+            Formatador.Dinheiro(g.Valor),
+            g)).ToList();
+    }
+
+    private ContextMenu MenuContexto(GastoSaudeLinha linha)
+    {
+        var menu = new ContextMenu();
+        var editar = new MenuItem { Header = "Editar" };
+        editar.Click += (_, _) => ExecutarComTratamento(() => AbrirDialogoGastoSaude(linha.Origem));
+        var excluir = new MenuItem { Header = "Excluir…" };
+        excluir.Click += (_, _) => ExecutarComTratamento(() => ExcluirGasto(linha));
+        menu.Items.Add(editar);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(excluir);
+        return menu;
+    }
+
+    private void AbrirDialogoGastoSaude(GastoSaude? gasto)
+    {
+        var bemSelecionado = gasto is null ? null : _contexto.BuscarBem().Executar(gasto.BemId);
+        var bem = ComboBens(_contexto, bemSelecionado);
+        bem.IsEnabled = gasto is null;
+        var tipo = Combo(gasto?.Tipo ?? TipoGastoSaude.Farmacia);
+        var descricao = CampoTexto("Descrição", gasto?.Descricao ?? string.Empty);
+        var data = DataPicker(gasto?.Data ?? Hoje());
+        var valor = CampoTexto("Valor (ex.: 89,90)", TextoValor(gasto?.Valor.Valor));
+        var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", gasto?.Valor.CodigoMoeda ?? "BRL");
+        var grade = GradeFormulario();
+        AdicionarCampo(grade, 0, 0, "Titular *", bem);
+        AdicionarCampo(grade, 0, 1, "Tipo *", tipo);
+        AdicionarCampo(grade, 1, 0, "Descrição *", descricao, ocupaLinhaToda: true);
+        AdicionarCampo(grade, 2, 0, "Data *", data);
+        AdicionarCampo(grade, 2, 1, "Valor *", valor);
+        AdicionarCampo(grade, 3, 0, "Moeda *", moeda);
+
+        var salvou = MostrarFormulario(gasto is null ? "Novo gasto" : "Editar gasto", grade, () =>
+        {
+            var dataValor = DataObrigatoria(data, "do gasto");
+            var valorDecimal = DecimalOpcional(valor.Text) ?? throw new ArgumentException("valor do gasto é obrigatório");
+            var codigoMoeda = TextoOpcional(moeda.Text) ?? throw new ArgumentException("moeda do gasto é obrigatória");
+            if (gasto is null)
+            {
+                _contexto.RegistrarGastoSaude().Executar(new RegistrarGastoSaudeComando(
+                    ExigirBemSelecionado(bem).Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda));
+            }
+            else
+            {
+                _contexto.EditarGastoSaude().Executar(new EditarGastoSaudeComando(
+                    gasto.Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda));
+            }
+        });
+
+        if (salvou)
+        {
+            _contexto.NotificarAlteracao();
+        }
+    }
+
+    private void ExcluirGasto(GastoSaudeLinha linha)
+    {
+        if (!MostrarConfirmacao("Excluir gasto",
+                $"O gasto \"{linha.Descricao}\" ({linha.Valor}, {linha.Data}) será excluído permanentemente. Deseja continuar?",
+                "Excluir"))
+        {
+            return;
+        }
+
+        _contexto.ExcluirGastoSaude().Executar(linha.Id);
+        _contexto.NotificarAlteracao();
+    }
+}

@@ -2,6 +2,7 @@ using Assetly.Aplicacao.CasoDeUso;
 using Assetly.Aplicacao.Dados;
 using Assetly.Aplicacao.Excecao;
 using Assetly.Aplicacao.Repositorio;
+using Assetly.Aplicacao.Servico;
 using Assetly.Dominio.Alerta;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
@@ -209,98 +210,221 @@ public class CasosUsoAplicacaoTests
         new ListarGastosSaude(repositorioGastoSaude).Executar().ShouldBe([editado]);
     }
 
-    private sealed class RepositorioBemMemoria : IRepositorioBem
+    [Fact]
+    public void DeveResolverAutomaticamenteAlertasCujaCondicaoDeixouDeExistirSemTocarAlertasManuais()
     {
-        private readonly Dictionary<BemId, Bem> _dados = new();
+        var hoje = new DateOnly(2026, 7, 7);
+        var (repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta) = Repositorios();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Câmera", TipoBem.Eletronico, null, null, null, null));
+        var garantia = new RegistrarGarantia(repositorioBem, repositorioGarantia).Executar(new RegistrarGarantiaComando(
+            bem.Id, TipoGarantia.Fabricante, "Loja", hoje.AddYears(-1), hoje.AddDays(10), null));
+        var manutencao = new AgendarManutencao(repositorioBem, repositorioManutencao).Executar(new AgendarManutencaoComando(
+            bem.Id, TipoManutencao.Corretiva, "Trocar lente", hoje.AddDays(-2)));
+        var manual = new CriarAlerta(repositorioBem, repositorioAlerta).Executar(new CriarAlertaComando(
+            bem.Id, TipoAlerta.GarantiaVencendo, SeveridadeAlerta.Aviso, "Lembrete pessoal", hoje, null));
+        var gerador = new GerarAlertasAutomaticos(repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta);
 
-        public Bem? BuscarPorId(BemId id) => _dados.GetValueOrDefault(id);
+        gerador.Executar(hoje).Count.ShouldBe(3);
 
-        public IReadOnlyList<Bem> Listar() => _dados.Values.ToList();
+        new RegistrarDocumento(repositorioBem, repositorioDocumento).Executar(new RegistrarDocumentoComando(
+            bem.Id, TipoDocumento.NotaFiscal, "Nota", "nota.pdf", hoje));
+        new EditarGarantia(repositorioGarantia).Executar(new EditarGarantiaComando(
+            garantia.Id, TipoGarantia.Fabricante, "Loja", hoje.AddYears(-1), hoje.AddYears(1), null));
+        new ConcluirManutencao(repositorioManutencao).Executar(new ConcluirManutencaoComando(manutencao.Id, hoje, null, null));
+        gerador.Executar(hoje).ShouldBeEmpty();
 
-        public void Salvar(Bem bem) => _dados[bem.Id] = bem;
+        repositorioAlerta.Listar().Where(a => a.Automatico).ShouldAllBe(a => a.Status == StatusAlerta.Resolvido);
+        manual.Status.ShouldBe(StatusAlerta.Aberto);
     }
 
-    private sealed class RepositorioGarantiaMemoria : IRepositorioGarantia
+    [Fact]
+    public void DeveIgnorarEResolverAlertasDeBensArquivadosOuDescartados()
     {
-        private readonly Dictionary<GarantiaId, Garantia> _dados = new();
+        var hoje = new DateOnly(2026, 7, 7);
+        var (repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta) = Repositorios();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Impressora", TipoBem.Eletronico, null, null, null, null));
+        new RegistrarGarantia(repositorioBem, repositorioGarantia).Executar(new RegistrarGarantiaComando(
+            bem.Id, TipoGarantia.Fabricante, "Loja", hoje.AddYears(-2), hoje.AddDays(-1), null));
+        var gerador = new GerarAlertasAutomaticos(repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta);
+        gerador.Executar(hoje).Count.ShouldBe(2);
 
-        public Garantia? BuscarPorId(GarantiaId id) => _dados.GetValueOrDefault(id);
+        new AlterarStatusBem(repositorioBem).Executar(new AlterarStatusBemComando(bem.Id, StatusBem.Descartado));
+        gerador.Executar(hoje).ShouldBeEmpty();
 
-        public IReadOnlyList<Garantia> Listar() => _dados.Values.ToList();
-
-        public IReadOnlyList<Garantia> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(g => g.BemId.Equals(bemId)).ToList();
-
-        public void Salvar(Garantia garantia) => _dados[garantia.Id] = garantia;
+        repositorioAlerta.Listar().ShouldAllBe(a => a.Status == StatusAlerta.Resolvido);
     }
 
-    private sealed class RepositorioManutencaoMemoria : IRepositorioManutencao
+    [Fact]
+    public void DeveGerarAlertasDeConvenioVencendoEVencido()
     {
-        private readonly Dictionary<ManutencaoId, Manutencao> _dados = new();
+        var hoje = new DateOnly(2026, 7, 7);
+        var (repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta) = Repositorios();
+        var repositorioSaude = new RepositorioSaudeMemoria();
+        // Pessoa (titular) não exige nota fiscal: só os dois alertas de convênio devem surgir.
+        var titular = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Titular", TipoBem.Pessoa, null, null, null, null));
+        new RegistrarSaude(repositorioBem, repositorioSaude).Executar(new RegistrarSaudeComando(
+            titular.Id, TipoSaude.Convenio, "Amil", hoje.AddYears(-1), hoje.AddDays(15), null));
+        new RegistrarSaude(repositorioBem, repositorioSaude).Executar(new RegistrarSaudeComando(
+            titular.Id, TipoSaude.Ortodontia, "OdontoPrev", hoje.AddYears(-1), hoje.AddDays(-3), null));
+        var cancelado = new RegistrarSaude(repositorioBem, repositorioSaude).Executar(new RegistrarSaudeComando(
+            titular.Id, TipoSaude.Farmacia, "Drogaria", hoje.AddYears(-1), hoje.AddDays(-3), null));
+        new CancelarSaude(repositorioSaude).Executar(cancelado.Id, hoje.AddDays(-10));
 
-        public Manutencao? BuscarPorId(ManutencaoId id) => _dados.GetValueOrDefault(id);
+        var gerados = new GerarAlertasAutomaticos(repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta, repositorioSaude)
+            .Executar(hoje);
 
-        public IReadOnlyList<Manutencao> Listar() => _dados.Values.ToList();
-
-        public IReadOnlyList<Manutencao> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(m => m.BemId.Equals(bemId)).ToList();
-
-        public void Salvar(Manutencao manutencao) => _dados[manutencao.Id] = manutencao;
+        gerados.Select(a => a.Tipo).ShouldBe([TipoAlerta.ConvenioVencendo, TipoAlerta.ConvenioVencido], ignoreOrder: true);
+        gerados.Single(a => a.Tipo == TipoAlerta.ConvenioVencido).Mensagem.ShouldContain("OdontoPrev");
     }
 
-    private sealed class RepositorioDocumentoMemoria : IRepositorioDocumento
+    [Fact]
+    public void DeveEditarDocumentoSemExigirOArquivoQuandoOCaminhoNaoMuda()
     {
-        private readonly Dictionary<DocumentoId, Documento> _dados = new();
+        var (repositorioBem, _, _, repositorioDocumento, _) = Repositorios();
+        var armazenamento = new ArmazenamentoFalso();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Sofá", TipoBem.Movel, null, null, null, null));
+        var documento = new RegistrarDocumento(repositorioBem, repositorioDocumento, armazenamento).Executar(new RegistrarDocumentoComando(
+            bem.Id, TipoDocumento.Recibo, "Recibo", "origem/recibo.pdf", new DateOnly(2026, 1, 1)));
+        new MarcarDocumentoAusente(repositorioDocumento).Executar(documento.Id);
 
-        public Documento? BuscarPorId(DocumentoId id) => _dados.GetValueOrDefault(id);
+        new EditarDocumento(repositorioDocumento, armazenamento).Executar(new EditarDocumentoComando(
+            documento.Id, TipoDocumento.NotaFiscal, "Nota fiscal do sofá", documento.CaminhoLocal.Valor, new DateOnly(2026, 2, 1)));
 
-        public IReadOnlyList<Documento> Listar() => _dados.Values.ToList();
+        armazenamento.Armazenados.Count.ShouldBe(1);
+        documento.Status.ShouldBe(StatusDocumento.Ausente);
+        documento.Nome.Valor.ShouldBe("Nota fiscal do sofá");
+        documento.RegistradoEm.ShouldBe(new DateOnly(2026, 2, 1));
 
-        public IReadOnlyList<Documento> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(d => d.BemId.Equals(bemId)).ToList();
+        new EditarDocumento(repositorioDocumento, armazenamento).Executar(new EditarDocumentoComando(
+            documento.Id, TipoDocumento.NotaFiscal, "Nota fiscal do sofá", "origem/nova.pdf", new DateOnly(2026, 2, 1)));
 
-        public void Salvar(Documento documento) => _dados[documento.Id] = documento;
+        armazenamento.Armazenados.Count.ShouldBe(2);
+        documento.Status.ShouldBe(StatusDocumento.Disponivel);
     }
 
-    private sealed class RepositorioAlertaMemoria : IRepositorioAlerta
+    [Fact]
+    public void DeveExcluirRegistrosERemoverArquivosSemReferencia()
     {
-        private readonly Dictionary<AlertaId, Alerta> _dados = new();
+        var (repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta) = Repositorios();
+        var armazenamento = new ArmazenamentoFalso();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Notebook", TipoBem.Eletronico, null, null, null, null));
+        var outroBem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Monitor", TipoBem.Eletronico, null, null, null, null));
+        var garantia = new RegistrarGarantia(repositorioBem, repositorioGarantia).Executar(new RegistrarGarantiaComando(
+            bem.Id, TipoGarantia.Loja, "Loja", new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1), null));
+        var manutencao = new AgendarManutencao(repositorioBem, repositorioManutencao).Executar(new AgendarManutencaoComando(
+            bem.Id, TipoManutencao.Limpeza, "Limpeza", new DateOnly(2026, 8, 1)));
+        var alerta = new CriarAlerta(repositorioBem, repositorioAlerta).Executar(new CriarAlertaComando(
+            bem.Id, TipoAlerta.ManutencaoProxima, SeveridadeAlerta.Informativo, "Teste", new DateOnly(2026, 7, 1), null));
+        var compartilhado = new RegistrarDocumento(repositorioBem, repositorioDocumento, armazenamento).Executar(new RegistrarDocumentoComando(
+            bem.Id, TipoDocumento.NotaFiscal, "Nota", "origem/nota.pdf", new DateOnly(2026, 1, 1)));
+        var copia = new RegistrarDocumento(repositorioBem, repositorioDocumento).Executar(new RegistrarDocumentoComando(
+            outroBem.Id, TipoDocumento.NotaFiscal, "Mesma nota", compartilhado.CaminhoLocal.Valor, new DateOnly(2026, 1, 1)));
 
-        public Alerta? BuscarPorId(AlertaId id) => _dados.GetValueOrDefault(id);
+        new ExcluirGarantia(repositorioGarantia).Executar(garantia.Id);
+        new ExcluirManutencao(repositorioManutencao).Executar(manutencao.Id);
+        new ExcluirAlerta(repositorioAlerta).Executar(alerta.Id);
+        new ExcluirBem(repositorioBem, repositorioDocumento, armazenamento).Executar(bem.Id);
 
-        public IReadOnlyList<Alerta> Listar() => _dados.Values.ToList();
+        repositorioGarantia.Listar().ShouldBeEmpty();
+        repositorioManutencao.Listar().ShouldBeEmpty();
+        repositorioAlerta.Listar().ShouldBeEmpty();
+        repositorioBem.Listar().ShouldBe([outroBem]);
+        armazenamento.Removidos.ShouldBeEmpty();
 
-        public IReadOnlyList<Alerta> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(a => a.BemId.Equals(bemId)).ToList();
-
-        public void Salvar(Alerta alerta) => _dados[alerta.Id] = alerta;
+        new ExcluirDocumento(repositorioDocumento, armazenamento).Executar(copia.Id);
+        armazenamento.Removidos.ShouldBe([compartilhado.CaminhoLocal.Valor]);
+        Should.Throw<RecursoNaoEncontradoExcecao>(() => new ExcluirDocumento(repositorioDocumento, armazenamento).Executar(copia.Id));
     }
 
-    private sealed class RepositorioSaudeMemoria : IRepositorioSaude
+    [Fact]
+    public void DeveReabrirAlertaResolvidoEEditarManutencaoConcluidaSemReagendar()
     {
-        private readonly Dictionary<SaudeId, Saude> _dados = new();
+        var (repositorioBem, _, repositorioManutencao, _, repositorioAlerta) = Repositorios();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando("Bicicleta", TipoBem.Veiculo, null, null, null, null));
+        var alerta = new CriarAlerta(repositorioBem, repositorioAlerta).Executar(new CriarAlertaComando(
+            bem.Id, TipoAlerta.ManutencaoProxima, SeveridadeAlerta.Informativo, "Revisão", new DateOnly(2026, 7, 1), null));
+        new ResolverAlerta(repositorioAlerta).Executar(alerta.Id);
+        new ReabrirAlerta(repositorioAlerta).Executar(alerta.Id).Status.ShouldBe(StatusAlerta.Aberto);
 
-        public Saude? BuscarPorId(SaudeId id) => _dados.GetValueOrDefault(id);
+        var manutencao = new AgendarManutencao(repositorioBem, repositorioManutencao).Executar(new AgendarManutencaoComando(
+            bem.Id, TipoManutencao.Inspecao, "Revisão", new DateOnly(2026, 6, 1)));
+        new ConcluirManutencao(repositorioManutencao).Executar(new ConcluirManutencaoComando(manutencao.Id, new DateOnly(2026, 6, 2), 120m, "BRL"));
 
-        public IReadOnlyList<Saude> Listar() => _dados.Values.ToList();
+        new EditarManutencao(repositorioManutencao).Executar(new EditarManutencaoComando(
+            manutencao.Id, TipoManutencao.Preventiva, "Revisão completa", new DateOnly(2026, 6, 1)));
 
-        public IReadOnlyList<Saude> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(s => s.BemId.Equals(bemId)).ToList();
-
-        public void Salvar(Saude saude) => _dados[saude.Id] = saude;
+        manutencao.Descricao.ShouldBe("Revisão completa");
+        manutencao.Status.ShouldBe(StatusManutencao.Concluida);
+        Should.Throw<InvalidOperationException>(() => new EditarManutencao(repositorioManutencao).Executar(new EditarManutencaoComando(
+            manutencao.Id, TipoManutencao.Preventiva, "Revisão completa", new DateOnly(2026, 6, 20))));
     }
 
-    private sealed class RepositorioGastoSaudeMemoria : IRepositorioGastoSaude
+    [Fact]
+    public void DeveAceitarPrecoSemDataELimparCompraNaEdicao()
     {
-        private readonly Dictionary<GastoSaudeId, GastoSaude> _dados = new();
+        var repositorioBem = new RepositorioBemMemoria();
+        var bem = new CadastrarBem(repositorioBem).Executar(new CadastrarBemComando(
+            "Relógio herdado", TipoBem.Outro, null, 900m, "BRL", null));
+        bem.CompradoEm.ShouldBeNull();
+        bem.PrecoCompra!.Valor.ShouldBe(900m);
 
-        public GastoSaude? BuscarPorId(GastoSaudeId id) => _dados.GetValueOrDefault(id);
+        new EditarBem(repositorioBem).Executar(new EditarBemComando(bem.Id, "Relógio herdado", TipoBem.Outro, new DateOnly(2020, 5, 1), 900m, "BRL", null));
+        bem.CompradoEm.ShouldBe(new DateOnly(2020, 5, 1));
 
-        public IReadOnlyList<GastoSaude> Listar() => _dados.Values.ToList();
+        new EditarBem(repositorioBem).Executar(new EditarBemComando(bem.Id, "Relógio herdado", TipoBem.Outro, null, null, null, null));
+        bem.CompradoEm.ShouldBeNull();
+        bem.PrecoCompra.ShouldBeNull();
 
-        public IReadOnlyList<GastoSaude> ListarPorBem(BemId bemId) =>
-            _dados.Values.Where(g => g.BemId.Equals(bemId)).ToList();
+        Should.Throw<ArgumentException>(() => new EditarBem(repositorioBem).Executar(new EditarBemComando(
+            bem.Id, "Relógio herdado", TipoBem.Outro, DateOnly.FromDateTime(DateTime.Now).AddDays(5), null, null, null)));
+    }
 
-        public void Salvar(GastoSaude gastoSaude) => _dados[gastoSaude.Id] = gastoSaude;
+    [Theory]
+    [InlineData("1234,56", 1234.56)]
+    [InlineData("1.234,56", 1234.56)]
+    [InlineData("1,234.56", 1234.56)]
+    [InlineData("R$ 89,90", 89.90)]
+    [InlineData("89.90", 89.90)]
+    [InlineData("1.234", 1234)]
+    [InlineData("1.234.567", 1234567)]
+    [InlineData("1.234.567,8", 1234567.8)]
+    [InlineData("0,5", 0.5)]
+    [InlineData("150", 150)]
+    public void DeveInterpretarValoresMonetariosNosFormatosBrasileiroEInternacional(string texto, double esperado)
+    {
+        ValorMonetario.InterpretarOpcional(texto).ShouldBe((decimal)esperado);
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("1-2")]
+    public void DeveRejeitarValoresMonetariosInvalidos(string texto)
+    {
+        Should.Throw<ArgumentException>(() => ValorMonetario.InterpretarOpcional(texto));
+    }
+
+    [Fact]
+    public void ValorMonetarioVazioEhNulo()
+    {
+        ValorMonetario.InterpretarOpcional("  ").ShouldBeNull();
+    }
+
+    private static (RepositorioBemMemoria, RepositorioGarantiaMemoria, RepositorioManutencaoMemoria, RepositorioDocumentoMemoria, RepositorioAlertaMemoria) Repositorios() =>
+        (new RepositorioBemMemoria(), new RepositorioGarantiaMemoria(), new RepositorioManutencaoMemoria(), new RepositorioDocumentoMemoria(), new RepositorioAlertaMemoria());
+
+    private sealed class ArmazenamentoFalso : IArmazenamentoDocumento
+    {
+        internal List<string> Armazenados { get; } = [];
+
+        internal List<string> Removidos { get; } = [];
+
+        public string Armazenar(string arquivoOrigem)
+        {
+            var destino = $"armazenado/{Armazenados.Count}-{Path.GetFileName(arquivoOrigem)}";
+            Armazenados.Add(destino);
+            return destino;
+        }
+
+        public void Remover(string caminhoArmazenado) => Removidos.Add(caminhoArmazenado);
     }
 }

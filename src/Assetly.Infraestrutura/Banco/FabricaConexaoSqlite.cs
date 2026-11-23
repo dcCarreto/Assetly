@@ -4,12 +4,17 @@ namespace Assetly.Infraestrutura.Banco;
 
 public sealed class FabricaConexaoSqlite
 {
+    private readonly string _textoConexao;
+
     public string ArquivoBanco { get; }
 
     public FabricaConexaoSqlite(string arquivoBanco)
     {
         ArgumentNullException.ThrowIfNull(arquivoBanco);
         ArquivoBanco = Path.GetFullPath(arquivoBanco);
+        // Construído pelo builder (e não por interpolação) para que caminhos com ';' ou '=' — possíveis
+        // em nomes de usuário/pastas do Windows — não quebrem a string de conexão.
+        _textoConexao = new SqliteConnectionStringBuilder { DataSource = ArquivoBanco }.ToString();
     }
 
     public SqliteConnection Abrir()
@@ -22,7 +27,7 @@ public sealed class FabricaConexaoSqlite
                 Directory.CreateDirectory(diretorio);
             }
 
-            var conexao = new SqliteConnection($"Data Source={ArquivoBanco}");
+            var conexao = new SqliteConnection(_textoConexao);
             conexao.Open();
             Configurar(conexao);
             return conexao;

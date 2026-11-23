@@ -7,11 +7,17 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Banco\Migracoes\V001__estrutura_inicial.sql" />
-    <EmbeddedResource Include="Banco\Migracoes\V002__saude.sql" />
+    <!-- Todas as migrações SQL são embutidas; a ordem e o registro ficam em MigradorBancoDados. -->
+    <EmbeddedResource Include="Banco\Migracoes\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Assetly.Testes" />
   </ItemGroup>
 
   <PropertyGroup>

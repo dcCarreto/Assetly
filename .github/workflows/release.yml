@@ -1,0 +1,226 @@
+# Publica uma versão nova do Assetly.
+#
+# O Assetly não usa número de versão: cada release é identificada pela DATA em que foi publicada
+# (AAAA.MM.DD, horário de Brasília). Se sair mais de uma no mesmo dia, ganha um sequencial: AAAA.MM.DD.2.
+#
+# Como lançar (qualquer uma das formas):
+#   • GitHub → Actions → "Release" → "Run workflow" (escolha o branch). A data e o sequencial são calculados.
+#   • Linha de comando:  gh workflow run release.yml --ref <branch>
+#   • Enviando uma tag com a data de hoje:  git tag 2026.11.23 && git push origin 2026.11.23
+#
+# Antes de publicar, o workflow verifica tudo automaticamente e cancela a release se algo falhar:
+#   1. testes automatizados (dotnet test);
+#   2. compilação autocontida (não exige .NET instalado) com a versão da data gravada no executável;
+#   3. autoteste do executável publicado (Assetly.exe --autoteste): banco novo + migrações, dados
+#      fictícios, todas as telas e formulários desenhados, exportação, patrimônio e backup criptografado;
+#   4. instalador Inno Setup; instalação silenciosa, autoteste do programa INSTALADO e desinstalação;
+#   5. SHA-256 do instalador (conferido pelo atualizador automático do Assetly antes de instalar).
+# Os Assetly já instalados encontram a versão nova sozinhos, baixam, conferem e se atualizam.
+#
+# Assinatura digital (opcional): cadastre os segredos CERTIFICADO_PFX_BASE64 (arquivo .pfx em base64) e
+# CERTIFICADO_SENHA. Com eles, o executável, o instalador e o desinstalador são assinados (Authenticode).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      observacoes:
+        description: "Novidades desta versão (opcional; sem texto, usa a lista de commits)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "20[0-9][0-9].[0-9][0-9].[0-9][0-9]"
+      - "20[0-9][0-9].[0-9][0-9].[0-9][0-9].*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  INNO_SETUP_TAG: "is-6_7_4"
+  INNO_SETUP_ARQUIVO: "innosetup-6.7.4.exe"
+
+jobs:
+  release:
+    name: Testar, empacotar e publicar
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TEM_CERTIFICADO: ${{ secrets.CERTIFICADO_PFX_BASE64 != '' }}
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Definir a versão (data de hoje)
+        id: versao
+        shell: pwsh
+        run: |
+          $fuso = [TimeZoneInfo]::FindSystemTimeZoneById("E. South America Standard Time")
+          $hoje = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $fuso).ToString("yyyy.MM.dd")
+          $existentes = @(gh release list --limit 100 --json tagName --jq ".[].tagName") + @(git tag --list)
+          if ("${{ github.event_name }}" -eq "push") {
+            $versao = "${{ github.ref_name }}"
+            if ($versao -notmatch '^\d{4}\.\d{2}\.\d{2}(\.\d+)?$') { throw "Tag inválida: $versao. Use a data: AAAA.MM.DD ou AAAA.MM.DD.N" }
+            if (-not $versao.StartsWith($hoje)) { throw "A tag $versao não é a data de hoje ($hoje, horário de Brasília)." }
+            if (gh release view $versao 2>$null) { throw "Já existe uma release $versao." }
+          } else {
+            $doDia = $existentes | Where-Object { $_ -match "^$([regex]::Escape($hoje))(\.(\d+))?$" } |
+              ForEach-Object { if ($Matches[2]) { [int]$Matches[2] } else { 1 } }
+            $proxima = (($doDia | Measure-Object -Maximum).Maximum ?? 0) + 1
+            $versao = if ($proxima -eq 1) { $hoje } else { "$hoje.$proxima" }
+          }
+          $partes = $versao.Split('.')
+          $exibicao = "$($partes[2])/$($partes[1])/$($partes[0])" + $(if ($partes.Length -eq 4) { " ($($partes[3])ª do dia)" } else { "" })
+          "valor=$versao" >> $env:GITHUB_OUTPUT
+          "exibicao=$exibicao" >> $env:GITHUB_OUTPUT
+          Write-Host "Versão: $versao ($exibicao)"
+
+      - name: Testes automatizados
+        run: dotnet test Assetly.slnx --configuration Release
+
+      - name: Compilar (autocontido, win-x64)
+        run: dotnet publish src/Assetly.Apresentacao/Assetly.Apresentacao.csproj -p:PublishProfile=win-x64 -p:Version=${{ steps.versao.outputs.valor }}
+
+      - name: Preparar certificado (opcional)
+        if: env.TEM_CERTIFICADO == 'true'
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "certificado.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String("${{ secrets.CERTIFICADO_PFX_BASE64 }}"))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          "SIGNTOOL=$($signtool.FullName)" >> $env:GITHUB_ENV
+          "CERTIFICADO_PFX=$pfx" >> $env:GITHUB_ENV
+
+      - name: Assinar o executável (opcional)
+        if: env.TEM_CERTIFICADO == 'true'
+        shell: pwsh
+        run: |
+          & $env:SIGNTOOL sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $env:CERTIFICADO_PFX /p "${{ secrets.CERTIFICADO_SENHA }}" publicar\Assetly.exe
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar o executável." }
+
+      - name: Autoteste do executável publicado
+        shell: pwsh
+        run: |
+          $relatorio = Join-Path $env:RUNNER_TEMP "autoteste-publicado.txt"
+          $telas = Join-Path $env:RUNNER_TEMP "telas"
+          $p = Start-Process publicar\Assetly.exe -ArgumentList "--autoteste", "--relatorio=$relatorio", "--telas=$telas", "--versao-esperada=${{ steps.versao.outputs.valor }}" -Wait -PassThru
+          Get-Content $relatorio -Encoding UTF8
+          if ($p.ExitCode -ne 0) { throw "O autoteste do executável falhou (código $($p.ExitCode))." }
+
+      - name: Guardar as telas desenhadas pelo autoteste
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telas-${{ steps.versao.outputs.valor }}
+          path: ${{ runner.temp }}/telas
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Instalar o Inno Setup
+        shell: pwsh
+        run: |
+          $pasta = Join-Path $env:RUNNER_TEMP "inno-download"
+          gh release download $env:INNO_SETUP_TAG --repo jrsoftware/issrc --pattern $env:INNO_SETUP_ARQUIVO --dir $pasta
+          $instalador = Join-Path $pasta $env:INNO_SETUP_ARQUIVO
+          $assinatura = Get-AuthenticodeSignature $instalador
+          if ($assinatura.Status -ne "Valid" -or $assinatura.SignerCertificate.Subject -notmatch "Pyrsys") { throw "Assinatura do Inno Setup inválida: $($assinatura.Status) $($assinatura.SignerCertificate.Subject)" }
+          $destino = Join-Path $env:RUNNER_TEMP "innosetup"
+          $p = Start-Process $instalador -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/PORTABLE=1", "/NOICONS", "/DIR=`"$destino`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path "$destino\ISCC.exe")) { throw "Falha ao instalar o Inno Setup." }
+          "ISCC=$destino\ISCC.exe" >> $env:GITHUB_ENV
+
+      - name: Gerar o instalador
+        shell: pwsh
+        run: |
+          $argumentos = @("/Q", "/DVersao=${{ steps.versao.outputs.valor }}")
+          if ($env:TEM_CERTIFICADO -eq "true") {
+            $argumentos += "/DAssinar"
+            $argumentos += "/Sassetly=`"$env:SIGNTOOL`" sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f `"$env:CERTIFICADO_PFX`" /p `"${{ secrets.CERTIFICADO_SENHA }}`" `$f"
+          }
+          & $env:ISCC @argumentos instalador\Assetly.iss
+          if ($LASTEXITCODE -ne 0) { throw "O Inno Setup falhou (código $LASTEXITCODE)." }
+          Get-ChildItem publicar\instalador
+
+      - name: Testar instalação, programa instalado e desinstalação
+        shell: pwsh
+        run: |
+          $versao = "${{ steps.versao.outputs.valor }}"
+          $setup = "publicar\instalador\Assetly-Setup-$versao.exe"
+          $pasta = Join-Path $env:RUNNER_TEMP "assetly-instalado"
+          $p = Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$pasta`"", "/LOG=`"$env:RUNNER_TEMP\instalacao.log`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\instalacao.log"; throw "A instalação falhou (código $($p.ExitCode))." }
+          foreach ($arquivo in "Assetly.exe", "unins000.exe") { if (-not (Test-Path "$pasta\$arquivo")) { throw "Arquivo ausente após instalar: $arquivo" } }
+
+          $relatorio = Join-Path $env:RUNNER_TEMP "autoteste-instalado.txt"
+          $q = Start-Process "$pasta\Assetly.exe" -ArgumentList "--autoteste", "--relatorio=$relatorio", "--versao-esperada=$versao" -Wait -PassThru
+          Get-Content $relatorio -Encoding UTF8
+          if ($q.ExitCode -ne 0) { throw "O autoteste do programa instalado falhou." }
+
+          $u = Start-Process "$pasta\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          Start-Sleep -Seconds 5
+          if ($u.ExitCode -ne 0 -or (Test-Path "$pasta\Assetly.exe")) { throw "A desinstalação falhou." }
+          Write-Host "Instalação, autoteste e desinstalação: ok"
+
+      - name: SHA-256 do instalador
+        shell: pwsh
+        run: |
+          $versao = "${{ steps.versao.outputs.valor }}"
+          $nome = "Assetly-Setup-$versao.exe"
+          $hash = (Get-FileHash "publicar\instalador\$nome" -Algorithm SHA256).Hash
+          "$hash  $nome" | Set-Content -Encoding ascii -NoNewline "publicar\instalador\Assetly-Setup-$versao.sha256"
+          Write-Host "$hash  $nome"
+
+      - name: Notas da versão
+        shell: pwsh
+        env:
+          OBSERVACOES: ${{ github.event.inputs.observacoes }}
+        run: |
+          $versao = "${{ steps.versao.outputs.valor }}"
+          $anterior = gh release list --limit 1 --json tagName --jq ".[0].tagName"
+          $commits = if ($anterior) { git log "$anterior..HEAD" --pretty=format:"- %s" --no-merges } else { git log -30 --pretty=format:"- %s" --no-merges }
+          $novidades = if ($env:OBSERVACOES) { $env:OBSERVACOES } else { "### Alterações`n" + ($commits -join "`n") }
+          @"
+          ## Assetly — versão de ${{ steps.versao.outputs.exibicao }}
+
+          **Instalação:** baixe e execute ``Assetly-Setup-$versao.exe``. Não precisa de administrador nem de .NET instalado.
+          Quem já tem o Assetly instalado recebe esta versão automaticamente (ou em Configurações → Versão e atualizações).
+          Seus dados ficam em ``%USERPROFILE%\.assetly`` e não são alterados pela instalação.
+
+          $novidades
+
+          ---
+          Verificado antes da publicação: testes automatizados, autoteste do executável, instalação silenciosa, autoteste do programa instalado e desinstalação.
+          SHA-256 do instalador: ``Assetly-Setup-$versao.sha256``.
+          "@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP\notas.md"
+          Get-Content "$env:RUNNER_TEMP\notas.md"
+
+      - name: Publicar a release
+        shell: pwsh
+        run: |
+          $versao = "${{ steps.versao.outputs.valor }}"
+          gh release create $versao `
+            "publicar\instalador\Assetly-Setup-$versao.exe" `
+            "publicar\instalador\Assetly-Setup-$versao.sha256" `
+            --target "${{ github.sha }}" `
+            --title "Assetly — ${{ steps.versao.outputs.exibicao }}" `
+            --notes-file "$env:RUNNER_TEMP\notas.md" `
+            --latest
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao criar a release." }
+
+      - name: Apagar certificado
+        if: always() && env.TEM_CERTIFICADO == 'true'
+        shell: pwsh
+        run: Remove-Item -Force -ErrorAction SilentlyContinue $env:CERTIFICADO_PFX

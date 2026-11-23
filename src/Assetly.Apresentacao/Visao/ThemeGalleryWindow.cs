@@ -155,11 +155,11 @@ internal static class ThemeGalleryWindow
     private static FrameworkElement CardsEIndicadoresDemo()
     {
         var grade = new UniformGrid { Columns = 3, Height = 88 };
-        grade.Children.Add(TelaPrincipal.ResumoOperacao("Atenção necessária", "3", "itens pedem revisão", "StatusPerigo"));
-        grade.Children.Add(TelaPrincipal.ResumoOperacao("Alertas críticos", "0", "sem pendências críticas", "StatusOk"));
-        grade.Children.Add(TelaPrincipal.ResumoOperacao("Base local", "42", "registros sob controle", "StatusInfo"));
+        grade.Children.Add(LayoutApoio.ResumoOperacao("Atenção necessária", "3", "itens pedem revisão", "StatusPerigo"));
+        grade.Children.Add(LayoutApoio.ResumoOperacao("Alertas críticos", "0", "sem pendências críticas", "StatusOk"));
+        grade.Children.Add(LayoutApoio.ResumoOperacao("Base local", "42", "registros sob controle", "StatusInfo"));
 
-        var faixa = TelaPrincipal.FaixaIndicadores(
+        var faixa = LayoutApoio.FaixaIndicadores(
             ("Bens monitorados", 42, false, null),
             ("Garantias vencidas", 1, true, "StatusPerigo"),
             ("Garantias próximas", 2, true, "StatusAviso"),

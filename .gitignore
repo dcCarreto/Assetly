@@ -63,3 +63,6 @@ secrets/
 prompts/
 *.prompt.*
 pasted-text.txt
+
+# Executável (dotnet publish, perfil win-x64) e instalador (Inno Setup: publicar/instalador)
+publicar/

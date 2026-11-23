@@ -8,17 +8,33 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Recursos\Imagens\assetly.ico</ApplicationIcon>
     <AssemblyName>Assetly</AssemblyName>
+    <StartupObject>Assetly.Apresentacao.Programa</StartupObject>
+    <!-- Sem número de versão: as releases são identificadas pela data (AAAA.MM.DD). O workflow release.yml
+         passa -p:Version=AAAA.MM.DD; compilações locais ficam como "desenvolvimento". -->
+    <Version>0.0.0</Version>
+    <Company>Denis Carreto</Company>
+    <Copyright>© Denis Carreto</Copyright>
+    <Product>Assetly</Product>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Recursos\Imagens\*.png" />
     <Resource Include="Recursos\Imagens\assetly.ico" />
   </ItemGroup>
+
+  <!-- Publicação em arquivo único (perfil win-x64): entrega só o Assetly.exe, sem os .pdb das
+       bibliotecas referenciadas. -->
+  <Target Name="RemoverSimbolosDaPublicacao" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 
 </Project>

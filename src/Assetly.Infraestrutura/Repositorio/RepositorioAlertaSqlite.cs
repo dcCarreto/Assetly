@@ -36,8 +36,8 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
     public void Salvar(Alerta alerta)
     {
         const string sql = """
-            INSERT INTO alertas (id, bem_id, tipo, severidade, mensagem, criado_em, prazo_em, status)
-            VALUES ($id, $bemId, $tipo, $severidade, $mensagem, $criadoEm, $prazoEm, $status)
+            INSERT INTO alertas (id, bem_id, tipo, severidade, mensagem, criado_em, prazo_em, status, automatico)
+            VALUES ($id, $bemId, $tipo, $severidade, $mensagem, $criadoEm, $prazoEm, $status, $automatico)
             ON CONFLICT(id) DO UPDATE SET
                 bem_id = excluded.bem_id,
                 tipo = excluded.tipo,
@@ -45,7 +45,8 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
                 mensagem = excluded.mensagem,
                 criado_em = excluded.criado_em,
                 prazo_em = excluded.prazo_em,
-                status = excluded.status
+                status = excluded.status,
+                automatico = excluded.automatico
             """;
         try
         {
@@ -60,6 +61,7 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
             comando.Parameters.AddWithValue("$criadoEm", ConversorSqlite.Texto(alerta.CriadoEm)!);
             comando.Parameters.AddWithValue("$prazoEm", (object?)ConversorSqlite.Texto(alerta.PrazoEm) ?? DBNull.Value);
             comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(alerta.Status));
+            comando.Parameters.AddWithValue("$automatico", alerta.Automatico ? 1 : 0);
             comando.ExecuteNonQuery();
         }
         catch (SqliteException excecao)
@@ -92,6 +94,22 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
         catch (SqliteException excecao)
         {
             throw new ExcecaoBancoDados("Não foi possível listar alertas", excecao);
+        }
+    }
+
+    public void Excluir(AlertaId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM alertas WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir alerta", excecao);
         }
     }
 }

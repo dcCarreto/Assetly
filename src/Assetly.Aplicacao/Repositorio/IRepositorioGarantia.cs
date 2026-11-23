@@ -12,4 +12,6 @@ public interface IRepositorioGarantia
     IReadOnlyList<Garantia> ListarPorBem(BemId bemId);
 
     void Salvar(Garantia garantia);
+
+    void Excluir(GarantiaId id);
 }

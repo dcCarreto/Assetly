@@ -13,5 +13,6 @@ internal static class MapeadorBem
             ConversorSqlite.EnumDeTexto<StatusBem>(leitor.GetString(leitor.GetOrdinal("status"))),
             ConversorSqlite.Data(leitor, "comprado_em"),
             ConversorSqlite.LerDinheiro(leitor, "preco_compra", "moeda"),
-            leitor.GetString(leitor.GetOrdinal("observacoes")));
+            leitor.GetString(leitor.GetOrdinal("observacoes")),
+            ConversorSqlite.TextoColuna(leitor, "responsavel_id") is { Length: > 0 } responsavel ? new BemId(Guid.Parse(responsavel)) : null);
 }

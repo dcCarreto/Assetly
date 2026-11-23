@@ -26,4 +26,12 @@ public static class CaminhosArmazenamentoLocal
     public static string DiretorioDocumentos() => Path.Combine(DiretorioBase(), DiretorioDocumentosNome);
 
     public static string DiretorioDocumentosTeste() => Path.Combine(DiretorioBaseTeste(), DiretorioDocumentosNome);
+
+    /// <summary>Cópias automáticas do estado anterior, feitas antes de cada restauração de backup.</summary>
+    public static string DiretorioSeguranca() => Path.Combine(DiretorioBase(), "seguranca");
+
+    public static string DiretorioSegurancaTeste() => Path.Combine(DiretorioBaseTeste(), "seguranca");
+
+    /// <summary>Registro de erros inesperados (um arquivo por dia), comum aos dois ambientes.</summary>
+    public static string DiretorioLogs() => Path.Combine(DiretorioBase(), "logs");
 }

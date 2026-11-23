@@ -7,4 +7,6 @@ public sealed record EditarDocumentoComando(
     TipoDocumento Tipo,
     string? Nome,
     string CaminhoLocal,
-    DateOnly RegistradoEm);
+    DateOnly RegistradoEm,
+    string? ChaveAcesso = null,
+    string? UrlConsulta = null);

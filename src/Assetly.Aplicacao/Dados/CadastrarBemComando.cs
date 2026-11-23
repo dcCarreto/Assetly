@@ -8,4 +8,5 @@ public sealed record CadastrarBemComando(
     DateOnly? CompradoEm,
     decimal? PrecoCompra,
     string? CodigoMoeda,
-    string? Observacoes);
+    string? Observacoes,
+    BemId? Responsavel = null);

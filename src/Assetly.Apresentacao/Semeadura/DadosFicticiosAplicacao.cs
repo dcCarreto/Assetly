@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Assetly.Aplicacao.CasoDeUso;
 using Assetly.Aplicacao.Repositorio;
 using Assetly.Apresentacao.Visao;
 using Assetly.Dominio.Bem;
@@ -9,25 +8,23 @@ using Assetly.Dominio.Compartilhado;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Despesa;
+using Assetly.Dominio.Imovel;
+using Assetly.Dominio.Saude;
+using Assetly.Dominio.Veiculo;
 
 namespace Assetly.Apresentacao.Semeadura;
 
 internal static class DadosFicticiosAplicacao
 {
-    internal static void PopularSeNecessario(
-        IRepositorioBem repositorioBem,
-        IRepositorioGarantia repositorioGarantia,
-        IRepositorioManutencao repositorioManutencao,
-        IRepositorioDocumento repositorioDocumento,
-        IRepositorioAlerta repositorioAlerta,
-        string diretorioDocumentos)
+    internal static void PopularSeNecessario(ContextoAplicacao contexto, string diretorioDocumentos)
     {
-        ArgumentNullException.ThrowIfNull(repositorioBem);
-        ArgumentNullException.ThrowIfNull(repositorioGarantia);
-        ArgumentNullException.ThrowIfNull(repositorioManutencao);
-        ArgumentNullException.ThrowIfNull(repositorioDocumento);
-        ArgumentNullException.ThrowIfNull(repositorioAlerta);
+        ArgumentNullException.ThrowIfNull(contexto);
         ArgumentNullException.ThrowIfNull(diretorioDocumentos);
+        var repositorioBem = contexto.RepositorioBem;
+        var repositorioGarantia = contexto.RepositorioGarantia;
+        var repositorioManutencao = contexto.RepositorioManutencao;
+        var repositorioDocumento = contexto.RepositorioDocumento;
 
         var hoje = DateOnly.FromDateTime(DateTime.Now);
         var bens = BensPorNome(repositorioBem);
@@ -76,7 +73,185 @@ internal static class DadosFicticiosAplicacao
         PopularManutencoes(repositorioManutencao, hoje, notebook, camera, geladeira, bicicleta, arCondicionado, impressora);
         PopularDocumentos(repositorioDocumento, diretorioDocumentos, hoje, notebook, camera, geladeira, furadeira, monitor, bicicleta, arCondicionado, sofa, impressora);
 
-        new GerarAlertasAutomaticos(repositorioBem, repositorioGarantia, repositorioManutencao, repositorioDocumento, repositorioAlerta).Executar(hoje);
+        var titular = GarantirBem(repositorioBem, bens, "Titular demo", TipoBem.Pessoa, null, null,
+            bem => bem.AtualizarObservacoes("Ambiente de teste: pessoa titular dos convênios e gastos de saúde (não exige nota fiscal)."));
+        PopularSaude(contexto.RepositorioSaude, contexto.RepositorioGastoSaude, hoje, titular);
+        PopularVeiculo(contexto, bens, hoje);
+        PopularImoveis(contexto, bens, hoje);
+        PopularModoFamiliaENotas(contexto, hoje, titular);
+
+        contexto.GerarAlertasAutomaticos().Executar(hoje);
+    }
+
+    /// <summary>Modo família (responsável por bem) e uma nota fiscal eletrônica com chave de acesso e link de consulta.</summary>
+    private static void PopularModoFamiliaENotas(ContextoAplicacao contexto, DateOnly hoje, Bem titular)
+    {
+        var repositorio = contexto.RepositorioBem;
+        var bens = BensPorNome(repositorio);
+        var dependente = GarantirBem(repositorio, bens, "Dependente demo", TipoBem.Pessoa, null, null,
+            bem => bem.AtualizarObservacoes("Ambiente de teste: segunda pessoa da família, responsável por alguns bens."));
+        foreach (var (nome, pessoa) in new[]
+                 {
+                     ("Notebook de trabalho", titular), ("Monitor ultrawide", titular), ("Carro hatch demo", titular),
+                     ("Apartamento centro demo", titular), ("Bicicleta elétrica", dependente), ("Câmera mirrorless", dependente)
+                 })
+        {
+            if (bens.TryGetValue(nome, out var bem) && bem.ResponsavelId is null)
+            {
+                bem.DefinirResponsavel(pessoa.Id);
+                repositorio.Salvar(bem);
+            }
+        }
+
+        if (!bens.TryGetValue("Notebook de trabalho", out var notebook))
+        {
+            return;
+        }
+
+        var nota = contexto.RepositorioDocumento.ListarPorBem(notebook.Id).FirstOrDefault(d => d.Tipo == TipoDocumento.NotaFiscal);
+        if (nota is not null && string.IsNullOrEmpty(nota.ChaveAcesso))
+        {
+            var emissao = hoje.AddYears(-2);
+            var base43 = $"41{emissao:yyMM}12345678000195" + "65001000012345112345678";
+            var chave = ChaveAcessoNfe.Criar(base43 + ChaveAcessoNfe.DigitoVerificador(base43));
+            nota.VincularNotaEletronica(chave, "https://www.fazenda.pr.gov.br/nfce/qrcode?p=" + chave.Valor + "|2|1|1|DEMO");
+            contexto.RepositorioDocumento.Salvar(nota);
+        }
+    }
+
+    private static void PopularVeiculo(ContextoAplicacao contexto, Dictionary<string, Bem> bens, DateOnly hoje)
+    {
+        var carro = GarantirBem(contexto.RepositorioBem, bens, "Carro hatch demo", TipoBem.Veiculo, hoje.AddYears(-3), Dinheiro2("68000.00"),
+            bem => bem.AtualizarObservacoes("Ambiente de teste: carro com ficha completa, abastecimentos e despesas."));
+
+        if (contexto.RepositorioVeiculo.BuscarPorBem(carro.Id) is null)
+        {
+            contexto.RepositorioVeiculo.Salvar(Veiculo.Criar(carro.Id, new DadosVeiculo(
+                "BRA2E19", "Volkswagen", "Polo 1.0 TSI", 2022, 2023, "Branco", "01234567890", "9BWAB45U0PT000123",
+                TipoCombustivel.Flex, 38000, 42000, hoje.AddDays(40), hoje.AddDays(18), "Seguradora Demo", "AUTO-2026-0042", hoje.AddDays(200))));
+        }
+
+        if (contexto.RepositorioAbastecimento.ListarPorBem(carro.Id).Count == 0)
+        {
+            var registrar = contexto.RegistrarAbastecimento();
+            foreach (var (dias, km, litros, valor, combustivel, cheio, posto) in new[]
+                     {
+                         (75, 38800, 40.0m, "236.00", TipoCombustivel.Gasolina, true, "Posto Avenida Demo"),
+                         (60, 39250, 36.5m, "215.35", TipoCombustivel.Gasolina, true, "Posto Avenida Demo"),
+                         (45, 39710, 15.0m, "62.85", TipoCombustivel.Etanol, false, "Posto Rodovia Demo"),
+                         (38, 40050, 22.0m, "129.80", TipoCombustivel.Gasolina, true, "Posto Avenida Demo"),
+                         (20, 40560, 38.0m, "222.30", TipoCombustivel.Gasolina, true, "Posto Centro Demo"),
+                         (5, 41200, 41.0m, "243.95", TipoCombustivel.Gasolina, true, "Posto Avenida Demo")
+                     })
+            {
+                registrar.Executar(new Aplicacao.Dados.RegistrarAbastecimentoComando(carro.Id, hoje.AddDays(-dias), km, litros,
+                    decimal.Parse(valor, CultureInfo.InvariantCulture), "BRL", combustivel, cheio, posto));
+            }
+        }
+
+        SalvarDespesasSeAusentes(contexto, carro,
+        [
+            (TipoDespesa.Ipva, "IPVA (1/3)", hoje.AddMonths(-2), "980.00", hoje.AddMonths(-2)),
+            (TipoDespesa.Ipva, "IPVA (2/3)", hoje.AddDays(-10), "980.00", null),
+            (TipoDespesa.Ipva, "IPVA (3/3)", hoje.AddMonths(1), "980.00", null),
+            (TipoDespesa.Licenciamento, "Licenciamento anual", hoje.AddDays(18), "160.22", null),
+            (TipoDespesa.SeguroVeiculo, "Seguro anual (à vista)", hoje.AddDays(-165), "2850.00", hoje.AddDays(-166)),
+            (TipoDespesa.Multa, "Multa — velocidade até 20%", hoje.AddDays(-3), "130.16", null),
+            (TipoDespesa.Lavagem, "Lavagem completa", hoje.AddDays(-12), "80.00", hoje.AddDays(-12))
+        ]);
+    }
+
+    private static void PopularImoveis(ContextoAplicacao contexto, Dictionary<string, Bem> bens, DateOnly hoje)
+    {
+        var apartamento = GarantirBem(contexto.RepositorioBem, bens, "Apartamento centro demo", TipoBem.Imovel, hoje.AddYears(-6), Dinheiro2("420000.00"),
+            bem => bem.AtualizarObservacoes("Ambiente de teste: moradia própria com contas mensais e seguro perto do vencimento."));
+        if (contexto.RepositorioImovel.BuscarPorBem(apartamento.Id) is null)
+        {
+            contexto.RepositorioImovel.Salvar(Imovel.Criar(apartamento.Id, new DadosImovel(
+                TipoImovel.Apartamento, SituacaoImovel.MoradiaPropria, "Rua das Flores", "250", "apto 81", "Centro", "Curitiba", "PR", "80010000",
+                68m, 2, 2, 1, "45.678 — 1º Registro de Imóveis", "12.345.678-9", Dinheiro2("780.00"),
+                "Residencial Demo", "RES-77881", hoje.AddDays(25), null, null, null)));
+        }
+
+        SalvarDespesasSeAusentes(contexto, apartamento,
+        [
+            (TipoDespesa.Condominio, "Condomínio do mês passado", hoje.AddDays(-25), "780.00", hoje.AddDays(-27)),
+            (TipoDespesa.Condominio, "Condomínio do mês", hoje.AddDays(5), "780.00", null),
+            (TipoDespesa.Energia, "Energia elétrica", hoje.AddDays(-2), "214.37", null),
+            (TipoDespesa.Agua, "Água e esgoto", hoje.AddDays(12), "96.40", null),
+            (TipoDespesa.Internet, "Internet fibra", hoje.AddDays(-8), "119.90", hoje.AddDays(-9)),
+            (TipoDespesa.Iptu, "IPTU (parcela)", hoje.AddDays(30), "185.00", null)
+        ]);
+
+        var sala = GarantirBem(contexto.RepositorioBem, bens, "Sala comercial demo", TipoBem.Imovel, hoje.AddYears(-9), Dinheiro2("210000.00"),
+            bem => bem.AtualizarObservacoes("Ambiente de teste: imóvel alugado, com contrato terminando em breve."));
+        if (contexto.RepositorioImovel.BuscarPorBem(sala.Id) is null)
+        {
+            contexto.RepositorioImovel.Salvar(Imovel.Criar(sala.Id, new DadosImovel(
+                TipoImovel.SalaComercial, SituacaoImovel.AlugadoParaTerceiros, "Av. Sete de Setembro", "1500", "sala 1203", "Batel", "Curitiba", "PR",
+                "80230000", 42.5m, null, 1, 1, "98.765 — 4º Registro de Imóveis", "98.765.432-1", Dinheiro2("520.00"),
+                null, null, null, "Escritório Demo Ltda.", Dinheiro2("2500.00"), hoje.AddDays(50))));
+        }
+
+        SalvarDespesasSeAusentes(contexto, sala,
+        [
+            (TipoDespesa.Iptu, "IPTU anual (à vista)", hoje.AddMonths(-8), "1340.00", hoje.AddMonths(-8))
+        ]);
+    }
+
+    private static void SalvarDespesasSeAusentes(ContextoAplicacao contexto, Bem bem,
+        IReadOnlyList<(TipoDespesa Tipo, string Descricao, DateOnly Vencimento, string Valor, DateOnly? PagaEm)> despesas)
+    {
+        var existentes = contexto.RepositorioDespesa.ListarPorBem(bem.Id).Select(d => d.Descricao).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (tipo, descricao, vencimento, valor, pagaEm) in despesas.Where(d => !existentes.Contains(d.Descricao)))
+        {
+            var despesa = Despesa.Registrar(bem.Id, tipo, descricao, vencimento, Dinheiro2(valor));
+            if (pagaEm is not null)
+            {
+                despesa.Pagar(pagaEm.Value);
+            }
+
+            contexto.RepositorioDespesa.Salvar(despesa);
+        }
+    }
+
+    private static void PopularSaude(IRepositorioSaude repositorioSaude, IRepositorioGastoSaude repositorioGastoSaude, DateOnly hoje, Bem titular)
+    {
+        var convenios = repositorioSaude.ListarPorBem(titular.Id);
+        void SalvarConvenioSeAusente(TipoSaude tipo, string fornecedor, DateOnly inicio, DateOnly fim, string contato, DateOnly? cancelamento = null)
+        {
+            if (convenios.Any(s => s.Tipo == tipo && string.Equals(s.Fornecedor, fornecedor, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            var saude = Saude.Criar(titular.Id, tipo, fornecedor, inicio, fim, contato);
+            if (cancelamento is not null)
+            {
+                saude.Cancelar(cancelamento.Value);
+            }
+
+            repositorioSaude.Salvar(saude);
+        }
+
+        SalvarConvenioSeAusente(TipoSaude.Convenio, "Plano Saúde Demo", hoje.AddMonths(-11), hoje.AddDays(18), "0800 000 0001");
+        SalvarConvenioSeAusente(TipoSaude.Ortodontia, "Odonto Demo", hoje.AddMonths(-6), hoje.AddMonths(18), "0800 000 0002");
+        SalvarConvenioSeAusente(TipoSaude.Emergencia, "Resgate Demo", hoje.AddYears(-2), hoje.AddDays(-4), "192 / 0800 000 0003");
+        SalvarConvenioSeAusente(TipoSaude.Farmacia, "Farmácia Desconto Demo", hoje.AddYears(-2), hoje.AddYears(-1), "app da farmácia", hoje.AddYears(-1).AddMonths(-2));
+
+        var gastos = repositorioGastoSaude.ListarPorBem(titular.Id);
+        void SalvarGastoSeAusente(TipoGastoSaude tipo, string descricao, DateOnly data, string valor)
+        {
+            if (!gastos.Any(g => string.Equals(g.Descricao, descricao, StringComparison.OrdinalIgnoreCase)))
+            {
+                repositorioGastoSaude.Salvar(GastoSaude.Registrar(titular.Id, tipo, descricao, data, Dinheiro2(valor)));
+            }
+        }
+
+        SalvarGastoSeAusente(TipoGastoSaude.Farmacia, "Antialérgico e vitamina D", hoje.AddDays(-6), "87.40");
+        SalvarGastoSeAusente(TipoGastoSaude.Consulta, "Consulta clínico geral", hoje.AddMonths(-1), "250.00");
+        SalvarGastoSeAusente(TipoGastoSaude.Exame, "Hemograma completo", hoje.AddMonths(-1).AddDays(3), "65.00");
+        SalvarGastoSeAusente(TipoGastoSaude.Procedimento, "Limpeza dentária", hoje.AddMonths(-3), "180.00");
     }
 
     private static Dictionary<string, Bem> BensPorNome(IRepositorioBem repositorioBem)
@@ -95,8 +270,8 @@ internal static class DadosFicticiosAplicacao
         Dictionary<string, Bem> bens,
         string nome,
         TipoBem tipo,
-        DateOnly compradoEm,
-        Dinheiro precoCompra,
+        DateOnly? compradoEm,
+        Dinheiro? precoCompra,
         Action<Bem> preparar)
     {
         if (bens.TryGetValue(nome, out var existente))
@@ -104,7 +279,9 @@ internal static class DadosFicticiosAplicacao
             return existente;
         }
 
-        var bem = Bem.Criar(new NomeBem(nome), tipo, compradoEm, precoCompra);
+        var bem = compradoEm is null
+            ? Bem.Criar(new NomeBem(nome), tipo)
+            : Bem.Criar(new NomeBem(nome), tipo, compradoEm.Value, precoCompra);
         preparar(bem);
         repositorioBem.Salvar(bem);
         bens[nome] = bem;

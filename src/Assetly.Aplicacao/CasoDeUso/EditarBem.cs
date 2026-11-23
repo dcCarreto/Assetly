@@ -16,17 +16,10 @@ public sealed class EditarBem(IRepositorioBem repositorioBem)
         bem.Renomear(new NomeBem(comando.Nome));
         bem.AlterarTipo(comando.Tipo);
 
-        if (comando.CompradoEm is null && comando.PrecoCompra is not null)
-        {
-            throw new ArgumentException("data de compra é obrigatória quando preço de compra é informado");
-        }
-
-        if (comando.CompradoEm is not null)
-        {
-            bem.AtualizarCompra(comando.CompradoEm.Value, ApoioCasosUso.DinheiroOpcional(comando.PrecoCompra, comando.CodigoMoeda));
-        }
-
+        // Campos vazios limpam os valores: antes, apagar a data/preço no formulário era ignorado.
+        bem.AtualizarCompra(comando.CompradoEm, ApoioCasosUso.DinheiroOpcional(comando.PrecoCompra, comando.CodigoMoeda));
         bem.AtualizarObservacoes(comando.Observacoes);
+        bem.DefinirResponsavel(ApoioCasosUso.ExigirResponsavel(_repositorioBem, comando.Responsavel, bem.Id));
         _repositorioBem.Salvar(bem);
         return bem;
     }

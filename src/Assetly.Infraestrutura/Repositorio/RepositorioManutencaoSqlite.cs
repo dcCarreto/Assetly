@@ -97,4 +97,20 @@ public sealed class RepositorioManutencaoSqlite(FabricaConexaoSqlite fabricaCone
             throw new ExcecaoBancoDados("Não foi possível listar manutenções", excecao);
         }
     }
+
+    public void Excluir(ManutencaoId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM manutencoes WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir manutenção", excecao);
+        }
+    }
 }

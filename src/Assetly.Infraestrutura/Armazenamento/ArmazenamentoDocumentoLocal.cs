@@ -47,6 +47,52 @@ public sealed partial class ArmazenamentoDocumentoLocal : IArmazenamentoDocument
         }
     }
 
+    public void Remover(string caminhoArmazenado)
+    {
+        if (string.IsNullOrWhiteSpace(caminhoArmazenado))
+        {
+            return;
+        }
+
+        var caminho = Path.GetFullPath(caminhoArmazenado);
+        if (!EstaDentroDoDestino(caminho) || !File.Exists(caminho))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(caminho);
+        }
+        catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
+        {
+            // Arquivo em uso (aberto em outro programa) ou protegido: o registro já foi excluído, a cópia
+            // órfã não atrapalha nada e não vale interromper o usuário por isso.
+        }
+    }
+
+    public string? Localizar(string caminhoRegistrado)
+    {
+        if (string.IsNullOrWhiteSpace(caminhoRegistrado))
+        {
+            return null;
+        }
+
+        if (File.Exists(caminhoRegistrado))
+        {
+            return caminhoRegistrado;
+        }
+
+        var nomeArquivo = Path.GetFileName(caminhoRegistrado.Replace('/', Path.DirectorySeparatorChar));
+        if (string.IsNullOrEmpty(nomeArquivo))
+        {
+            return null;
+        }
+
+        var candidato = Path.Combine(_diretorioDocumentos, nomeArquivo);
+        return File.Exists(candidato) ? candidato : null;
+    }
+
     private bool EstaDentroDoDestino(string origem)
     {
         var relativo = Path.GetRelativePath(_diretorioDocumentos, origem);

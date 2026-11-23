@@ -6,5 +6,15 @@ public enum TipoAlerta
     GarantiaVencida,
     ManutencaoProxima,
     ManutencaoAtrasada,
-    DocumentoAusente
+    DocumentoAusente,
+    ConvenioVencendo,
+    ConvenioVencido,
+    LicenciamentoVencendo,
+    LicenciamentoVencido,
+    SeguroVencendo,
+    SeguroVencido,
+    RevisaoVeiculo,
+    ContaVencendo,
+    ContaVencida,
+    ContratoAluguel
 }

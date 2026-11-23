@@ -51,8 +51,8 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
     public void Salvar(Bem bem)
     {
         const string sql = """
-            INSERT INTO bens (id, nome, tipo, status, comprado_em, preco_compra, moeda, observacoes)
-            VALUES ($id, $nome, $tipo, $status, $compradoEm, $precoCompra, $moeda, $observacoes)
+            INSERT INTO bens (id, nome, tipo, status, comprado_em, preco_compra, moeda, observacoes, responsavel_id)
+            VALUES ($id, $nome, $tipo, $status, $compradoEm, $precoCompra, $moeda, $observacoes, $responsavelId)
             ON CONFLICT(id) DO UPDATE SET
                 nome = excluded.nome,
                 tipo = excluded.tipo,
@@ -60,7 +60,8 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
                 comprado_em = excluded.comprado_em,
                 preco_compra = excluded.preco_compra,
                 moeda = excluded.moeda,
-                observacoes = excluded.observacoes
+                observacoes = excluded.observacoes,
+                responsavel_id = excluded.responsavel_id
             """;
         try
         {
@@ -76,11 +77,28 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
             comando.Parameters.AddWithValue("$precoCompra", (object?)ConversorSqlite.Valor(preco) ?? DBNull.Value);
             comando.Parameters.AddWithValue("$moeda", (object?)ConversorSqlite.Moeda(preco) ?? DBNull.Value);
             comando.Parameters.AddWithValue("$observacoes", bem.Observacoes);
+            comando.Parameters.AddWithValue("$responsavelId", ConversorSqlite.Nulo(bem.ResponsavelId?.Valor.ToString()));
             comando.ExecuteNonQuery();
         }
         catch (SqliteException excecao)
         {
             throw new ExcecaoBancoDados("Não foi possível salvar bem", excecao);
+        }
+    }
+
+    public void Excluir(BemId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM bens WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir bem", excecao);
         }
     }
 }

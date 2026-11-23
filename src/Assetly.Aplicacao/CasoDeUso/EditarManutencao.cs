@@ -15,7 +15,10 @@ public sealed class EditarManutencao(IRepositorioManutencao repositorioManutenca
 
         manutencao.AlterarTipo(comando.Tipo);
         manutencao.AtualizarDescricao(comando.Descricao);
-        manutencao.Reagendar(comando.AgendadaPara);
+        if (manutencao.AgendadaPara != comando.AgendadaPara)
+        {
+            manutencao.Reagendar(comando.AgendadaPara);
+        }
 
         _repositorioManutencao.Salvar(manutencao);
         return manutencao;

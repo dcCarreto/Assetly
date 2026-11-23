@@ -1,12 +1,17 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Assetly.Dominio.Alerta;
+using Assetly.Dominio.Backup;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Compartilhado;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
+using Assetly.Dominio.Preferencias;
+using Assetly.Dominio.Despesa;
+using Assetly.Dominio.Imovel;
 using Assetly.Dominio.Saude;
+using Assetly.Dominio.Veiculo;
 
 namespace Assetly.Apresentacao.Visao;
 
@@ -21,6 +26,8 @@ internal static partial class Formatador
     internal static string Data(DateOnly? data) =>
         data is null ? ValorAusente : data.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
 
+    internal static string DataHora(DateTime momento) => momento.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+
     internal static string Dinheiro(Dinheiro? dinheiro)
     {
         if (dinheiro is null)
@@ -31,6 +38,20 @@ internal static partial class Formatador
         return dinheiro.CodigoMoeda == "BRL"
             ? dinheiro.Valor.ToString("C2", CulturaMonetaria)
             : $"{dinheiro.CodigoMoeda} {dinheiro.Valor.ToString("N2", CulturaMonetaria)}";
+    }
+
+    /// <summary>Soma valores agrupando por moeda — somar BRL com USD num total único em reais seria
+    /// enganoso. Ex.: "R$ 1.200,00" ou "R$ 1.200,00 + USD 300,00".</summary>
+    internal static string Total(IEnumerable<Dinheiro?> valores)
+    {
+        var porMoeda = valores
+            .Where(valor => valor is not null)
+            .GroupBy(valor => valor!.CodigoMoeda)
+            .OrderBy(grupo => grupo.Key == "BRL" ? 0 : 1)
+            .ThenBy(grupo => grupo.Key, StringComparer.Ordinal)
+            .Select(grupo => Dinheiro(Assetly.Dominio.Compartilhado.Dinheiro.De(grupo.Sum(valor => valor!.Valor), grupo.Key)))
+            .ToList();
+        return porMoeda.Count == 0 ? 0m.ToString("C2", CulturaMonetaria) : string.Join(" + ", porMoeda);
     }
 
     internal static string TextoOuTraco(string? valor) => string.IsNullOrWhiteSpace(valor) ? ValorAusente : valor;
@@ -53,6 +74,16 @@ internal static partial class Formatador
         TipoSaude v => RotuloTipoSaude(v),
         StatusSaude v => RotuloStatusSaude(v),
         TipoGastoSaude v => RotuloTipoGastoSaude(v),
+        FrequenciaBackup v => RotuloFrequenciaBackup(v),
+        TemaVisual v => RotuloTemaVisual(v),
+        CorDestaque v => RotuloCorDestaque(v),
+        DensidadeTabela v => RotuloDensidadeTabela(v),
+        IntervaloAtualizacao v => RotuloIntervaloAtualizacao(v),
+        TipoCombustivel v => RotuloCombustivel(v),
+        TipoDespesa v => RotuloTipoDespesa(v),
+        StatusDespesa v => RotuloStatusDespesa(v),
+        TipoImovel v => RotuloTipoImovel(v),
+        SituacaoImovel v => RotuloSituacaoImovel(v),
         _ => RegexSeparadorMaiuscula().Replace(valor.ToString(), " $1").ToLowerInvariant()
     };
 
@@ -67,6 +98,7 @@ internal static partial class Formatador
         TipoBem.Ferramenta => "Ferramenta",
         TipoBem.Movel => "Móvel",
         TipoBem.Imovel => "Imóvel",
+        TipoBem.Pessoa => "Pessoa (titular)",
         _ => "Outro"
     };
 
@@ -118,7 +150,17 @@ internal static partial class Formatador
         TipoAlerta.GarantiaVencida => "Garantia vencida",
         TipoAlerta.ManutencaoProxima => "Manutenção próxima",
         TipoAlerta.ManutencaoAtrasada => "Manutenção atrasada",
-        _ => "Documento ausente"
+        TipoAlerta.ConvenioVencendo => "Convênio vencendo",
+        TipoAlerta.ConvenioVencido => "Convênio vencido",
+        TipoAlerta.LicenciamentoVencendo => "Licenciamento vencendo",
+        TipoAlerta.LicenciamentoVencido => "Licenciamento vencido",
+        TipoAlerta.SeguroVencendo => "Seguro vencendo",
+        TipoAlerta.SeguroVencido => "Seguro vencido",
+        TipoAlerta.RevisaoVeiculo => "Revisão do veículo",
+        TipoAlerta.ContaVencendo => "Conta a vencer",
+        TipoAlerta.ContaVencida => "Conta vencida",
+        TipoAlerta.ContratoAluguel => "Contrato de aluguel",
+        _ => "Nota fiscal ausente"
     };
 
     private static string RotuloSeveridadeAlerta(SeveridadeAlerta valor) => valor switch
@@ -142,6 +184,10 @@ internal static partial class Formatador
         TipoDocumento.CertificadoGarantia => "Certificado de garantia",
         TipoDocumento.Manual => "Manual",
         TipoDocumento.Foto => "Foto",
+        TipoDocumento.Escritura => "Escritura",
+        TipoDocumento.Contrato => "Contrato",
+        TipoDocumento.DocumentoVeiculo => "Documento do veículo (CRLV)",
+        TipoDocumento.Apolice => "Apólice de seguro",
         _ => "Outro"
     };
 
@@ -178,6 +224,112 @@ internal static partial class Formatador
         TipoGastoSaude.Procedimento => "Procedimento",
         _ => "Outro"
     };
+
+    private static string RotuloFrequenciaBackup(FrequenciaBackup valor) => valor switch
+    {
+        FrequenciaBackup.Diaria => "Diária",
+        FrequenciaBackup.Semanal => "Semanal",
+        _ => "Mensal"
+    };
+
+    private static string RotuloTemaVisual(TemaVisual valor) => valor switch
+    {
+        TemaVisual.Claro => "Claro",
+        _ => "Escuro"
+    };
+
+    private static string RotuloCorDestaque(CorDestaque valor) => valor switch
+    {
+        CorDestaque.Violeta => "Violeta",
+        CorDestaque.Verde => "Verde",
+        CorDestaque.Ambar => "Âmbar",
+        _ => "Ciano"
+    };
+
+    private static string RotuloDensidadeTabela(DensidadeTabela valor) => valor switch
+    {
+        DensidadeTabela.Compacta => "Compacta",
+        _ => "Confortável"
+    };
+
+    private static string RotuloIntervaloAtualizacao(IntervaloAtualizacao valor) => valor switch
+    {
+        IntervaloAtualizacao.Segundos10 => "10 segundos",
+        IntervaloAtualizacao.Segundos30 => "30 segundos",
+        IntervaloAtualizacao.Segundos60 => "60 segundos",
+        _ => "5 segundos"
+    };
+
+    private static string RotuloCombustivel(TipoCombustivel valor) => valor switch
+    {
+        TipoCombustivel.Gasolina => "Gasolina",
+        TipoCombustivel.Etanol => "Etanol",
+        TipoCombustivel.Flex => "Flex",
+        TipoCombustivel.Diesel => "Diesel",
+        TipoCombustivel.Gnv => "GNV",
+        TipoCombustivel.Eletrico => "Elétrico",
+        TipoCombustivel.Hibrido => "Híbrido",
+        _ => "Outro"
+    };
+
+    private static string RotuloTipoDespesa(TipoDespesa valor) => valor switch
+    {
+        TipoDespesa.Ipva => "IPVA",
+        TipoDespesa.Licenciamento => "Licenciamento",
+        TipoDespesa.SeguroVeiculo => "Seguro do veículo",
+        TipoDespesa.Multa => "Multa",
+        TipoDespesa.Pedagio => "Pedágio",
+        TipoDespesa.Estacionamento => "Estacionamento",
+        TipoDespesa.Lavagem => "Lavagem",
+        TipoDespesa.Iptu => "IPTU",
+        TipoDespesa.Condominio => "Condomínio",
+        TipoDespesa.Agua => "Água",
+        TipoDespesa.Energia => "Energia",
+        TipoDespesa.Gas => "Gás",
+        TipoDespesa.Internet => "Internet / TV",
+        TipoDespesa.SeguroImovel => "Seguro do imóvel",
+        TipoDespesa.Aluguel => "Aluguel",
+        TipoDespesa.Reforma => "Reforma",
+        TipoDespesa.Financiamento => "Financiamento",
+        _ => "Outra"
+    };
+
+    private static string RotuloStatusDespesa(StatusDespesa valor) => valor switch
+    {
+        StatusDespesa.Pendente => "Em aberto",
+        StatusDespesa.AVencer => "A vencer",
+        StatusDespesa.Vencida => "Vencida",
+        _ => "Paga"
+    };
+
+    private static string RotuloTipoImovel(TipoImovel valor) => valor switch
+    {
+        TipoImovel.Casa => "Casa",
+        TipoImovel.Apartamento => "Apartamento",
+        TipoImovel.Terreno => "Terreno",
+        TipoImovel.SalaComercial => "Sala comercial",
+        TipoImovel.Galpao => "Galpão",
+        TipoImovel.Rural => "Rural",
+        _ => "Outro"
+    };
+
+    private static string RotuloSituacaoImovel(SituacaoImovel valor) => valor switch
+    {
+        SituacaoImovel.MoradiaPropria => "Moradia própria",
+        SituacaoImovel.AlugadoParaTerceiros => "Alugado",
+        SituacaoImovel.Desocupado => "Desocupado",
+        SituacaoImovel.Veraneio => "Veraneio",
+        SituacaoImovel.UsoComercial => "Uso comercial",
+        _ => "Em construção"
+    };
+
+    internal static string Km(int? quilometragem) =>
+        quilometragem is null ? ValorAusente : $"{quilometragem.Value.ToString("N0", CulturaMonetaria)} km";
+
+    internal static string Numero(decimal? valor, int casas = 2) =>
+        valor is null ? ValorAusente : valor.Value.ToString("N" + casas, CulturaMonetaria);
+
+    internal static string Inteiro(int? valor) => valor?.ToString(CulturaMonetaria) ?? ValorAusente;
 
     [GeneratedRegex("(?<!^)([A-Z])")]
     private static partial Regex RegexSeparadorMaiuscula();

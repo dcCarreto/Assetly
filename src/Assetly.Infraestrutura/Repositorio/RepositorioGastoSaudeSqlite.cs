@@ -92,4 +92,20 @@ public sealed class RepositorioGastoSaudeSqlite(FabricaConexaoSqlite fabricaCone
             throw new ExcecaoBancoDados("Não foi possível listar gastos de saúde", excecao);
         }
     }
+
+    public void Excluir(GastoSaudeId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM gastos_saude WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir gasto de saúde", excecao);
+        }
+    }
 }

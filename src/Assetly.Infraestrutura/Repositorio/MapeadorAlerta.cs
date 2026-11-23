@@ -15,5 +15,6 @@ internal static class MapeadorAlerta
             leitor.GetString(leitor.GetOrdinal("mensagem")),
             ConversorSqlite.Data(leitor, "criado_em")!.Value,
             ConversorSqlite.Data(leitor, "prazo_em"),
-            ConversorSqlite.EnumDeTexto<StatusAlerta>(leitor.GetString(leitor.GetOrdinal("status"))));
+            ConversorSqlite.EnumDeTexto<StatusAlerta>(leitor.GetString(leitor.GetOrdinal("status"))),
+            leitor.GetInt64(leitor.GetOrdinal("automatico")) != 0);
 }

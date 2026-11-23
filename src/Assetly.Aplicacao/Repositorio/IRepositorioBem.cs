@@ -9,4 +9,6 @@ public interface IRepositorioBem
     IReadOnlyList<Bem> Listar();
 
     void Salvar(Bem bem);
+
+    void Excluir(BemId id);
 }

@@ -4,14 +4,16 @@ on:
   push:
     branches:
       - main
+      - desenvolvimento
   pull_request:
     branches:
       - main
 
 jobs:
   test:
-    name: Testes
+    name: Testes e autoteste
     runs-on: windows-latest
+    timeout-minutes: 20
 
     steps:
       - name: Baixar código
@@ -30,3 +32,14 @@ jobs:
 
       - name: Rodar testes
         run: dotnet test Assetly.slnx --no-build --configuration Release
+
+      # Abre o programa de verdade (sem janela): banco novo, migrações, dados fictícios, todas as telas e
+      # formulários, exportação, patrimônio e backup criptografado. Mesmo teste usado antes de cada release.
+      - name: Autoteste do programa
+        shell: pwsh
+        run: |
+          $exe = Get-Item src\Assetly.Apresentacao\bin\Release\net10.0-windows10.0.19041.0\Assetly.exe
+          $relatorio = Join-Path $env:RUNNER_TEMP "autoteste.txt"
+          $p = Start-Process $exe.FullName -ArgumentList "--autoteste", "--relatorio=$relatorio" -Wait -PassThru
+          Get-Content $relatorio -Encoding UTF8
+          if ($p.ExitCode -ne 0) { throw "O autoteste falhou (código $($p.ExitCode))." }

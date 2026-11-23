@@ -7,5 +7,9 @@ public enum TipoDocumento
     CertificadoGarantia,
     Manual,
     Foto,
+    Escritura,
+    Contrato,
+    DocumentoVeiculo,
+    Apolice,
     Outro
 }

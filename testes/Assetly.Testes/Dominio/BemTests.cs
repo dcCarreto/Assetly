@@ -36,6 +36,18 @@ public class BemTests
     }
 
     [Fact]
+    public void DevePermitirDesarquivarBemMasNaoColocarArquivadoEmManutencao()
+    {
+        var bem = Bem.Criar(new NomeBem("Furadeira"), TipoBem.Ferramenta);
+        bem.Arquivar();
+
+        Should.Throw<InvalidOperationException>(() => bem.MarcarEmManutencao());
+        bem.Ativar();
+
+        bem.Status.ShouldBe(StatusBem.Ativo);
+    }
+
+    [Fact]
     public void DeveImpedirReativarBemDescartado()
     {
         var bem = Bem.Criar(new NomeBem("Bicicleta"), TipoBem.Outro);
@@ -43,6 +55,6 @@ public class BemTests
         bem.Descartar();
 
         var excecao = Should.Throw<InvalidOperationException>(() => bem.Ativar());
-        excecao.Message.ShouldContain("arquivado ou descartado");
+        excecao.Message.ShouldContain("descartado");
     }
 }

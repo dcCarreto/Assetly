@@ -12,4 +12,6 @@ public interface IRepositorioAlerta
     IReadOnlyList<Alerta> ListarPorBem(BemId bemId);
 
     void Salvar(Alerta alerta);
+
+    void Excluir(AlertaId id);
 }

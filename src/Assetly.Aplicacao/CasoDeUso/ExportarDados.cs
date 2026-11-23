@@ -1,0 +1,124 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using Assetly.Aplicacao.Repositorio;
+using Assetly.Dominio.Compartilhado;
+
+namespace Assetly.Aplicacao.CasoDeUso;
+
+/// <summary>
+/// Exporta todos os dados do usuário em JSON legível (portabilidade: planilhas, outros programas,
+/// arquivo pessoal). A mesma montagem gera a "impressão digital" usada pela sincronização: uma versão
+/// canônica que ignora o que é derivado ou específico do computador (alertas automáticos, que cada
+/// computador regenera; caminho completo dos arquivos, que muda de um perfil de usuário para outro).
+/// </summary>
+public sealed class ExportarDados(FonteDados dados)
+{
+    private static readonly JsonSerializerOptions Opcoes = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    private readonly FonteDados _dados = dados ?? throw new ArgumentNullException(nameof(dados));
+
+    public string Executar() => JsonSerializer.Serialize(Montar(paraComparacao: false), Opcoes);
+
+    /// <summary>SHA-256 do conteúdo canônico (ver resumo da classe), em hexadecimal.</summary>
+    public string ImpressaoDigital()
+    {
+        var json = JsonSerializer.Serialize(Montar(paraComparacao: true), Opcoes);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
+    }
+
+    /// <summary>Verdadeiro quando ainda não há nenhum cadastro (instalação nova) — alertas automáticos não contam.</summary>
+    public bool SemDados() =>
+        _dados.Bens.Listar().Count == 0 && _dados.Documentos.Listar().Count == 0 && _dados.Garantias.Listar().Count == 0
+        && _dados.Manutencoes.Listar().Count == 0 && _dados.Alertas.Listar().All(a => a.Automatico);
+
+    private object Montar(bool paraComparacao)
+    {
+        static object? D(Dinheiro? valor) => valor is null ? null : new { valor = valor.Valor, moeda = valor.CodigoMoeda };
+
+        var bens = _dados.Bens.Listar().OrderBy(b => b.Id.Valor).Select(b => new
+        {
+            id = b.Id.Valor,
+            nome = b.Nome.Valor,
+            tipo = b.Tipo.ToString(),
+            status = b.Status.ToString(),
+            compradoEm = b.CompradoEm,
+            precoCompra = D(b.PrecoCompra),
+            observacoes = b.Observacoes,
+            responsavelId = b.ResponsavelId?.Valor
+        });
+
+        var conteudo = new Dictionary<string, object?>
+        {
+            ["bens"] = bens,
+            ["garantias"] = _dados.Garantias.Listar().OrderBy(g => g.Id.Valor).Select(g => new
+            {
+                id = g.Id.Valor, bemId = g.BemId.Valor, tipo = g.Tipo.ToString(), fornecedor = g.Fornecedor,
+                iniciaEm = g.Periodo.IniciaEm, terminaEm = g.Periodo.TerminaEm, contatoSuporte = g.ContatoSuporte
+            }),
+            ["manutencoes"] = _dados.Manutencoes.Listar().OrderBy(m => m.Id.Valor).Select(m => new
+            {
+                id = m.Id.Valor, bemId = m.BemId.Valor, tipo = m.Tipo.ToString(), descricao = m.Descricao,
+                agendadaPara = m.AgendadaPara, concluidaEm = m.ConcluidaEm, custo = D(m.Custo), status = m.Status.ToString()
+            }),
+            ["documentos"] = _dados.Documentos.Listar().OrderBy(d => d.Id.Valor).Select(d => new
+            {
+                id = d.Id.Valor, bemId = d.BemId.Valor, tipo = d.Tipo.ToString(), nome = d.Nome.Valor,
+                arquivo = paraComparacao ? Path.GetFileName(d.CaminhoLocal.Valor) : d.CaminhoLocal.Valor,
+                registradoEm = d.RegistradoEm, status = d.Status.ToString(), chaveAcesso = d.ChaveAcesso, urlConsulta = d.UrlConsulta
+            }),
+            ["alertas"] = _dados.Alertas.Listar().Where(a => !paraComparacao || !a.Automatico).OrderBy(a => a.Id.Valor).Select(a => new
+            {
+                id = a.Id.Valor, bemId = a.BemId.Valor, tipo = a.Tipo.ToString(), severidade = a.Severidade.ToString(),
+                mensagem = a.Mensagem, criadoEm = a.CriadoEm, prazoEm = a.PrazoEm, status = a.Status.ToString(), automatico = a.Automatico
+            }),
+            ["convenios"] = _dados.Convenios.Listar().OrderBy(s => s.Id.Valor).Select(s => new
+            {
+                id = s.Id.Valor, bemId = s.BemId.Valor, tipo = s.Tipo.ToString(), fornecedor = s.Fornecedor, contato = s.Contato,
+                iniciaEm = s.Periodo.IniciaEm, terminaEm = s.Periodo.TerminaEm, canceladoEm = s.DataCancelamento
+            }),
+            ["gastosSaude"] = _dados.GastosSaude.Listar().OrderBy(g => g.Id.Valor).Select(g => new
+            {
+                id = g.Id.Valor, bemId = g.BemId.Valor, tipo = g.Tipo.ToString(), descricao = g.Descricao, data = g.Data, valor = D(g.Valor)
+            }),
+            ["veiculos"] = _dados.Veiculos.Listar().OrderBy(v => v.BemId.Valor).Select(v => new { bemId = v.BemId.Valor, ficha = v.Dados() }),
+            ["abastecimentos"] = _dados.Abastecimentos.Listar().OrderBy(a => a.Id.Valor).Select(a => new
+            {
+                id = a.Id.Valor, bemId = a.BemId.Valor, data = a.Data, quilometragem = a.Quilometragem, litros = a.Litros,
+                valor = D(a.Valor), combustivel = a.Combustivel.ToString(), tanqueCheio = a.TanqueCheio, posto = a.Posto
+            }),
+            ["imoveis"] = _dados.Imoveis.Listar().OrderBy(i => i.BemId.Valor).Select(i => new
+            {
+                bemId = i.BemId.Valor, tipo = i.Tipo.ToString(), situacao = i.Situacao.ToString(), endereco = i.EnderecoCompleto,
+                logradouro = i.Logradouro, numero = i.Numero, complemento = i.Complemento, bairro = i.Bairro, cidade = i.Cidade, uf = i.Uf,
+                cep = i.Cep, areaM2 = i.AreaM2, quartos = i.Quartos, banheiros = i.Banheiros, vagas = i.Vagas, matricula = i.Matricula,
+                inscricaoIptu = i.InscricaoIptu, valorCondominio = D(i.ValorCondominio), seguradora = i.Seguradora, apolice = i.Apolice,
+                vencimentoSeguro = i.VencimentoSeguro, inquilino = i.Inquilino, valorAluguel = D(i.ValorAluguel), fimContratoAluguel = i.FimContratoAluguel
+            }),
+            ["despesas"] = _dados.Despesas.Listar().OrderBy(d => d.Id.Valor).Select(d => new
+            {
+                id = d.Id.Valor, bemId = d.BemId.Valor, tipo = d.Tipo.ToString(), descricao = d.Descricao,
+                vencimento = d.Vencimento, valor = D(d.Valor), pagaEm = d.PagaEm
+            })
+        };
+
+        if (!paraComparacao)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["aplicativo"] = "Assetly",
+                ["formato"] = 1,
+                ["exportadoEm"] = DateTimeOffset.Now,
+                ["dados"] = conteudo
+            };
+        }
+
+        return conteudo;
+    }
+}

@@ -12,6 +12,10 @@ public sealed class Bem
     public Dinheiro? PrecoCompra { get; private set; }
     public string Observacoes { get; private set; }
 
+    /// <summary>Modo família: pessoa (bem do tipo <see cref="TipoBem.Pessoa"/>) responsável por este bem.
+    /// Nulo = sem responsável definido.</summary>
+    public BemId? ResponsavelId { get; private set; }
+
     private Bem(
         BemId id,
         NomeBem nome,
@@ -46,8 +50,9 @@ public sealed class Bem
         StatusBem status,
         DateOnly? compradoEm,
         Dinheiro? precoCompra,
-        string observacoes) =>
-        new(id, nome, tipo, status, compradoEm, precoCompra, observacoes);
+        string observacoes,
+        BemId? responsavelId = null) =>
+        new(id, nome, tipo, status, compradoEm, precoCompra, observacoes) { ResponsavelId = responsavelId };
 
     public void Renomear(NomeBem novoNome)
     {
@@ -59,9 +64,29 @@ public sealed class Bem
         Tipo = novoTipo;
     }
 
-    public void AtualizarCompra(DateOnly compradoEm, Dinheiro? precoCompra)
+    /// <summary>Define a pessoa responsável (a validação de que é uma Pessoa fica no caso de uso, que
+    /// enxerga os outros bens).</summary>
+    public void DefinirResponsavel(BemId? responsavelId)
     {
-        CompradoEm = Validacao.ExigirDataNaoFutura(compradoEm, "data de compra", DateOnly.FromDateTime(DateTime.Now));
+        if (responsavelId is not null && responsavelId.Value.Equals(Id))
+        {
+            throw new ArgumentException("um bem não pode ser responsável por ele mesmo");
+        }
+
+        ResponsavelId = responsavelId;
+    }
+
+    public void AtualizarCompra(DateOnly compradoEm, Dinheiro? precoCompra) =>
+        AtualizarCompra((DateOnly?)compradoEm, precoCompra);
+
+    /// <summary>Data e preço de compra são independentes e opcionais: é comum saber quanto custou um
+    /// item herdado ou antigo sem lembrar a data (e vice-versa). Nulo limpa o valor; data, se
+    /// informada, não pode estar no futuro.</summary>
+    public void AtualizarCompra(DateOnly? compradoEm, Dinheiro? precoCompra)
+    {
+        CompradoEm = compradoEm is null
+            ? null
+            : Validacao.ExigirDataNaoFutura(compradoEm, "data de compra", DateOnly.FromDateTime(DateTime.Now));
         PrecoCompra = precoCompra;
     }
 
@@ -76,9 +101,15 @@ public sealed class Bem
         Status = StatusBem.EmManutencao;
     }
 
+    /// <summary>Reativa o bem. Um bem arquivado pode voltar a ser ativo (desarquivar); descartado é
+    /// um estado final, porque o item físico deixou de existir.</summary>
     public void Ativar()
     {
-        ExigirAbertoParaMudanca();
+        if (Status == StatusBem.Descartado)
+        {
+            throw new InvalidOperationException("bem descartado não pode ser reativado");
+        }
+
         Status = StatusBem.Ativo;
     }
 

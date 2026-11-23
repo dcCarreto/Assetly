@@ -12,4 +12,6 @@ public interface IRepositorioManutencao
     IReadOnlyList<Manutencao> ListarPorBem(BemId bemId);
 
     void Salvar(Manutencao manutencao);
+
+    void Excluir(ManutencaoId id);
 }

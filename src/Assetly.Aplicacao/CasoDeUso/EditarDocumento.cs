@@ -21,17 +21,33 @@ public sealed class EditarDocumento
         _armazenamentoDocumento = armazenamentoDocumento ?? throw new ArgumentNullException(nameof(armazenamentoDocumento), "armazenamento de documentos é obrigatório");
     }
 
+    /// <summary>Renomear, mudar o tipo ou a data não exige o arquivo: só quando o caminho informado é
+    /// diferente do atual o novo arquivo é copiado e o documento volta a ficar disponível. Assim é
+    /// possível corrigir o nome de um documento ausente sem ter o arquivo em mãos.</summary>
     public Documento Executar(EditarDocumentoComando comando)
     {
         ArgumentNullException.ThrowIfNull(comando);
         var documento = ApoioCasosUso.ExigirDocumento(_repositorioDocumento, comando.Id);
-        var caminhoArmazenado = _armazenamentoDocumento.Armazenar(comando.CaminhoLocal);
 
         documento.Renomear(new NomeDocumento(comando.Nome));
         documento.AlterarTipo(comando.Tipo);
-        documento.SubstituirArquivo(new CaminhoDocumentoLocal(caminhoArmazenado), comando.RegistradoEm);
 
+        if (MesmoArquivo(comando.CaminhoLocal, documento.CaminhoLocal))
+        {
+            documento.AlterarDataRegistro(comando.RegistradoEm);
+        }
+        else
+        {
+            var caminhoArmazenado = _armazenamentoDocumento.Armazenar(comando.CaminhoLocal);
+            documento.SubstituirArquivo(new CaminhoDocumentoLocal(caminhoArmazenado), comando.RegistradoEm);
+        }
+
+        documento.VincularNotaEletronica(string.IsNullOrWhiteSpace(comando.ChaveAcesso) ? null : ChaveAcessoNfe.Criar(comando.ChaveAcesso), comando.UrlConsulta);
         _repositorioDocumento.Salvar(documento);
         return documento;
     }
+
+    private static bool MesmoArquivo(string? caminhoInformado, CaminhoDocumentoLocal caminhoAtual) =>
+        string.IsNullOrWhiteSpace(caminhoInformado)
+        || string.Equals(new CaminhoDocumentoLocal(caminhoInformado.Trim()).Valor, caminhoAtual.Valor, StringComparison.OrdinalIgnoreCase);
 }

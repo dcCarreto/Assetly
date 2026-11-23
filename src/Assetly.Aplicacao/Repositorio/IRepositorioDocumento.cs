@@ -12,4 +12,6 @@ public interface IRepositorioDocumento
     IReadOnlyList<Documento> ListarPorBem(BemId bemId);
 
     void Salvar(Documento documento);
+
+    void Excluir(DocumentoId id);
 }

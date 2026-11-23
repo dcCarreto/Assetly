@@ -163,7 +163,7 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="7">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
@@ -229,6 +229,35 @@
     <!-- ============================================================
          Chip de filtro (barra de filtros das telas de tabela)
          ============================================================ -->
+    <!-- Aba interna de módulo (ex.: Automóveis: Veículos | Abastecimentos | Despesas). -->
+    <Style x:Key="AbaStyle" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="{DynamicResource FontUi}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="4,8"/>
+        <Setter Property="Margin" Value="0,0,22,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="sublinhado" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextTitle}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextTitle}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="sublinhado" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ChipFilterStyle" TargetType="ToggleButton">
         <Setter Property="FontFamily" Value="{DynamicResource FontUi}"/>
         <Setter Property="FontSize" Value="11.5"/>
@@ -400,9 +429,22 @@
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="fundo" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        <Grid>
+                            <!-- Texto de dica (Tag) visível enquanto o campo está vazio. -->
+                            <TextBlock x:Name="dica" Text="{TemplateBinding Tag}" Foreground="{DynamicResource TextMuted}"
+                                       Margin="{TemplateBinding Padding}" Padding="2,0,0,0" VerticalAlignment="Center"
+                                       IsHitTestVisible="False" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="Text" Value=""/>
+                                <Condition Property="IsKeyboardFocused" Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="dica" Property="Visibility" Value="Visible"/>
+                        </MultiTrigger>
                         <Trigger Property="IsFocused" Value="True">
                             <Setter TargetName="fundo" Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/>
                             <Setter TargetName="fundo" Property="Effect" Value="{DynamicResource FocusHalo}"/>
@@ -423,6 +465,70 @@
     <!-- Campos de diálogo: mesma aparência, 32px de altura (formulários em grade têm mais respiro). -->
     <Style x:Key="CampoTextoDialogoStyle" TargetType="TextBox" BasedOn="{StaticResource CampoTextoStyle}">
         <Setter Property="MinHeight" Value="32"/>
+    </Style>
+
+    <!-- Campo de senha (backup criptografado): mesma aparência dos campos de texto. -->
+    <Style x:Key="CampoSenhaStyle" TargetType="PasswordBox">
+        <Setter Property="FontFamily" Value="{DynamicResource FontUi}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBody}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextBody}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource BgSurface2}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="fundo" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="fundo" Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/>
+                            <Setter TargetName="fundo" Property="Effect" Value="{DynamicResource FocusHalo}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{DynamicResource FontUi}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBody}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal">
+                        <Border x:Name="caixa" Width="16" Height="16" CornerRadius="4" VerticalAlignment="Center"
+                                Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
+                            <Path x:Name="marca" Data="M2,6 L6,10 L12,2" Stroke="{DynamicResource ButtonPrimaryText}" StrokeThickness="2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="caixa" Property="Background" Value="{DynamicResource AccentPrimary}"/>
+                            <Setter TargetName="caixa" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                            <Setter TargetName="marca" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="caixa" Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ComboBoxItem">
@@ -506,6 +612,76 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="MinHeight" Value="30"/>
         <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <!-- Template próprio: o padrão do Windows tem caixa de texto branca e dica "Select a
+                     date" em inglês. As partes PART_* são exigidas pelo DatePicker. -->
+                <ControlTemplate TargetType="DatePicker">
+                    <Border x:Name="fundo" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
+                        <Grid x:Name="PART_Root">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0" Margin="{TemplateBinding Padding}"
+                                               Foreground="{TemplateBinding Foreground}" VerticalContentAlignment="Center"/>
+                            <Button x:Name="PART_Button" Grid.Column="1" Focusable="False" Cursor="Hand" Width="30"
+                                    ToolTip="Abrir calendário" Foreground="{DynamicResource TextSecondary}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="area" Background="Transparent" CornerRadius="0,6,6,0">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                       Foreground="{TemplateBinding Foreground}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="area" Property="Background" Value="{DynamicResource BgSurface1}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" PlacementTarget="{Binding ElementName=fundo}" StaysOpen="False"
+                                   AllowsTransparency="True"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="fundo" Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/>
+                            <Setter TargetName="fundo" Property="Effect" Value="{DynamicResource FocusHalo}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DatePickerTextBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextBody}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource BgSurface2}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePickerTextBox">
+                    <Grid Background="Transparent">
+                        <TextBlock x:Name="dica" Text="dd/mm/aaaa" Foreground="{DynamicResource TextMuted}" Padding="2,0,0,0"
+                                   VerticalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed"/>
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="dica" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="ComboDialogoStyle" TargetType="ComboBox" BasedOn="{StaticResource ComboStyle}">
@@ -627,6 +803,33 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <!-- Barra horizontal (tabelas em janelas estreitas): sem isto ela herdava a largura fixa de
+                 10px da vertical e aparecia como um "polegar" solto no rodapé da tabela. -->
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource AssetlyScrollBarThumb}" Height="8"/>
+                                    </Track.Thumb>
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageLeftCommand" Opacity="0" Background="Transparent"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageRightCommand" Opacity="0" Background="Transparent"/>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ============================================================
@@ -652,9 +855,12 @@
         <Setter Property="IsReadOnly" Value="True"/>
         <Setter Property="SelectionMode" Value="Single"/>
         <Setter Property="SelectionUnit" Value="FullRow"/>
-        <Setter Property="RowHeight" Value="36"/>
+        <Setter Property="RowHeight" Value="{DynamicResource TabelaAlturaLinha}"/>
         <Setter Property="GridLinesVisibility" Value="None"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
+        <!-- A borda de status da linha (3px + 1px de seleção) deixava a linha alguns pixels mais larga
+             que a área visível e forçava uma barra horizontal inútil; as colunas proporcionais já se ajustam. -->
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
     </Style>
 
     <Style x:Key="CabecalhoColunaStyle" TargetType="DataGridColumnHeader">
@@ -717,7 +923,7 @@
     <Style x:Key="CelulaTabelaStyle" TargetType="DataGridCell">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Padding" Value="{DynamicResource TabelaPaddingCelula}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextBody}"/>
         <Setter Property="Template">
             <Setter.Value>

@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ================= Tipografia ================= -->
     <FontFamily x:Key="FontUi">Segoe UI Variable Text, Segoe UI</FontFamily>
@@ -207,5 +208,10 @@
          é a única exceção, implementado como DropShadowEffect por ser a alternativa mais
          simples às duas oferecidas na especificação para o halo de 3px a 20% de opacidade. -->
     <DropShadowEffect x:Key="FocusHalo" Color="{StaticResource AccentPrimaryColor}" Opacity="0.35" BlurRadius="6" ShadowDepth="0"/>
+
+    <!-- ================= Densidade da tabela ================= -->
+    <!-- Confortável (padrão). AparenciaApoio troca estas duas chaves em runtime para Compacta. -->
+    <sys:Double x:Key="TabelaAlturaLinha">36</sys:Double>
+    <Thickness x:Key="TabelaPaddingCelula">10,0</Thickness>
 
 </ResourceDictionary>

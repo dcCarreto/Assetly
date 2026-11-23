@@ -94,4 +94,20 @@ public sealed class RepositorioSaudeSqlite(FabricaConexaoSqlite fabricaConexao) 
             throw new ExcecaoBancoDados("Não foi possível listar registros de saúde", excecao);
         }
     }
+
+    public void Excluir(SaudeId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM saude WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir registro de saúde", excecao);
+        }
+    }
 }

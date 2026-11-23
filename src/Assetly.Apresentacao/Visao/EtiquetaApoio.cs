@@ -39,13 +39,16 @@ internal static class EtiquetaApoio
     private static StatusSemantica ClassificarEtiqueta(string classeEtiqueta) => classeEtiqueta switch
     {
         "etiqueta-ativo" or "etiqueta-ativa" or "etiqueta-disponivel" or "etiqueta-concluida" or "etiqueta-resolvido"
+            or "etiqueta-paga" or "etiqueta-em-dia" or "etiqueta-moradia-propria"
             => StatusSemantica.Ok,
-        "etiqueta-informativo" or "etiqueta-aberto" or "etiqueta-agendada"
+        "etiqueta-informativo" or "etiqueta-aberto" or "etiqueta-agendada" or "etiqueta-pendente"
+            or "etiqueta-alugado-para-terceiros" or "etiqueta-uso-comercial"
             => StatusSemantica.Informativo,
         "etiqueta-aviso" or "etiqueta-ciente" or "etiqueta-nao-iniciada" or "etiqueta-perto-do-vencimento"
+            or "etiqueta-a-vencer" or "etiqueta-atencao" or "etiqueta-em-construcao"
             or "etiqueta-em-manutencao" or "etiqueta-ausente"
             => StatusSemantica.Aviso,
-        "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-cancelada" or "etiqueta-descartado" or "etiqueta-critico"
+        "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-cancelada" or "etiqueta-descartado" or "etiqueta-critico" or "etiqueta-pendencia"
             => StatusSemantica.Perigo,
         "etiqueta-arquivado" => StatusSemantica.Neutro,
         _ => StatusSemantica.Neutro

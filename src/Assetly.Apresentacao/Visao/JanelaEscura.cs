@@ -178,6 +178,8 @@ internal static class JanelaEscura
         janela.Background = (Brush)Application.Current.Resources[ehDialogo ? "CardBg" : "BgChrome"];
         janela.BorderBrush = (Brush)Application.Current.Resources["CardBorder"];
         janela.BorderThickness = new Thickness(1);
+        // Herdado por todos os controles da janela: datas em dd/mm/aaaa no seletor de data, por exemplo.
+        janela.Language = System.Windows.Markup.XmlLanguage.GetLanguage("pt-BR");
     }
 
     private static UIElement CriarBarraTitulo(Window janela, string titulo, bool comMaximizar, UIElement? extraNaBarra)
@@ -257,24 +259,18 @@ internal static class JanelaEscura
         };
     }
 
-    private static FrameworkElement CriarIcone() => new Border
+    private static FrameworkElement CriarIcone()
     {
-        Width = 15,
-        Height = 15,
-        CornerRadius = new CornerRadius(4),
-        Background = (Brush)Application.Current.Resources["LogoGradient"],
-        VerticalAlignment = VerticalAlignment.Center,
-        Child = new TextBlock
+        var imagem = new Image
         {
-            Text = "A",
-            Foreground = (Brush)Application.Current.Resources["BgChrome"],
-            FontFamily = (FontFamily)Application.Current.Resources["FontUi"],
-            FontWeight = FontWeights.SemiBold,
-            FontSize = 9,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        }
-    };
+            Width = 18,
+            Height = 18,
+            VerticalAlignment = VerticalAlignment.Center,
+            Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assetly;component/Recursos/Imagens/assetly-icon-64.png"))
+        };
+        RenderOptions.SetBitmapScalingMode(imagem, BitmapScalingMode.HighQuality);
+        return imagem;
+    }
 
     private static Button CriarBotaoJanela(string descricao, UIElement glifo)
     {

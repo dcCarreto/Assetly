@@ -14,5 +14,7 @@ internal static class MapeadorDocumento
             new NomeDocumento(leitor.GetString(leitor.GetOrdinal("nome"))),
             CaminhoDocumentoLocal.De(leitor.GetString(leitor.GetOrdinal("caminho_local"))),
             ConversorSqlite.Data(leitor, "registrado_em")!.Value,
-            ConversorSqlite.EnumDeTexto<StatusDocumento>(leitor.GetString(leitor.GetOrdinal("status"))));
+            ConversorSqlite.EnumDeTexto<StatusDocumento>(leitor.GetString(leitor.GetOrdinal("status"))),
+            ConversorSqlite.TextoColuna(leitor, "chave_acesso"),
+            ConversorSqlite.TextoColuna(leitor, "url_consulta"));
 }

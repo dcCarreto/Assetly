@@ -36,15 +36,17 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
     public void Salvar(Documento documento)
     {
         const string sql = """
-            INSERT INTO documentos (id, bem_id, tipo, nome, caminho_local, registrado_em, status)
-            VALUES ($id, $bemId, $tipo, $nome, $caminhoLocal, $registradoEm, $status)
+            INSERT INTO documentos (id, bem_id, tipo, nome, caminho_local, registrado_em, status, chave_acesso, url_consulta)
+            VALUES ($id, $bemId, $tipo, $nome, $caminhoLocal, $registradoEm, $status, $chaveAcesso, $urlConsulta)
             ON CONFLICT(id) DO UPDATE SET
                 bem_id = excluded.bem_id,
                 tipo = excluded.tipo,
                 nome = excluded.nome,
                 caminho_local = excluded.caminho_local,
                 registrado_em = excluded.registrado_em,
-                status = excluded.status
+                status = excluded.status,
+                chave_acesso = excluded.chave_acesso,
+                url_consulta = excluded.url_consulta
             """;
         try
         {
@@ -58,6 +60,8 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
             comando.Parameters.AddWithValue("$caminhoLocal", documento.CaminhoLocal.Valor);
             comando.Parameters.AddWithValue("$registradoEm", ConversorSqlite.Texto(documento.RegistradoEm)!);
             comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(documento.Status));
+            comando.Parameters.AddWithValue("$chaveAcesso", documento.ChaveAcesso);
+            comando.Parameters.AddWithValue("$urlConsulta", documento.UrlConsulta);
             comando.ExecuteNonQuery();
         }
         catch (SqliteException excecao)
@@ -90,6 +94,22 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
         catch (SqliteException excecao)
         {
             throw new ExcecaoBancoDados("Não foi possível listar documentos", excecao);
+        }
+    }
+
+    public void Excluir(DocumentoId id)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "DELETE FROM documentos WHERE id = $id";
+            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
+            comando.ExecuteNonQuery();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível excluir documento", excecao);
         }
     }
 }

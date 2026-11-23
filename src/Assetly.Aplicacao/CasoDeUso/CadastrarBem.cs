@@ -13,16 +13,10 @@ public sealed class CadastrarBem(IRepositorioBem repositorioBem)
         ArgumentNullException.ThrowIfNull(comando);
         var nome = new NomeBem(comando.Nome);
 
-        var bem = comando.CompradoEm is null
-            ? Bem.Criar(nome, comando.Tipo)
-            : Bem.Criar(nome, comando.Tipo, comando.CompradoEm.Value, ApoioCasosUso.DinheiroOpcional(comando.PrecoCompra, comando.CodigoMoeda));
-
-        if (comando.CompradoEm is null && comando.PrecoCompra is not null)
-        {
-            throw new ArgumentException("data de compra é obrigatória quando preço de compra é informado");
-        }
-
+        var bem = Bem.Criar(nome, comando.Tipo);
+        bem.AtualizarCompra(comando.CompradoEm, ApoioCasosUso.DinheiroOpcional(comando.PrecoCompra, comando.CodigoMoeda));
         bem.AtualizarObservacoes(comando.Observacoes);
+        bem.DefinirResponsavel(ApoioCasosUso.ExigirResponsavel(_repositorioBem, comando.Responsavel, bem.Id));
         _repositorioBem.Salvar(bem);
         return bem;
     }

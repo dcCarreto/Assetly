@@ -8,5 +8,6 @@ public enum TipoBem
     Ferramenta,
     Movel,
     Imovel,
+    Pessoa,
     Outro
 }
