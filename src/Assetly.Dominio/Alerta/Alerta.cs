@@ -19,6 +19,11 @@ public sealed class Alerta
     /// criados manualmente pelo usuário nunca são tocados pelo gerador.</summary>
     public bool Automatico { get; }
 
+    /// <summary>Registro que originou um alerta automático (garantia, manutenção, convênio, conta...): dois
+    /// registros com a mesma mensagem continuam gerando alertas distintos. Nulo em alertas manuais, nos
+    /// ligados ao próprio bem e nos gravados antes da migração V009.</summary>
+    public Guid? OrigemId { get; private init; }
+
     private Alerta(
         AlertaId id,
         BemId bemId,
@@ -55,8 +60,9 @@ public sealed class Alerta
         SeveridadeAlerta severidade,
         string? mensagem,
         DateOnly criadoEm,
-        DateOnly? prazoEm) =>
-        new(AlertaId.Novo(), bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico: true);
+        DateOnly? prazoEm,
+        Guid? origemId = null) =>
+        new(AlertaId.Novo(), bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico: true) { OrigemId = origemId };
 
     public static Alerta Restaurar(
         AlertaId id,
@@ -67,11 +73,13 @@ public sealed class Alerta
         DateOnly criadoEm,
         DateOnly? prazoEm,
         StatusAlerta status,
-        bool automatico = false)
+        bool automatico = false,
+        Guid? origemId = null)
     {
         var alerta = new Alerta(id, bemId, tipo, severidade, mensagem, criadoEm, prazoEm, automatico)
         {
-            Status = status
+            Status = status,
+            OrigemId = origemId
         };
         return alerta;
     }

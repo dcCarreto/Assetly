@@ -15,4 +15,8 @@ public interface IArmazenamentoDocumento
     /// ou, se ele não existir mais, um arquivo de mesmo nome no armazenamento atual (caso de backup
     /// restaurado em outra pasta ou perfil). Nulo quando o arquivo não é encontrado.</summary>
     string? Localizar(string caminhoRegistrado) => caminhoRegistrado;
+
+    /// <summary>Apaga do armazenamento privado os arquivos que nenhum documento usa (sobras de uma restauração
+    /// que juntou os arquivos do backup aos de hoje). Devolve quantos foram apagados.</summary>
+    int RemoverNaoReferenciados(IReadOnlyCollection<string> caminhosReferenciados) => 0;
 }

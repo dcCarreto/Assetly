@@ -13,7 +13,8 @@ internal static class RegistroErros
     private const int DiasRetidos = 30;
     private static readonly object Trava = new();
 
-    internal static string DiretorioLogs => CaminhosArmazenamentoLocal.DiretorioLogs();
+    /// <summary>Produção por padrão; o App troca para a pasta do ambiente de teste assim que sabe qual é.</summary>
+    internal static string DiretorioLogs { get; set; } = CaminhosArmazenamentoLocal.DiretorioLogs();
 
     internal static void Registrar(string contexto, Exception excecao)
     {

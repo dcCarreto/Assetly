@@ -79,6 +79,7 @@ public sealed class ServicoAtualizacaoGithub : IServicoAtualizacao
         var release = _encontrada ?? throw new InvalidOperationException("nenhuma atualização foi encontrada ainda. Procure por atualizações primeiro.");
         Directory.CreateDirectory(_diretorioDownloads);
         var destino = Path.Combine(_diretorioDownloads, release.NomeInstalador);
+        ApagarInstaladoresAntigos(destino);
         var esperado = await ObterSha256Async(release, cancelamento).ConfigureAwait(false);
 
         using (var resposta = await _http.GetAsync(release.UrlInstalador, HttpCompletionOption.ResponseHeadersRead, cancelamento).ConfigureAwait(false))
@@ -126,6 +127,27 @@ public sealed class ServicoAtualizacaoGithub : IServicoAtualizacao
         var instalador = _instaladorBaixado ?? throw new InvalidOperationException("nenhuma versão nova foi baixada ainda.");
         var argumentos = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL" + (reabrirDepois ? " /REABRIR" : string.Empty);
         Process.Start(new ProcessStartInfo(instalador, argumentos) { UseShellExecute = true });
+    }
+
+    /// <summary>Cada versão baixada deixaria um instalador de dezenas de MB na pasta temporária: só o atual fica.</summary>
+    private void ApagarInstaladoresAntigos(string manter)
+    {
+        foreach (var arquivo in Directory.EnumerateFiles(_diretorioDownloads, "Assetly-Setup-*"))
+        {
+            if (string.Equals(arquivo, manter, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(arquivo);
+            }
+            catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
+            {
+                // Um instalador ainda em execução fica para a próxima vez.
+            }
+        }
     }
 
     /// <summary>Lê a resposta da API de releases: versão (tag) e os arquivos do instalador e do SHA-256.</summary>

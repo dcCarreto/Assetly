@@ -102,6 +102,55 @@ public sealed class ServicoBackupLocalTests : IDisposable
     }
 
     [Fact]
+    public void RestauracaoApagaArquivosQueNenhumDocumentoRestauradoUsa()
+    {
+        var banco = CriarBanco();
+        var repositorioBem = new RepositorioBemSqlite(banco.FabricaConexao);
+        var repositorioDocumento = new RepositorioDocumentoSqlite(banco.FabricaConexao);
+        var armazenamento = new ArmazenamentoDocumentoLocal(DiretorioDocumentos);
+        var servico = new ServicoBackupLocal();
+        var bem = Bem.Criar(new NomeBem("Geladeira"), TipoBem.Eletrodomestico);
+        repositorioBem.Salvar(bem);
+        Directory.CreateDirectory(DiretorioDocumentos);
+        var nota = Path.Combine(DiretorioDocumentos, "nota.pdf");
+        File.WriteAllText(nota, "nota");
+        repositorioDocumento.Salvar(Documento.Registrar(bem.Id, TipoDocumento.NotaFiscal, new NomeDocumento("Nota"), new CaminhoDocumentoLocal(nota), new DateOnly(2026, 1, 1)));
+        var instantaneo = servico.ExecutarBackup(ArquivoBanco, DiretorioDocumentos, DiretorioDestino);
+
+        // Depois do backup: um arquivo que o backup não conhece (e que nenhum documento restaurado usa).
+        var sobra = Path.Combine(DiretorioDocumentos, "recibo-cadastrado-depois.pdf");
+        File.WriteAllText(sobra, "recibo");
+        var seguranca = Path.Combine(_raiz, "dados", "seguranca");
+
+        new RestaurarBackup(new RepositorioConfiguracaoBackupSqlite(banco.FabricaConexao), repositorioDocumento, servico, armazenamento, banco.Inicializar,
+            ArquivoBanco, DiretorioDocumentos, seguranca).Executar(instantaneo);
+
+        File.Exists(nota).ShouldBeTrue();
+        File.Exists(sobra).ShouldBeFalse();
+        // A cópia de segurança guardou o arquivo antes de ele ser apagado.
+        Directory.GetFiles(seguranca, "recibo-cadastrado-depois.pdf", SearchOption.AllDirectories).Length.ShouldBe(1);
+        Directory.GetDirectories(Path.Combine(_raiz, "dados"), ".assetly-preparacao-*").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void DeveManterSoOsBackupsMaisRecentes()
+    {
+        Directory.CreateDirectory(DiretorioDestino);
+        foreach (var dia in new[] { "01", "02", "03", "04" })
+        {
+            Directory.CreateDirectory(Path.Combine(DiretorioDestino, $"Assetly-Backup-2026-11-{dia}_120000"));
+        }
+
+        File.WriteAllText(Path.Combine(DiretorioDestino, "Assetly-Backup-2026-11-05_120000.assetly"), "cifrado");
+        File.WriteAllText(Path.Combine(DiretorioDestino, "outro-arquivo.txt"), "não é backup");
+
+        new ServicoBackupLocal().ManterUltimos(DiretorioDestino, 2);
+
+        Directory.GetFileSystemEntries(DiretorioDestino).Select(Path.GetFileName).Order().ShouldBe(
+            ["Assetly-Backup-2026-11-04_120000", "Assetly-Backup-2026-11-05_120000.assetly", "outro-arquivo.txt"]);
+    }
+
+    [Fact]
     public void DeveRecusarRestaurarPastaQueNaoEhBackup()
     {
         CriarBanco();

@@ -34,11 +34,20 @@ public static class ArquivoProtegido
     /// <summary>Grava <paramref name="zip"/> no formato .assetly (cifrado se houver senha).</summary>
     public static void Escrever(Stream zip, Stream saida, string? senha)
     {
+        using var destino = AbrirEscrita(saida, senha);
+        zip.CopyTo(destino);
+    }
+
+    /// <summary>Fluxo de escrita no formato .assetly: o que for escrito nele (o ZIP) sai em
+    /// <paramref name="saida"/> já cifrado, bloco a bloco — sem precisar do ZIP inteiro antes. O último bloco
+    /// é gravado ao fechar o fluxo. <paramref name="saida"/> não é fechada.</summary>
+    public static Stream AbrirEscrita(Stream saida, string? senha)
+    {
+        ArgumentNullException.ThrowIfNull(saida);
         if (string.IsNullOrEmpty(senha))
         {
             saida.Write(CabecalhoZip);
-            zip.CopyTo(saida);
-            return;
+            return new EscritaProtegida(saida, null);
         }
 
         var sal = RandomNumberGenerator.GetBytes(TamanhoSal);
@@ -46,35 +55,7 @@ public static class ArquivoProtegido
         saida.Write(CabecalhoAes);
         saida.Write(sal);
         EscreverInteiro(saida, IteracoesPadrao);
-
-        using var aes = new AesGcm(chave, TamanhoTag);
-        var atual = new byte[TamanhoBloco];
-        var proximo = new byte[TamanhoBloco];
-        var lidosAtual = LerBloco(zip, atual);
-        long indice = 0;
-        while (true)
-        {
-            var lidosProximo = lidosAtual == TamanhoBloco ? LerBloco(zip, proximo) : 0;
-            var ultimo = lidosProximo == 0;
-            var nonce = RandomNumberGenerator.GetBytes(TamanhoNonce);
-            var cifrado = new byte[lidosAtual];
-            var tag = new byte[TamanhoTag];
-            aes.Encrypt(nonce, atual.AsSpan(0, lidosAtual), cifrado, tag, DadosAssociados(indice, ultimo));
-            saida.Write(nonce);
-            EscreverInteiro(saida, lidosAtual);
-            saida.Write(cifrado);
-            saida.Write(tag);
-            if (ultimo)
-            {
-                break;
-            }
-
-            (atual, proximo) = (proximo, atual);
-            lidosAtual = lidosProximo;
-            indice++;
-        }
-
-        CryptographicOperations.ZeroMemory(chave);
+        return new EscritaProtegida(saida, chave);
     }
 
     /// <summary>Lê um arquivo .assetly e grava o ZIP original em <paramref name="zip"/>.</summary>
@@ -199,4 +180,106 @@ public static class ArquivoProtegido
     }
 
     private static int LerInteiro(Stream entrada) => BinaryPrimitives.ReadInt32LittleEndian(LerExato(entrada, 4));
+
+    /// <summary>Acumula até 1 MiB e cifra cada bloco cheio só quando chega mais dado — assim se sabe qual é o
+    /// último (marcado no dado autenticado), exatamente como no formato lido por <see cref="Ler"/>. Sem chave,
+    /// apenas repassa os bytes (formato sem senha).</summary>
+    private sealed class EscritaProtegida : Stream
+    {
+        private readonly Stream _saida;
+        private readonly byte[]? _chave;
+        private readonly AesGcm? _aes;
+        private readonly byte[] _bloco;
+        private int _usados;
+        private long _indice;
+        private bool _fechado;
+
+        internal EscritaProtegida(Stream saida, byte[]? chave)
+        {
+            _saida = saida;
+            _chave = chave;
+            _aes = chave is null ? null : new AesGcm(chave, TamanhoTag);
+            _bloco = chave is null ? [] : new byte[TamanhoBloco];
+        }
+
+        public override bool CanRead => false;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => !_fechado;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
+
+        public override void Write(ReadOnlySpan<byte> dados)
+        {
+            ObjectDisposedException.ThrowIf(_fechado, this);
+            if (_aes is null)
+            {
+                _saida.Write(dados);
+                return;
+            }
+
+            while (!dados.IsEmpty)
+            {
+                if (_usados == TamanhoBloco)
+                {
+                    GravarBloco(ultimo: false);
+                }
+
+                var quantidade = Math.Min(TamanhoBloco - _usados, dados.Length);
+                dados[..quantidade].CopyTo(_bloco.AsSpan(_usados));
+                _usados += quantidade;
+                dados = dados[quantidade..];
+            }
+        }
+
+        public override void Flush() => _saida.Flush();
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_fechado)
+            {
+                _fechado = true;
+                if (_aes is not null)
+                {
+                    GravarBloco(ultimo: true);
+                    _aes.Dispose();
+                    CryptographicOperations.ZeroMemory(_chave!);
+                    CryptographicOperations.ZeroMemory(_bloco);
+                }
+
+                _saida.Flush();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void GravarBloco(bool ultimo)
+        {
+            var nonce = RandomNumberGenerator.GetBytes(TamanhoNonce);
+            var cifrado = new byte[_usados];
+            var tag = new byte[TamanhoTag];
+            _aes!.Encrypt(nonce, _bloco.AsSpan(0, _usados), cifrado, tag, DadosAssociados(_indice, ultimo));
+            _saida.Write(nonce);
+            EscreverInteiro(_saida, _usados);
+            _saida.Write(cifrado);
+            _saida.Write(tag);
+            _usados = 0;
+            _indice++;
+        }
+    }
 }

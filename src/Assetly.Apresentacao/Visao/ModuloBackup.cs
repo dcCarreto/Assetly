@@ -229,7 +229,8 @@ internal sealed class ModuloBackup : IModulo
 
         try
         {
-            var resultado = _contexto.SincronizarDados().Executar(remoto => somenteEnviar ? EscolhaConflito.Cancelar : PerguntarConflito(remoto));
+            var resultado = _contexto.SincronizarDados().Executar(
+                remoto => somenteEnviar ? EscolhaConflito.Cancelar : PerguntarConflito(remoto), permitirReceber: !somenteEnviar);
             _falhaSincronizacao = resultado.Acao == AcaoSincronizacao.Conflito && !resultado.Executada && somenteEnviar
                 ? "os dados mudaram aqui e no outro computador. Clique em \"Sincronizar agora\" para escolher qual versão manter."
                 : null;

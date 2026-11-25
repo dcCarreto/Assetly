@@ -14,7 +14,8 @@ public sealed class MigradorBancoDados
         new Migracao(5, "V005__alertas_automaticos.sql", "Assetly.Infraestrutura.Banco.Migracoes.V005__alertas_automaticos.sql"),
         new Migracao(6, "V006__veiculos_imoveis.sql", "Assetly.Infraestrutura.Banco.Migracoes.V006__veiculos_imoveis.sql"),
         new Migracao(7, "V007__atualizacao_automatica.sql", "Assetly.Infraestrutura.Banco.Migracoes.V007__atualizacao_automatica.sql"),
-        new Migracao(8, "V008__familia_notas_criptografia_sincronizacao.sql", "Assetly.Infraestrutura.Banco.Migracoes.V008__familia_notas_criptografia_sincronizacao.sql")
+        new Migracao(8, "V008__familia_notas_criptografia_sincronizacao.sql", "Assetly.Infraestrutura.Banco.Migracoes.V008__familia_notas_criptografia_sincronizacao.sql"),
+        new Migracao(9, "V009__origem_alertas.sql", "Assetly.Infraestrutura.Banco.Migracoes.V009__origem_alertas.sql")
     ];
 
     private const string PrefixoCopiaSeguranca = "antes-da-atualizacao-";
@@ -138,24 +139,16 @@ public sealed class MigradorBancoDados
         using var entrada = Assembly.GetExecutingAssembly().GetManifestResourceStream(recurso)
             ?? throw new IOException($"Recurso não encontrado: {recurso}");
         using var leitor = new StreamReader(entrada);
-        var linhas = leitor.ReadToEnd()
-            .Split('\n')
-            .Where(linha => !linha.TrimStart().StartsWith("--", StringComparison.Ordinal));
-        return string.Join(Environment.NewLine, linhas);
+        return leitor.ReadToEnd();
     }
 
-    private static void ExecutarScript(SqliteConnection conexao, string script)
+    /// <summary>O próprio SQLite separa as instruções (e entende comentários, textos com ';' e gatilhos
+    /// com BEGIN…END), então o script inteiro vai num único comando.</summary>
+    internal static void ExecutarScript(SqliteConnection conexao, string script)
     {
         using var comando = conexao.CreateCommand();
-        foreach (var instrucao in script.Split(';'))
-        {
-            var sql = instrucao.Trim();
-            if (sql.Length > 0)
-            {
-                comando.CommandText = sql;
-                comando.ExecuteNonQuery();
-            }
-        }
+        comando.CommandText = script;
+        comando.ExecuteNonQuery();
     }
 
     private static void RegistrarMigracao(SqliteConnection conexao, Migracao migracao)

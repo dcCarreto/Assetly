@@ -44,6 +44,11 @@ public partial class App : Application
         }
 
         var ambienteTeste = UsarAmbienteTeste(e.Args);
+        if (ambienteTeste)
+        {
+            RegistroErros.DiretorioLogs = Infraestrutura.Armazenamento.CaminhosArmazenamentoLocal.DiretorioLogsTeste();
+        }
+
         if (!ObterInstanciaUnica(ambienteTeste))
         {
             MessageBox.Show(

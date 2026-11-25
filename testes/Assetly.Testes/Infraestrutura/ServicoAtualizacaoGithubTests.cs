@@ -34,6 +34,9 @@ public sealed class ServicoAtualizacaoGithubTests : IDisposable
         servico.Disponivel.ShouldBeTrue();
         servico.VersaoAtual.ShouldBe("20/11/2026");
         (await servico.ProcurarAsync()).ShouldBe("23/11/2026");
+        Directory.CreateDirectory(DiretorioDownloads);
+        var antigo = Path.Combine(DiretorioDownloads, "Assetly-Setup-2026.10.01.exe");
+        File.WriteAllText(antigo, "instalador de uma versão anterior");
 
         var progresso = new List<int>();
         await servico.BaixarAsync(progresso.Add);
@@ -42,6 +45,8 @@ public sealed class ServicoAtualizacaoGithubTests : IDisposable
         File.ReadAllBytes(baixado).ShouldBe(_instalador);
         progresso.ShouldContain(100);
         File.Exists(baixado + ".parcial").ShouldBeFalse();
+        // Instaladores de versões anteriores não se acumulam na pasta temporária.
+        File.Exists(antigo).ShouldBeFalse();
     }
 
     [Fact]

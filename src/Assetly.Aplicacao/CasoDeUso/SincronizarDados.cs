@@ -38,7 +38,10 @@ public sealed class SincronizarDados(
     private readonly RestaurarBackup _restaurarBackup = restaurarBackup ?? throw new ArgumentNullException(nameof(restaurarBackup));
 
     /// <param name="resolverConflito">Chamado só quando os dois lados mudaram.</param>
-    public ResultadoSincronizacao Executar(Func<MetadadosSincronizacao, EscolhaConflito> resolverConflito)
+    /// <param name="permitirReceber">Falso nos envios automáticos (durante o uso e ao fechar): só envia —
+    /// os dados deste computador nunca são substituídos sem o usuário estar abrindo o programa ou pedindo.
+    /// Uma mudança vinda da pasta fica para a próxima abertura ou "Sincronizar agora".</param>
+    public ResultadoSincronizacao Executar(Func<MetadadosSincronizacao, EscolhaConflito> resolverConflito, bool permitirReceber = true)
     {
         ArgumentNullException.ThrowIfNull(resolverConflito);
         var configuracao = _repositorioSincronizacao.Obter();
@@ -62,6 +65,11 @@ public sealed class SincronizarDados(
             acao = AcaoSincronizacao.Receber;
         }
 
+        if (acao == AcaoSincronizacao.Receber && !permitirReceber)
+        {
+            // Sem registrar nada: a mudança da pasta continua pendente para a próxima sincronização que pode receber.
+            return new ResultadoSincronizacao(AcaoSincronizacao.Receber, false, remoto);
+        }
 
         if (acao == AcaoSincronizacao.Conflito)
         {

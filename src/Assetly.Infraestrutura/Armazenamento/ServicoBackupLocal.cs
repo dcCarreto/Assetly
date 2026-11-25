@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Assetly.Aplicacao.Excecao;
 using Assetly.Aplicacao.Servico;
 using Microsoft.Data.Sqlite;
 
@@ -6,12 +7,17 @@ namespace Assetly.Infraestrutura.Armazenamento;
 
 /// <summary>Copia o banco SQLite e a pasta de documentos do ambiente atual para um instantâneo com
 /// carimbo de data/hora dentro do diretório de destino escolhido pelo usuário — e faz o caminho
-/// inverso na restauração.</summary>
+/// inverso na restauração.
+/// <para>Arquivos intermediários (instantâneo do banco, backup extraído) ficam numa pasta de preparação ao
+/// lado da pasta de documentos — dentro da pasta de dados do Assetly e no mesmo disco —, nunca na pasta
+/// temporária do Windows: nada de cópia dos dados pessoais em claro fora da pasta de dados, e os documentos
+/// restaurados são movidos (não copiados de novo) para o lugar.</para></summary>
 public sealed class ServicoBackupLocal : IServicoBackup
 {
     internal const string PrefixoInstantaneo = "Assetly-Backup-";
     private const string PastaBanco = "banco";
     private const string PastaDocumentos = "documentos";
+    private const string PrefixoPreparacao = ".assetly-preparacao-";
 
     public string ExecutarBackup(string arquivoBanco, string diretorioDocumentos, string diretorioDestino, string? senha = null)
     {
@@ -65,30 +71,40 @@ public sealed class ServicoBackupLocal : IServicoBackup
     public void RestaurarBackup(string caminhoInstantaneo, string arquivoBanco, string diretorioDocumentos, string? senha = null)
     {
         ArgumentNullException.ThrowIfNull(caminhoInstantaneo);
-        if (File.Exists(caminhoInstantaneo))
-        {
-            RestaurarArquivo(caminhoInstantaneo, arquivoBanco, diretorioDocumentos, senha);
-            return;
-        }
-
         ArgumentNullException.ThrowIfNull(arquivoBanco);
         ArgumentNullException.ThrowIfNull(diretorioDocumentos);
 
-        var bancoDoBackup = LocalizarBancoDoBackup(caminhoInstantaneo)
-            ?? throw new InvalidOperationException("a pasta escolhida não contém um backup do Assetly (esperado: uma pasta \"banco\" com o arquivo .sqlite3).");
-        ValidarBancoAssetly(bancoDoBackup);
-
+        var preparacao = CriarPastaPreparacao(diretorioDocumentos);
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(arquivoBanco))!);
-            CopiarBanco(bancoDoBackup, arquivoBanco);
-            SqliteConnection.ClearAllPools();
-
-            var documentosDoBackup = Path.Combine(caminhoInstantaneo, PastaDocumentos);
-            if (Directory.Exists(documentosDoBackup))
+            string pastaBackup;
+            bool documentosDescartaveis;
+            if (File.Exists(caminhoInstantaneo))
             {
-                CopiarDiretorio(documentosDoBackup, diretorioDocumentos);
+                pastaBackup = ExtrairArquivo(caminhoInstantaneo, preparacao, senha);
+                documentosDescartaveis = true;
             }
+            else
+            {
+                pastaBackup = caminhoInstantaneo;
+                documentosDescartaveis = false;
+            }
+
+            var bancoDoBackup = LocalizarBancoDoBackup(pastaBackup)
+                ?? throw new InvalidOperationException("a pasta escolhida não contém um backup do Assetly (esperado: uma pasta \"banco\" com o arquivo .sqlite3).");
+            ValidarBancoAssetly(bancoDoBackup);
+
+            // Documentos de uma pasta do usuário são copiados primeiro para a preparação: uma falha nessa cópia
+            // (pendrive removido, disco cheio) acontece antes de qualquer alteração nos dados atuais.
+            var documentosDoBackup = Path.Combine(pastaBackup, PastaDocumentos);
+            if (!documentosDescartaveis && Directory.Exists(documentosDoBackup))
+            {
+                var copia = Path.Combine(preparacao, PastaDocumentos);
+                CopiarDiretorio(documentosDoBackup, copia);
+                documentosDoBackup = copia;
+            }
+
+            Substituir(bancoDoBackup, documentosDoBackup, arquivoBanco, diretorioDocumentos);
         }
         catch (Exception excecao) when (excecao is IOException or SqliteException)
         {
@@ -96,30 +112,81 @@ public sealed class ServicoBackupLocal : IServicoBackup
         }
         catch (UnauthorizedAccessException excecao)
         {
-            throw new InvalidOperationException("sem permissão para gravar na pasta de dados do Assetly.", excecao);
+            throw new InvalidOperationException("sem permissão para ler o backup ou gravar na pasta de dados do Assetly.", excecao);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            ApagarPastaSilenciosamente(preparacao);
         }
     }
 
-    /// <summary>Gera o arquivo único (.assetly) com banco e documentos. Grava primeiro num arquivo temporário
-    /// ao lado e só então substitui o destino — quem lê o arquivo (outro computador sincronizando) nunca vê
-    /// um arquivo pela metade.</summary>
+    public void ManterUltimos(string diretorio, int quantidade)
+    {
+        if (!Directory.Exists(diretorio))
+        {
+            return;
+        }
+
+        var antigos = Directory.EnumerateFileSystemEntries(diretorio, PrefixoInstantaneo + "*")
+            .OrderByDescending(Path.GetFileName, StringComparer.Ordinal)
+            .Skip(Math.Max(quantidade, 1));
+        foreach (var antigo in antigos)
+        {
+            try
+            {
+                if (Directory.Exists(antigo))
+                {
+                    Directory.Delete(antigo, recursive: true);
+                }
+                else
+                {
+                    File.Delete(antigo);
+                }
+            }
+            catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
+            {
+                // Cópia em uso: tenta de novo na próxima vez.
+            }
+        }
+    }
+
+    /// <summary>Gera o arquivo único (.assetly) com banco e documentos. O ZIP é escrito direto no fluxo
+    /// criptografado (sem cópia intermediária dos documentos nem ZIP temporário). Grava primeiro num arquivo
+    /// ".parcial" ao lado e só então substitui o destino — quem lê o arquivo (outro computador sincronizando)
+    /// nunca vê um arquivo pela metade.</summary>
     public void GerarArquivo(string arquivoBanco, string diretorioDocumentos, string arquivoDestino, string? senha)
     {
         ArgumentNullException.ThrowIfNull(arquivoDestino);
-        var temporaria = Path.Combine(Path.GetTempPath(), $"assetly-{Guid.NewGuid():N}");
+        var preparacao = CriarPastaPreparacao(diretorioDocumentos);
         var temporario = arquivoDestino + ".parcial";
         try
         {
-            var instantaneo = Path.Combine(temporaria, "instantaneo");
-            CriarInstantaneoEm(instantaneo, arquivoBanco, diretorioDocumentos);
-            var zip = Path.Combine(temporaria, "dados.zip");
-            ZipFile.CreateFromDirectory(instantaneo, zip, CompressionLevel.Optimal, includeBaseDirectory: false);
+            string? instantaneoBanco = null;
+            if (File.Exists(arquivoBanco))
+            {
+                instantaneoBanco = Path.Combine(preparacao, Path.GetFileName(arquivoBanco));
+                CopiarBanco(arquivoBanco, instantaneoBanco);
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(arquivoDestino))!);
-            using (var entrada = File.OpenRead(zip))
             using (var saida = File.Create(temporario))
+            using (var protegido = ArquivoProtegido.AbrirEscrita(saida, senha))
+            using (var zip = new ZipArchive(protegido, ZipArchiveMode.Create))
             {
-                ArquivoProtegido.Escrever(entrada, saida, senha);
+                if (instantaneoBanco is not null)
+                {
+                    zip.CreateEntryFromFile(instantaneoBanco, $"{PastaBanco}/{Path.GetFileName(arquivoBanco)}", CompressionLevel.Optimal);
+                }
+
+                if (Directory.Exists(diretorioDocumentos))
+                {
+                    foreach (var arquivo in Directory.EnumerateFiles(diretorioDocumentos, "*", SearchOption.AllDirectories))
+                    {
+                        var nome = Path.GetRelativePath(diretorioDocumentos, arquivo).Replace(Path.DirectorySeparatorChar, '/');
+                        zip.CreateEntryFromFile(arquivo, $"{PastaDocumentos}/{nome}", CompressionLevel.Optimal);
+                    }
+                }
             }
 
             File.Move(temporario, arquivoDestino, overwrite: true);
@@ -135,61 +202,88 @@ public sealed class ServicoBackupLocal : IServicoBackup
         finally
         {
             ApagarSilenciosamente(temporario);
-            if (Directory.Exists(temporaria))
-            {
-                Directory.Delete(temporaria, recursive: true);
-            }
+            ApagarPastaSilenciosamente(preparacao);
         }
     }
 
-    private void RestaurarArquivo(string arquivo, string arquivoBanco, string diretorioDocumentos, string? senha)
+    /// <summary>Banco primeiro (a API de backup do SQLite troca o conteúdo numa transação: ou tudo, ou nada),
+    /// depois os documentos já preparados no mesmo disco, movidos para o lugar. Falhar aqui deixa os dados pela
+    /// metade — por isso a exceção própria, para quem chamou devolver o estado anterior.</summary>
+    private static void Substituir(string bancoDoBackup, string documentosPreparados, string arquivoBanco, string diretorioDocumentos)
     {
-        var temporaria = Path.Combine(Path.GetTempPath(), $"assetly-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(temporaria);
-            var zip = Path.Combine(temporaria, "dados.zip");
-            using (var entrada = File.OpenRead(arquivo))
-            using (var saida = File.Create(zip))
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(arquivoBanco))!);
+            CopiarBanco(bancoDoBackup, arquivoBanco);
+            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(documentosPreparados))
             {
-                ArquivoProtegido.Ler(entrada, saida, senha);
+                MoverConteudo(documentosPreparados, diretorioDocumentos);
             }
+        }
+        catch (Exception excecao) when (excecao is IOException or SqliteException or UnauthorizedAccessException)
+        {
+            throw new RestauracaoIncompletaExcecao($"a restauração foi interrompida no meio: {excecao.Message}", excecao);
+        }
+    }
 
-            var extraido = Path.Combine(temporaria, "instantaneo");
-            try
-            {
-                ZipFile.ExtractToDirectory(zip, extraido);
-            }
-            catch (InvalidDataException excecao)
-            {
-                throw new InvalidOperationException("o arquivo de backup está corrompido.", excecao);
-            }
+    /// <summary>Decifra o .assetly para um ZIP na preparação e extrai ali mesmo (apagando o ZIP logo depois).</summary>
+    private static string ExtrairArquivo(string arquivo, string preparacao, string? senha)
+    {
+        var zip = Path.Combine(preparacao, "dados.zip");
+        using (var entrada = File.OpenRead(arquivo))
+        using (var saida = File.Create(zip))
+        {
+            ArquivoProtegido.Ler(entrada, saida, senha);
+        }
 
-            RestaurarBackup(extraido, arquivoBanco, diretorioDocumentos);
+        var extraido = Path.Combine(preparacao, "instantaneo");
+        try
+        {
+            ZipFile.ExtractToDirectory(zip, extraido);
+        }
+        catch (InvalidDataException excecao)
+        {
+            throw new InvalidOperationException("o arquivo de backup está corrompido.", excecao);
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
-            if (Directory.Exists(temporaria))
-            {
-                Directory.Delete(temporaria, recursive: true);
-            }
+            ApagarSilenciosamente(zip);
         }
+
+        return extraido;
     }
 
-    private static void CriarInstantaneoEm(string pasta, string arquivoBanco, string diretorioDocumentos)
+    /// <summary>Pasta de trabalho ao lado da pasta de documentos (mesmo disco, dentro da pasta de dados). Sobras
+    /// de uma execução interrompida (queda de energia) são apagadas aqui.</summary>
+    private static string CriarPastaPreparacao(string diretorioDocumentos)
     {
-        Directory.CreateDirectory(pasta);
-        if (File.Exists(arquivoBanco))
+        var pai = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(diretorioDocumentos))) ?? Path.GetTempPath();
+        if (Directory.Exists(pai))
         {
-            var destinoBanco = Path.Combine(pasta, PastaBanco);
-            Directory.CreateDirectory(destinoBanco);
-            CopiarBanco(arquivoBanco, Path.Combine(destinoBanco, Path.GetFileName(arquivoBanco)));
+            foreach (var sobra in Directory.EnumerateDirectories(pai, PrefixoPreparacao + "*")
+                         .Where(pasta => Directory.GetLastWriteTimeUtc(pasta) < DateTime.UtcNow.AddHours(-1)))
+            {
+                ApagarPastaSilenciosamente(sobra);
+            }
         }
 
-        if (Directory.Exists(diretorioDocumentos))
+        var preparacao = Path.Combine(pai, $"{PrefixoPreparacao}{Guid.NewGuid():N}");
+        Directory.CreateDirectory(preparacao);
+        return preparacao;
+    }
+
+    private static void MoverConteudo(string origem, string destino)
+    {
+        Directory.CreateDirectory(destino);
+        foreach (var arquivo in Directory.EnumerateFiles(origem))
         {
-            CopiarDiretorio(diretorioDocumentos, Path.Combine(pasta, PastaDocumentos));
+            File.Move(arquivo, Path.Combine(destino, Path.GetFileName(arquivo)), overwrite: true);
+        }
+
+        foreach (var subdiretorio in Directory.EnumerateDirectories(origem))
+        {
+            MoverConteudo(subdiretorio, Path.Combine(destino, Path.GetFileName(subdiretorio)));
         }
     }
 
@@ -216,6 +310,21 @@ public sealed class ServicoBackupLocal : IServicoBackup
         }
         catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
         {
+        }
+    }
+
+    private static void ApagarPastaSilenciosamente(string pasta)
+    {
+        try
+        {
+            if (Directory.Exists(pasta))
+            {
+                Directory.Delete(pasta, recursive: true);
+            }
+        }
+        catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
+        {
+            // Sobra é apagada na próxima preparação.
         }
     }
 

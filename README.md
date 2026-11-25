@@ -273,7 +273,7 @@ Informe:
 - data inicial;
 - data final.
 
-O Assetly usa essas datas para indicar garantias ativas, próximas do vencimento ou vencidas. Alertas são gerados automaticamente quando uma garantia vence em até 30 dias ou já venceu. Se você renovar a garantia (editar a data final), o alerta é resolvido sozinho.
+O Assetly usa essas datas para indicar garantias ativas, próximas do vencimento ou vencidas. Alertas são gerados automaticamente quando uma garantia vence em até 30 dias ou já venceu. Se você renovar a garantia (editar a data final) ou registrar uma garantia estendida que continue a cobertura, o alerta é resolvido sozinho. Garantia vencida gera um aviso (não um alerta crítico): o bem continua funcionando, só ficou sem cobertura.
 
 ### 4. Registrar Manutenções
 
@@ -326,7 +326,7 @@ Entre em `Alertas` para ver as pendências.
 
 O Assetly gera alertas automáticos para:
 
-- garantia vencendo (até 30 dias) e garantia vencida;
+- garantia vencendo (até 30 dias) e garantia vencida — a não ser que outra garantia do mesmo bem (estendida, por exemplo) continue a cobertura;
 - licenciamento e seguro de veículo, seguro de imóvel e contrato de aluguel vencendo ou vencidos;
 - revisão do veículo próxima ou atrasada (por km ou data);
 - contas de veículos e imóveis a vencer ou vencidas;
@@ -390,9 +390,9 @@ Entre em `Backup`.
 
 **Proteção por senha (recomendada para pendrive ou nuvem):** em `Proteção por senha`, clique em `Proteger com senha…`. A partir daí todo backup (manual, automático, `Salvar cópia em arquivo…` e a sincronização) é gravado num arquivo `.assetly` criptografado com AES-256 (chave derivada da senha com PBKDF2, 600 mil iterações). A senha fica guardada neste computador protegida pelo Windows (só a sua conta consegue lê-la) para os backups automáticos funcionarem. **Sem a senha não há como restaurar** — guarde-a num lugar seguro.
 
-**Sincronização entre computadores (opcional):** em `Sincronização entre computadores`, escolha uma pasta do OneDrive, Google Drive ou Dropbox que exista nos dois computadores. O Assetly guarda lá uma cópia única (criptografada, se houver senha — use a mesma senha nos dois), traz as alterações do outro computador ao abrir e envia as suas ao fechar (e a cada 10 minutos durante o uso). Se os dois lados mudaram, ele pergunta qual versão manter; a outra nunca é perdida (vai para a pasta de segurança). Um computador novo, ainda sem cadastros, simplesmente recebe os dados.
+**Sincronização entre computadores (opcional):** em `Sincronização entre computadores`, escolha uma pasta do OneDrive, Google Drive ou Dropbox que exista nos dois computadores. O Assetly guarda lá uma cópia única (criptografada, se houver senha — use a mesma senha nos dois), traz as alterações do outro computador ao abrir e envia as suas ao fechar (e a cada 10 minutos durante o uso). Durante o uso e ao fechar ele só envia: seus dados nunca são substituídos com o programa aberto — uma mudança feita no outro computador chega na próxima abertura ou em `Sincronizar agora`. Se os dois lados mudaram, ele pergunta qual versão manter; a outra nunca é perdida (vai para a pasta de segurança). Um computador novo, ainda sem cadastros, simplesmente recebe os dados.
 
-Para restaurar, clique em `Restaurar de um arquivo .assetly…` ou `Restaurar de uma pasta…` (backups protegidos pedem a senha). Antes de substituir qualquer coisa, o Assetly guarda uma cópia do estado atual em `~/.assetly/seguranca/` — se mudar de ideia, basta restaurar essa cópia. O destino e a agenda do backup automático são mantidos, e documentos de um backup vindo de outro computador são reencontrados na pasta atual.
+Para restaurar, clique em `Restaurar de um arquivo .assetly…` ou `Restaurar de uma pasta…` (backups protegidos pedem a senha). Antes de substituir qualquer coisa, o Assetly guarda uma cópia do estado atual em `~/.assetly/seguranca/` (protegida pela senha dos backups, se ela estiver ligada; ficam as 5 mais recentes) — se mudar de ideia, basta restaurar essa cópia. Se a restauração falhar no meio (disco cheio, arquivo aberto em outro programa), o estado anterior volta sozinho. O destino e a agenda do backup automático são mantidos, documentos de um backup vindo de outro computador são reencontrados na pasta atual e arquivos que nenhum documento restaurado usa são removidos da pasta de documentos.
 
 ### 12. Acompanhar o Patrimônio
 
@@ -467,7 +467,7 @@ Produção:
 ```text
 %USERPROFILE%\.assetly\banco\assetly.sqlite3
 %USERPROFILE%\.assetly\documentos\
-%USERPROFILE%\.assetly\seguranca\     (cópias feitas antes de cada restauração de backup)
+%USERPROFILE%\.assetly\seguranca\     (cópias feitas antes de cada restauração de backup — as 5 mais recentes)
 %USERPROFILE%\.assetly\logs\          (registro de erros inesperados, últimos 30 dias)
 ```
 
@@ -477,6 +477,7 @@ Teste:
 %USERPROFILE%\.assetly-teste\banco\assetly-teste.sqlite3
 %USERPROFILE%\.assetly-teste\documentos\
 %USERPROFILE%\.assetly-teste\seguranca\
+%USERPROFILE%\.assetly-teste\logs\
 ```
 
 Os backups ficam na pasta que você escolher no módulo `Backup`. O caminho de cada pasta também aparece em `Configurações > Dados locais`.
@@ -532,7 +533,7 @@ Já existe uma janela do Assetly aberta no mesmo ambiente (talvez minimizada). U
 
 ### Um erro inesperado apareceu
 
-A mensagem mostra o motivo. Os detalhes técnicos ficam em `~/.assetly/logs/` (um arquivo por dia) — anexe o arquivo do dia ao relatar o problema. Se o erro surgiu durante a atualização automática, ele é mostrado uma única vez; as repetições vão só para o log.
+A mensagem mostra o motivo. Os detalhes técnicos ficam em `~/.assetly/logs/` (um arquivo por dia; no ambiente de teste, em `~/.assetly-teste/logs/`) — anexe o arquivo do dia ao relatar o problema. Se o erro surgiu durante a atualização automática, ele é mostrado uma única vez; as repetições vão só para o log.
 
 ### O backup automático não está rodando
 

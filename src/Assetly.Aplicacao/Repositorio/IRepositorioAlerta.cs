@@ -13,5 +13,14 @@ public interface IRepositorioAlerta
 
     void Salvar(Alerta alerta);
 
+    /// <summary>Salva vários alertas de uma vez — no banco, numa única transação (tudo ou nada).</summary>
+    void SalvarTodos(IEnumerable<Alerta> alertas)
+    {
+        foreach (var alerta in alertas)
+        {
+            Salvar(alerta);
+        }
+    }
+
     void Excluir(AlertaId id);
 }

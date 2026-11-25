@@ -22,16 +22,22 @@ public sealed class RepositorioDespesaSqlite(FabricaConexaoSqlite fabricaConexao
         _executor.Consultar($"SELECT * FROM despesas WHERE bem_id = $bemId {Ordem}", Mapear, "Não foi possível listar despesas",
             ("$bemId", bemId.Valor.ToString()));
 
-    public void Salvar(Despesa despesa)
-    {
-        const string sql = """
-            INSERT INTO despesas (id, bem_id, tipo, descricao, vencimento, valor, moeda, paga_em)
-            VALUES ($id, $bemId, $tipo, $descricao, $vencimento, $valor, $moeda, $pagaEm)
-            ON CONFLICT(id) DO UPDATE SET
-                tipo = excluded.tipo, descricao = excluded.descricao, vencimento = excluded.vencimento,
-                valor = excluded.valor, moeda = excluded.moeda, paga_em = excluded.paga_em
-            """;
-        _executor.Executar(sql, "Não foi possível salvar despesa",
+    private const string SqlSalvar = """
+        INSERT INTO despesas (id, bem_id, tipo, descricao, vencimento, valor, moeda, paga_em)
+        VALUES ($id, $bemId, $tipo, $descricao, $vencimento, $valor, $moeda, $pagaEm)
+        ON CONFLICT(id) DO UPDATE SET
+            tipo = excluded.tipo, descricao = excluded.descricao, vencimento = excluded.vencimento,
+            valor = excluded.valor, moeda = excluded.moeda, paga_em = excluded.paga_em
+        """;
+
+    public void Salvar(Despesa despesa) =>
+        _executor.Executar(SqlSalvar, "Não foi possível salvar despesa", Parametros(despesa));
+
+    public void SalvarTodos(IEnumerable<Despesa> despesas) =>
+        _executor.ExecutarEmLote(SqlSalvar, "Não foi possível salvar as despesas", despesas.Select(Parametros));
+
+    private static (string Nome, object Valor)[] Parametros(Despesa despesa) =>
+        [
             ("$id", despesa.Id.Valor.ToString()),
             ("$bemId", despesa.BemId.Valor.ToString()),
             ("$tipo", ConversorSqlite.EnumParaTexto(despesa.Tipo)),
@@ -39,8 +45,8 @@ public sealed class RepositorioDespesaSqlite(FabricaConexaoSqlite fabricaConexao
             ("$vencimento", ConversorSqlite.Texto(despesa.Vencimento)!),
             ("$valor", ConversorSqlite.Valor(despesa.Valor)!),
             ("$moeda", ConversorSqlite.Moeda(despesa.Valor)!),
-            ("$pagaEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(despesa.PagaEm))));
-    }
+            ("$pagaEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(despesa.PagaEm)))
+        ];
 
     public void Excluir(DespesaId id) =>
         _executor.Executar("DELETE FROM despesas WHERE id = $id", "Não foi possível excluir despesa", ("$id", id.Valor.ToString()));

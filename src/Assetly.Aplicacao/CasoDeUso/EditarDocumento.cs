@@ -32,18 +32,27 @@ public sealed class EditarDocumento
         documento.Renomear(new NomeDocumento(comando.Nome));
         documento.AlterarTipo(comando.Tipo);
 
+        CaminhoDocumentoLocal? arquivoSubstituido = null;
         if (MesmoArquivo(comando.CaminhoLocal, documento.CaminhoLocal))
         {
             documento.AlterarDataRegistro(comando.RegistradoEm);
         }
         else
         {
+            arquivoSubstituido = documento.CaminhoLocal;
             var caminhoArmazenado = _armazenamentoDocumento.Armazenar(comando.CaminhoLocal);
             documento.SubstituirArquivo(new CaminhoDocumentoLocal(caminhoArmazenado), comando.RegistradoEm);
         }
 
         documento.VincularNotaEletronica(string.IsNullOrWhiteSpace(comando.ChaveAcesso) ? null : ChaveAcessoNfe.Criar(comando.ChaveAcesso), comando.UrlConsulta);
         _repositorioDocumento.Salvar(documento);
+
+        // A cópia privada do arquivo anterior ficaria órfã (e entraria em todo backup e sincronização).
+        if (arquivoSubstituido is not null)
+        {
+            ApoioCasosUso.RemoverArquivoSemReferencia(_repositorioDocumento, _armazenamentoDocumento, arquivoSubstituido);
+        }
+
         return documento;
     }
 

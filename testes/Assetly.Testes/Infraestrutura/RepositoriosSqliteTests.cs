@@ -2,6 +2,7 @@ using Assetly.Dominio.Alerta;
 using Assetly.Dominio.Backup;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Compartilhado;
+using Assetly.Dominio.Despesa;
 using Assetly.Dominio.Documento;
 using Assetly.Dominio.Garantia;
 using Assetly.Dominio.Manutencao;
@@ -28,7 +29,61 @@ public class RepositoriosSqliteTests
         using var comando = conexao.CreateCommand();
         comando.CommandText = "SELECT COUNT(*) AS total FROM schema_migrations";
         var total = (long)comando.ExecuteScalar()!;
-        total.ShouldBe(8L);
+        total.ShouldBe(MigradorBancoDados.VersaoMaisRecente);
+    }
+
+    [Fact]
+    public void MigracaoExecutaGatilhosTextosComPontoEVirgulaEComentarios()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        using var conexao = banco.FabricaConexao.Abrir();
+
+        MigradorBancoDados.ExecutarScript(conexao, """
+            -- comentário com ; no meio
+            CREATE TABLE teste_gatilho (id INTEGER PRIMARY KEY, texto TEXT NOT NULL, alterado INTEGER NOT NULL DEFAULT 0);
+            CREATE TRIGGER marcar_alteracao AFTER UPDATE OF texto ON teste_gatilho
+            BEGIN
+                UPDATE teste_gatilho SET alterado = 1 WHERE id = NEW.id;
+            END;
+            INSERT INTO teste_gatilho (id, texto) VALUES (1, 'a; b; c'); -- comentário no fim da linha
+            UPDATE teste_gatilho SET texto = 'novo' WHERE id = 1;
+            """);
+
+        using var comando = conexao.CreateCommand();
+        comando.CommandText = "SELECT alterado FROM teste_gatilho WHERE id = 1";
+        ((long)comando.ExecuteScalar()!).ShouldBe(1);
+    }
+
+    [Fact]
+    public void SalvarVariosEhTudoOuNada()
+    {
+        var banco = BancoTemporario();
+        banco.Inicializar();
+        var bem = Bem.Criar(new NomeBem("Carro"), TipoBem.Veiculo);
+        new RepositorioBemSqlite(banco.FabricaConexao).Salvar(bem);
+        var despesas = new RepositorioDespesaSqlite(banco.FabricaConexao);
+        var alertas = new RepositorioAlertaSqlite(banco.FabricaConexao);
+        var semBem = new BemId(Guid.NewGuid());
+
+        // O segundo item aponta para um bem que não existe (chave estrangeira): nada é gravado.
+        Should.Throw<ExcecaoBancoDados>(() => despesas.SalvarTodos(
+        [
+            Despesa.Registrar(bem.Id, TipoDespesa.Ipva, "IPVA (1/2)", new DateOnly(2027, 1, 10), Dinheiro.De(500m, "BRL")),
+            Despesa.Registrar(semBem, TipoDespesa.Ipva, "IPVA (2/2)", new DateOnly(2027, 2, 10), Dinheiro.De(500m, "BRL"))
+        ]));
+        despesas.Listar().ShouldBeEmpty();
+
+        Should.Throw<ExcecaoBancoDados>(() => alertas.SalvarTodos(
+        [
+            Alerta.CriarAutomatico(bem.Id, TipoAlerta.ContaVencida, SeveridadeAlerta.Critico, "Conta vencida.", new DateOnly(2027, 1, 1), null, Guid.NewGuid()),
+            Alerta.CriarAutomatico(semBem, TipoAlerta.ContaVencida, SeveridadeAlerta.Critico, "Conta vencida.", new DateOnly(2027, 1, 1), null)
+        ]));
+        alertas.Listar().ShouldBeEmpty();
+
+        var origem = Guid.NewGuid();
+        alertas.SalvarTodos([Alerta.CriarAutomatico(bem.Id, TipoAlerta.ContaVencida, SeveridadeAlerta.Critico, "Conta vencida.", new DateOnly(2027, 1, 1), null, origem)]);
+        alertas.Listar().Single().OrigemId.ShouldBe(origem);
     }
 
     [Fact]

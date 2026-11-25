@@ -150,7 +150,7 @@ public class CasosUsoAplicacaoTests
             ],
             ignoreOrder: true);
 
-        gerados.Single(a => a.Tipo == TipoAlerta.GarantiaVencida).Severidade.ShouldBe(SeveridadeAlerta.Critico);
+        gerados.Single(a => a.Tipo == TipoAlerta.GarantiaVencida).Severidade.ShouldBe(SeveridadeAlerta.Aviso);
         gerados.Single(a => a.Tipo == TipoAlerta.DocumentoAusente).BemId.ShouldBe(bemSemNota.Id);
     }
 
@@ -291,6 +291,7 @@ public class CasosUsoAplicacaoTests
             documento.Id, TipoDocumento.NotaFiscal, "Nota fiscal do sofá", documento.CaminhoLocal.Valor, new DateOnly(2026, 2, 1)));
 
         armazenamento.Armazenados.Count.ShouldBe(1);
+        armazenamento.Removidos.ShouldBeEmpty();
         documento.Status.ShouldBe(StatusDocumento.Ausente);
         documento.Nome.Valor.ShouldBe("Nota fiscal do sofá");
         documento.RegistradoEm.ShouldBe(new DateOnly(2026, 2, 1));
@@ -300,6 +301,8 @@ public class CasosUsoAplicacaoTests
 
         armazenamento.Armazenados.Count.ShouldBe(2);
         documento.Status.ShouldBe(StatusDocumento.Disponivel);
+        // A cópia do arquivo substituído não fica órfã na pasta privada.
+        armazenamento.Removidos.ShouldBe([new CaminhoDocumentoLocal(armazenamento.Armazenados[0]).Valor]);
     }
 
     [Fact]

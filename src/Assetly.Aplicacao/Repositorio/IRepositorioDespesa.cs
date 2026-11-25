@@ -13,5 +13,14 @@ public interface IRepositorioDespesa
 
     void Salvar(Despesa despesa);
 
+    /// <summary>Salva várias despesas de uma vez — no banco, numa única transação (tudo ou nada).</summary>
+    void SalvarTodos(IEnumerable<Despesa> despesas)
+    {
+        foreach (var despesa in despesas)
+        {
+            Salvar(despesa);
+        }
+    }
+
     void Excluir(DespesaId id);
 }

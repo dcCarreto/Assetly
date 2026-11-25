@@ -7,7 +7,7 @@ using Assetly.Dominio.Veiculo;
 
 namespace Assetly.Aplicacao.CasoDeUso;
 
-internal delegate void ExigirAlerta(BemId bemId, TipoAlerta tipo, SeveridadeAlerta severidade, string mensagem, DateOnly? prazoEm);
+internal delegate void ExigirAlerta(BemId bemId, TipoAlerta tipo, SeveridadeAlerta severidade, string mensagem, DateOnly? prazoEm, Guid? origemId = null);
 
 /// <summary>
 /// Regras de alerta de veículos, imóveis e contas, usadas por <see cref="GerarAlertasAutomaticos"/>.
@@ -80,10 +80,10 @@ internal static class AlertasVeiculoImovel
         switch (despesa.StatusEm(hoje))
         {
             case StatusDespesa.Vencida:
-                exigir(despesa.BemId, TipoAlerta.ContaVencida, SeveridadeAlerta.Critico, $"Conta vencida em {Data(despesa.Vencimento)}: {descricao}.", despesa.Vencimento);
+                exigir(despesa.BemId, TipoAlerta.ContaVencida, SeveridadeAlerta.Critico, $"Conta vencida em {Data(despesa.Vencimento)}: {descricao}.", despesa.Vencimento, despesa.Id.Valor);
                 break;
             case StatusDespesa.AVencer:
-                exigir(despesa.BemId, TipoAlerta.ContaVencendo, SeveridadeAlerta.Aviso, $"Conta vence em {Data(despesa.Vencimento)}: {descricao}.", despesa.Vencimento);
+                exigir(despesa.BemId, TipoAlerta.ContaVencendo, SeveridadeAlerta.Aviso, $"Conta vence em {Data(despesa.Vencimento)}: {descricao}.", despesa.Vencimento, despesa.Id.Valor);
                 break;
         }
     }

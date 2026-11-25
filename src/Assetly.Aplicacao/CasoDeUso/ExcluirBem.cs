@@ -17,15 +17,13 @@ public sealed class ExcluirBem(IRepositorioBem repositorioBem, IRepositorioDocum
     {
         ApoioCasosUso.ExigirBem(_repositorioBem, id);
         var documentos = _repositorioDocumento.ListarPorBem(id);
-        foreach (var documento in documentos)
-        {
-            _repositorioDocumento.Excluir(documento.Id);
-        }
 
+        // Um único DELETE: o banco apaga em cascata (de forma atômica) tudo o que é ligado ao bem.
         _repositorioBem.Excluir(id);
 
         foreach (var documento in documentos)
         {
+            _repositorioDocumento.Excluir(documento.Id); // já apagado pela cascata; mantém repositórios sem chave estrangeira coerentes
             ApoioCasosUso.RemoverArquivoSemReferencia(_repositorioDocumento, _armazenamentoDocumento, documento.CaminhoLocal);
         }
     }

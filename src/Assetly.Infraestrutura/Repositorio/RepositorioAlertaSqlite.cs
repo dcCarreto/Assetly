@@ -35,9 +35,42 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
 
     public void Salvar(Alerta alerta)
     {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            Gravar(conexao, alerta);
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível salvar alerta", excecao);
+        }
+    }
+
+    /// <summary>Usado pelo motor de alertas: todas as criações e resoluções de uma rodada numa transação só.</summary>
+    public void SalvarTodos(IEnumerable<Alerta> alertas)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var transacao = conexao.BeginTransaction();
+            foreach (var alerta in alertas)
+            {
+                Gravar(conexao, alerta);
+            }
+
+            transacao.Commit();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados("Não foi possível salvar os alertas", excecao);
+        }
+    }
+
+    private static void Gravar(SqliteConnection conexao, Alerta alerta)
+    {
         const string sql = """
-            INSERT INTO alertas (id, bem_id, tipo, severidade, mensagem, criado_em, prazo_em, status, automatico)
-            VALUES ($id, $bemId, $tipo, $severidade, $mensagem, $criadoEm, $prazoEm, $status, $automatico)
+            INSERT INTO alertas (id, bem_id, tipo, severidade, mensagem, criado_em, prazo_em, status, automatico, origem_id)
+            VALUES ($id, $bemId, $tipo, $severidade, $mensagem, $criadoEm, $prazoEm, $status, $automatico, $origemId)
             ON CONFLICT(id) DO UPDATE SET
                 bem_id = excluded.bem_id,
                 tipo = excluded.tipo,
@@ -46,28 +79,22 @@ public sealed class RepositorioAlertaSqlite(FabricaConexaoSqlite fabricaConexao)
                 criado_em = excluded.criado_em,
                 prazo_em = excluded.prazo_em,
                 status = excluded.status,
-                automatico = excluded.automatico
+                automatico = excluded.automatico,
+                origem_id = excluded.origem_id
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            comando.Parameters.AddWithValue("$id", alerta.Id.Valor.ToString());
-            comando.Parameters.AddWithValue("$bemId", alerta.BemId.Valor.ToString());
-            comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(alerta.Tipo));
-            comando.Parameters.AddWithValue("$severidade", ConversorSqlite.EnumParaTexto(alerta.Severidade));
-            comando.Parameters.AddWithValue("$mensagem", alerta.Mensagem);
-            comando.Parameters.AddWithValue("$criadoEm", ConversorSqlite.Texto(alerta.CriadoEm)!);
-            comando.Parameters.AddWithValue("$prazoEm", (object?)ConversorSqlite.Texto(alerta.PrazoEm) ?? DBNull.Value);
-            comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(alerta.Status));
-            comando.Parameters.AddWithValue("$automatico", alerta.Automatico ? 1 : 0);
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar alerta", excecao);
-        }
+        using var comando = conexao.CreateCommand();
+        comando.CommandText = sql;
+        comando.Parameters.AddWithValue("$id", alerta.Id.Valor.ToString());
+        comando.Parameters.AddWithValue("$bemId", alerta.BemId.Valor.ToString());
+        comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(alerta.Tipo));
+        comando.Parameters.AddWithValue("$severidade", ConversorSqlite.EnumParaTexto(alerta.Severidade));
+        comando.Parameters.AddWithValue("$mensagem", alerta.Mensagem);
+        comando.Parameters.AddWithValue("$criadoEm", ConversorSqlite.Texto(alerta.CriadoEm)!);
+        comando.Parameters.AddWithValue("$prazoEm", (object?)ConversorSqlite.Texto(alerta.PrazoEm) ?? DBNull.Value);
+        comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(alerta.Status));
+        comando.Parameters.AddWithValue("$automatico", alerta.Automatico ? 1 : 0);
+        comando.Parameters.AddWithValue("$origemId", (object?)alerta.OrigemId?.ToString() ?? DBNull.Value);
+        comando.ExecuteNonQuery();
     }
 
     private List<Alerta> Consultar(string sql, BemId? bemId)

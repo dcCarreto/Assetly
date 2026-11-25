@@ -271,7 +271,7 @@ public sealed class ContextoAplicacao
 
     public RestaurarBackup RestaurarBackup() =>
         new(RepositorioConfiguracaoBackup, RepositorioDocumento, _servicoBackup, _armazenamentoDocumento, _bancoDados.Inicializar,
-            ArquivoBanco, DiretorioDocumentos, _diretorioSeguranca, RepositorioConfiguracaoSincronizacao);
+            ArquivoBanco, DiretorioDocumentos, _diretorioSeguranca, RepositorioConfiguracaoSincronizacao, _protecaoSenha);
 
     /// <summary>Senha dos backups guardada (protegida pelo Windows) ou nulo se a proteção estiver desligada.</summary>
     public string? SenhaBackupSalva() => SenhaBackup.Obter(RepositorioConfiguracaoBackup.Obter(), _protecaoSenha);

@@ -32,6 +32,9 @@ public static class CaminhosArmazenamentoLocal
 
     public static string DiretorioSegurancaTeste() => Path.Combine(DiretorioBaseTeste(), "seguranca");
 
-    /// <summary>Registro de erros inesperados (um arquivo por dia), comum aos dois ambientes.</summary>
+    /// <summary>Registro de erros inesperados (um arquivo por dia) do ambiente de produção.</summary>
     public static string DiretorioLogs() => Path.Combine(DiretorioBase(), "logs");
+
+    /// <summary>Registro de erros do ambiente de teste, separado do de produção.</summary>
+    public static string DiretorioLogsTeste() => Path.Combine(DiretorioBaseTeste(), "logs");
 }

@@ -75,9 +75,15 @@ public sealed class GerarAlertasAutomaticos
         var bensMonitorados = monitorados.Select(bem => bem.Id).ToHashSet();
         var bensQueExigemNotaFiscal = monitorados.Where(ExigeNotaFiscal).Select(bem => bem.Id).ToList();
 
-        foreach (var garantia in _repositorioGarantia.Listar().Where(g => bensMonitorados.Contains(g.BemId)))
+        var garantias = _repositorioGarantia.Listar().Where(g => bensMonitorados.Contains(g.BemId)).ToList();
+        foreach (var garantia in garantias)
         {
-            GerarAlertaGarantia(garantia, dataReferencia, execucao);
+            var outras = garantias.Where(g => g.BemId.Equals(garantia.BemId) && !g.Id.Equals(garantia.Id))
+                .Select(g => (g.Periodo.IniciaEm, g.Periodo.TerminaEm));
+            if (!CobertoPorOutroPeriodo(garantia.Periodo.TerminaEm, dataReferencia, outras))
+            {
+                GerarAlertaGarantia(garantia, dataReferencia, execucao);
+            }
         }
 
         foreach (var manutencao in _repositorioManutencao.Listar().Where(m => bensMonitorados.Contains(m.BemId)))
@@ -96,9 +102,16 @@ public sealed class GerarAlertasAutomaticos
 
         if (_repositorioSaude is not null)
         {
-            foreach (var saude in _repositorioSaude.Listar().Where(s => bensMonitorados.Contains(s.BemId)))
+            var convenios = _repositorioSaude.Listar().Where(s => bensMonitorados.Contains(s.BemId)).ToList();
+            foreach (var saude in convenios)
             {
-                GerarAlertaSaude(saude, dataReferencia, execucao);
+                var renovacoes = convenios.Where(s => s.BemId.Equals(saude.BemId) && s.Tipo == saude.Tipo && !s.Id.Equals(saude.Id)
+                        && s.StatusEm(dataReferencia) != StatusSaude.Cancelada)
+                    .Select(s => (s.Periodo.IniciaEm, s.Periodo.TerminaEm));
+                if (!CobertoPorOutroPeriodo(saude.Periodo.TerminaEm, dataReferencia, renovacoes))
+                {
+                    GerarAlertaSaude(saude, dataReferencia, execucao);
+                }
             }
         }
 
@@ -128,7 +141,17 @@ public sealed class GerarAlertasAutomaticos
         }
 
         execucao.ResolverAlertasSemCondicao();
+        execucao.Gravar();
         return execucao.Gerados;
+    }
+
+    /// <summary>Verdadeiro quando outro registro do mesmo bem (garantia estendida, convênio renovado) continua
+    /// a cobertura depois de <paramref name="termino"/>: ele termina depois e já começou — ou começa até o
+    /// dia seguinte ao término, sem deixar o bem descoberto. Só o último período da sequência gera alerta.</summary>
+    private static bool CobertoPorOutroPeriodo(DateOnly termino, DateOnly dataReferencia, IEnumerable<(DateOnly Inicio, DateOnly Fim)> outros)
+    {
+        var limiteInicio = termino.AddDays(1) > dataReferencia ? termino.AddDays(1) : dataReferencia;
+        return outros.Any(outro => outro.Fim > termino && outro.Inicio <= limiteInicio);
     }
 
     private static void GerarAlertaGarantia(Garantia garantia, DateOnly dataReferencia, Execucao execucao)
@@ -137,13 +160,14 @@ public sealed class GerarAlertasAutomaticos
         var termino = garantia.Periodo.TerminaEm;
         if (status == StatusGarantia.Vencida)
         {
-            execucao.Exigir(garantia.BemId, TipoAlerta.GarantiaVencida, SeveridadeAlerta.Critico,
-                $"Garantia vencida em {FormatarData(termino)}.", termino);
+            // Garantia vencida não exige ação imediata (o bem continua funcionando): aviso, não crítico.
+            execucao.Exigir(garantia.BemId, TipoAlerta.GarantiaVencida, SeveridadeAlerta.Aviso,
+                $"Garantia vencida em {FormatarData(termino)}.", termino, garantia.Id.Valor);
         }
         else if (status == StatusGarantia.PertoDoVencimento)
         {
             execucao.Exigir(garantia.BemId, TipoAlerta.GarantiaVencendo, SeveridadeAlerta.Aviso,
-                $"Garantia vence em {FormatarData(termino)}.", termino);
+                $"Garantia vence em {FormatarData(termino)}.", termino, garantia.Id.Valor);
         }
     }
 
@@ -153,12 +177,12 @@ public sealed class GerarAlertasAutomaticos
         if (status == StatusManutencao.Atrasada)
         {
             execucao.Exigir(manutencao.BemId, TipoAlerta.ManutencaoAtrasada, SeveridadeAlerta.Critico,
-                $"Manutenção atrasada desde {FormatarData(manutencao.AgendadaPara)}: {DescricaoAlerta(manutencao)}.", manutencao.AgendadaPara);
+                $"Manutenção atrasada desde {FormatarData(manutencao.AgendadaPara)}: {DescricaoAlerta(manutencao)}.", manutencao.AgendadaPara, manutencao.Id.Valor);
         }
         else if (status == StatusManutencao.Agendada && manutencao.AgendadaPara <= dataReferencia.AddDays(DiasManutencaoProxima))
         {
             execucao.Exigir(manutencao.BemId, TipoAlerta.ManutencaoProxima, SeveridadeAlerta.Informativo,
-                $"Manutenção próxima em {FormatarData(manutencao.AgendadaPara)}: {DescricaoAlerta(manutencao)}.", manutencao.AgendadaPara);
+                $"Manutenção próxima em {FormatarData(manutencao.AgendadaPara)}: {DescricaoAlerta(manutencao)}.", manutencao.AgendadaPara, manutencao.Id.Valor);
         }
     }
 
@@ -170,12 +194,12 @@ public sealed class GerarAlertasAutomaticos
         if (status == StatusSaude.Vencida)
         {
             execucao.Exigir(saude.BemId, TipoAlerta.ConvenioVencido, SeveridadeAlerta.Critico,
-                $"{nome} vencido em {FormatarData(termino)}.", termino);
+                $"{nome} vencido em {FormatarData(termino)}.", termino, saude.Id.Valor);
         }
         else if (status == StatusSaude.PertoDoVencimento)
         {
             execucao.Exigir(saude.BemId, TipoAlerta.ConvenioVencendo, SeveridadeAlerta.Aviso,
-                $"{nome} vence em {FormatarData(termino)}.", termino);
+                $"{nome} vence em {FormatarData(termino)}.", termino, saude.Id.Valor);
         }
     }
 
@@ -196,14 +220,15 @@ public sealed class GerarAlertasAutomaticos
     private static string FormatarData(DateOnly data) => data.ToString(FormatoData, CultureInfo.InvariantCulture);
 
     /// <summary>Estado de uma execução: alertas existentes indexados, chaves exigidas pela situação
-    /// atual e alertas criados nesta rodada.</summary>
+    /// atual, alertas criados nesta rodada e o que falta gravar (tudo numa transação, em <see cref="Gravar"/>).</summary>
     private sealed class Execucao
     {
         private readonly IRepositorioAlerta _repositorioAlerta;
         private readonly DateOnly _dataReferencia;
         private readonly IReadOnlyList<Alerta> _existentes;
-        private readonly HashSet<(BemId, TipoAlerta, string)> _chavesExistentes;
-        private readonly HashSet<(BemId, TipoAlerta, string)> _chavesExigidas = [];
+        private readonly HashSet<(BemId, TipoAlerta, string, Guid?)> _chavesExistentes;
+        private readonly HashSet<(BemId, TipoAlerta, string, Guid?)> _chavesExigidas = [];
+        private readonly List<Alerta> _aGravar = [];
 
         internal List<Alerta> Gerados { get; } = [];
 
@@ -215,17 +240,20 @@ public sealed class GerarAlertasAutomaticos
             _chavesExistentes = _existentes.Select(Chave).ToHashSet();
         }
 
-        internal void Exigir(BemId bemId, TipoAlerta tipo, SeveridadeAlerta severidade, string mensagem, DateOnly? prazoEm)
+        internal void Exigir(BemId bemId, TipoAlerta tipo, SeveridadeAlerta severidade, string mensagem, DateOnly? prazoEm, Guid? origemId = null)
         {
-            var chave = (bemId, tipo, mensagem);
+            var chave = (bemId, tipo, mensagem, origemId);
+            // Alerta gravado antes da V009 (sem origem) continua valendo para a mesma situação: não duplica.
+            var legada = (bemId, tipo, mensagem, (Guid?)null);
             _chavesExigidas.Add(chave);
-            if (!_chavesExistentes.Add(chave))
+            _chavesExigidas.Add(legada);
+            if (_chavesExistentes.Contains(legada) || !_chavesExistentes.Add(chave))
             {
                 return;
             }
 
-            var alerta = Alerta.CriarAutomatico(bemId, tipo, severidade, mensagem, _dataReferencia, prazoEm);
-            _repositorioAlerta.Salvar(alerta);
+            var alerta = Alerta.CriarAutomatico(bemId, tipo, severidade, mensagem, _dataReferencia, prazoEm, origemId);
+            _aGravar.Add(alerta);
             Gerados.Add(alerta);
         }
 
@@ -234,10 +262,18 @@ public sealed class GerarAlertasAutomaticos
             foreach (var alerta in _existentes.Where(a => a.Automatico && a.EstaAcionavel() && !_chavesExigidas.Contains(Chave(a))))
             {
                 alerta.Resolver();
-                _repositorioAlerta.Salvar(alerta);
+                _aGravar.Add(alerta);
             }
         }
 
-        private static (BemId, TipoAlerta, string) Chave(Alerta alerta) => (alerta.BemId, alerta.Tipo, alerta.Mensagem);
+        internal void Gravar()
+        {
+            if (_aGravar.Count > 0)
+            {
+                _repositorioAlerta.SalvarTodos(_aGravar);
+            }
+        }
+
+        private static (BemId, TipoAlerta, string, Guid?) Chave(Alerta alerta) => (alerta.BemId, alerta.Tipo, alerta.Mensagem, alerta.OrigemId);
     }
 }

@@ -93,6 +93,40 @@ public sealed partial class ArmazenamentoDocumentoLocal : IArmazenamentoDocument
         return File.Exists(candidato) ? candidato : null;
     }
 
+    public int RemoverNaoReferenciados(IReadOnlyCollection<string> caminhosReferenciados)
+    {
+        ArgumentNullException.ThrowIfNull(caminhosReferenciados);
+        if (!Directory.Exists(_diretorioDocumentos))
+        {
+            return 0;
+        }
+
+        var referenciados = caminhosReferenciados
+            .Where(caminho => !string.IsNullOrWhiteSpace(caminho))
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var removidos = 0;
+        foreach (var arquivo in Directory.EnumerateFiles(_diretorioDocumentos, "*", SearchOption.AllDirectories))
+        {
+            if (referenciados.Contains(Path.GetFullPath(arquivo)))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(arquivo);
+                removidos++;
+            }
+            catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException)
+            {
+                // Arquivo aberto em outro programa: fica para a próxima restauração.
+            }
+        }
+
+        return removidos;
+    }
+
     private bool EstaDentroDoDestino(string origem)
     {
         var relativo = Path.GetRelativePath(_diretorioDocumentos, origem);

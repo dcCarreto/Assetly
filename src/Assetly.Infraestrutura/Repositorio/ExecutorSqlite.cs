@@ -44,6 +44,28 @@ internal sealed class ExecutorSqlite(FabricaConexaoSqlite fabricaConexao)
         }
     }
 
+    /// <summary>Executa o mesmo comando para cada conjunto de parâmetros numa única transação: ou grava
+    /// todos, ou nenhum.</summary>
+    internal void ExecutarEmLote(string sql, string descricaoErro, IEnumerable<(string Nome, object Valor)[]> lote)
+    {
+        try
+        {
+            using var conexao = _fabricaConexao.Abrir();
+            using var transacao = conexao.BeginTransaction();
+            foreach (var parametros in lote)
+            {
+                using var comando = Criar(conexao, sql, parametros);
+                comando.ExecuteNonQuery();
+            }
+
+            transacao.Commit();
+        }
+        catch (SqliteException excecao)
+        {
+            throw new ExcecaoBancoDados(descricaoErro, excecao);
+        }
+    }
+
     private static SqliteCommand Criar(SqliteConnection conexao, string sql, (string Nome, object Valor)[] parametros)
     {
         var comando = conexao.CreateCommand();

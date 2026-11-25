@@ -32,11 +32,7 @@ public sealed class RegistrarDespesa(IRepositorioBem repositorioBem, IRepositori
                 valor))
             .ToList();
 
-        foreach (var despesa in despesas)
-        {
-            _repositorioDespesa.Salvar(despesa);
-        }
-
+        _repositorioDespesa.SalvarTodos(despesas);
         return despesas;
     }
 }
