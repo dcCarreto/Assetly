@@ -21,6 +21,11 @@ public sealed class RegistrarDespesa(IRepositorioBem repositorioBem, IRepositori
             throw new ArgumentException($"número de parcelas/meses deve ser de 1 a {MaximoRepeticoes}");
         }
 
+        if (comando.Recorrente && comando.Repeticoes > 1)
+        {
+            throw new ArgumentException("conta recorrente não tem parcelas: a do mês seguinte é gerada quando esta for paga");
+        }
+
         var valor = Dinheiro.De(comando.Valor, comando.CodigoMoeda);
         var descricaoBase = Validacao.ExigirTexto(comando.Descricao, "descrição da despesa", Despesa.TamanhoMaximoDescricao - 10);
         var despesas = Enumerable.Range(0, comando.Repeticoes)
@@ -31,6 +36,7 @@ public sealed class RegistrarDespesa(IRepositorioBem repositorioBem, IRepositori
                 comando.Vencimento.AddMonths(indice),
                 valor))
             .ToList();
+        despesas.ForEach(despesa => despesa.DefinirRecorrencia(comando.Recorrente));
 
         _repositorioDespesa.SalvarTodos(despesas);
         return despesas;

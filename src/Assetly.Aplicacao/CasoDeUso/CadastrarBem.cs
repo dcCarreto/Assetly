@@ -16,6 +16,7 @@ public sealed class CadastrarBem(IRepositorioBem repositorioBem)
         var bem = Bem.Criar(nome, comando.Tipo);
         bem.AtualizarCompra(comando.CompradoEm, ApoioCasosUso.DinheiroOpcional(comando.PrecoCompra, comando.CodigoMoeda));
         bem.AtualizarObservacoes(comando.Observacoes);
+        ApoioCasosUso.AplicarDetalhes(bem, comando.Inventario, comando.ValorAtual, comando.ValorAtualEm, comando.CodigoMoeda, comando.TaxaDepreciacao);
         bem.DefinirResponsavel(ApoioCasosUso.ExigirResponsavel(_repositorioBem, comando.Responsavel, bem.Id));
         _repositorioBem.Salvar(bem);
         return bem;

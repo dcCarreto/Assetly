@@ -23,11 +23,11 @@ public sealed class RepositorioDespesaSqlite(FabricaConexaoSqlite fabricaConexao
             ("$bemId", bemId.Valor.ToString()));
 
     private const string SqlSalvar = """
-        INSERT INTO despesas (id, bem_id, tipo, descricao, vencimento, valor, moeda, paga_em)
-        VALUES ($id, $bemId, $tipo, $descricao, $vencimento, $valor, $moeda, $pagaEm)
+        INSERT INTO despesas (id, bem_id, tipo, descricao, vencimento, valor, moeda, paga_em, recorrente)
+        VALUES ($id, $bemId, $tipo, $descricao, $vencimento, $valor, $moeda, $pagaEm, $recorrente)
         ON CONFLICT(id) DO UPDATE SET
             tipo = excluded.tipo, descricao = excluded.descricao, vencimento = excluded.vencimento,
-            valor = excluded.valor, moeda = excluded.moeda, paga_em = excluded.paga_em
+            valor = excluded.valor, moeda = excluded.moeda, paga_em = excluded.paga_em, recorrente = excluded.recorrente
         """;
 
     public void Salvar(Despesa despesa) =>
@@ -45,7 +45,8 @@ public sealed class RepositorioDespesaSqlite(FabricaConexaoSqlite fabricaConexao
             ("$vencimento", ConversorSqlite.Texto(despesa.Vencimento)!),
             ("$valor", ConversorSqlite.Valor(despesa.Valor)!),
             ("$moeda", ConversorSqlite.Moeda(despesa.Valor)!),
-            ("$pagaEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(despesa.PagaEm)))
+            ("$pagaEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(despesa.PagaEm))),
+            ("$recorrente", despesa.Recorrente ? 1 : 0)
         ];
 
     public void Excluir(DespesaId id) =>
@@ -59,5 +60,6 @@ public sealed class RepositorioDespesaSqlite(FabricaConexaoSqlite fabricaConexao
             leitor.GetString(leitor.GetOrdinal("descricao")),
             ConversorSqlite.Data(leitor, "vencimento")!.Value,
             ConversorSqlite.LerDinheiro(leitor, "valor", "moeda")!,
-            ConversorSqlite.Data(leitor, "paga_em"));
+            ConversorSqlite.Data(leitor, "paga_em"),
+            leitor.GetInt64(leitor.GetOrdinal("recorrente")) != 0);
 }

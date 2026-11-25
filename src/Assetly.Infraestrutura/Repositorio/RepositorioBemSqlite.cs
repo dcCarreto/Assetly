@@ -18,8 +18,10 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
     public void Salvar(Bem bem)
     {
         const string sql = """
-            INSERT INTO bens (id, nome, tipo, status, comprado_em, preco_compra, moeda, observacoes, responsavel_id)
-            VALUES ($id, $nome, $tipo, $status, $compradoEm, $precoCompra, $moeda, $observacoes, $responsavelId)
+            INSERT INTO bens (id, nome, tipo, status, comprado_em, preco_compra, moeda, observacoes, responsavel_id,
+                marca, modelo, numero_serie, loja, localizacao, valor_informado, moeda_valor_informado, valor_informado_em, taxa_depreciacao)
+            VALUES ($id, $nome, $tipo, $status, $compradoEm, $precoCompra, $moeda, $observacoes, $responsavelId,
+                $marca, $modelo, $numeroSerie, $loja, $localizacao, $valorInformado, $moedaValorInformado, $valorInformadoEm, $taxaDepreciacao)
             ON CONFLICT(id) DO UPDATE SET
                 nome = excluded.nome,
                 tipo = excluded.tipo,
@@ -28,7 +30,16 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
                 preco_compra = excluded.preco_compra,
                 moeda = excluded.moeda,
                 observacoes = excluded.observacoes,
-                responsavel_id = excluded.responsavel_id
+                responsavel_id = excluded.responsavel_id,
+                marca = excluded.marca,
+                modelo = excluded.modelo,
+                numero_serie = excluded.numero_serie,
+                loja = excluded.loja,
+                localizacao = excluded.localizacao,
+                valor_informado = excluded.valor_informado,
+                moeda_valor_informado = excluded.moeda_valor_informado,
+                valor_informado_em = excluded.valor_informado_em,
+                taxa_depreciacao = excluded.taxa_depreciacao
             """;
         var preco = bem.PrecoCompra;
         _executor.Executar(sql, "Não foi possível salvar bem",
@@ -40,7 +51,16 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
             ("$precoCompra", ConversorSqlite.Nulo(ConversorSqlite.Valor(preco))),
             ("$moeda", ConversorSqlite.Nulo(ConversorSqlite.Moeda(preco))),
             ("$observacoes", bem.Observacoes),
-            ("$responsavelId", ConversorSqlite.Nulo(bem.ResponsavelId?.Valor.ToString())));
+            ("$responsavelId", ConversorSqlite.Nulo(bem.ResponsavelId?.Valor.ToString())),
+            ("$marca", bem.Inventario.Marca),
+            ("$modelo", bem.Inventario.Modelo),
+            ("$numeroSerie", bem.Inventario.NumeroSerie),
+            ("$loja", bem.Inventario.Loja),
+            ("$localizacao", bem.Inventario.Localizacao),
+            ("$valorInformado", ConversorSqlite.Nulo(ConversorSqlite.Valor(bem.ValorInformado))),
+            ("$moedaValorInformado", ConversorSqlite.Nulo(ConversorSqlite.Moeda(bem.ValorInformado))),
+            ("$valorInformadoEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(bem.ValorInformadoEm))),
+            ("$taxaDepreciacao", ConversorSqlite.Nulo(ConversorSqlite.Texto(bem.TaxaDepreciacao))));
     }
 
     public void Excluir(BemId id) =>

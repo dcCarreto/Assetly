@@ -18,6 +18,9 @@ public sealed class Despesa
     public Dinheiro Valor { get; private set; } = null!;
     public DateOnly? PagaEm { get; private set; }
 
+    /// <summary>Conta sem fim (condomínio, energia, internet): ao ser paga, gera a do mês seguinte.</summary>
+    public bool Recorrente { get; private set; }
+
     private Despesa(DespesaId id, BemId bemId)
     {
         Id = id;
@@ -31,13 +34,34 @@ public sealed class Despesa
         return despesa;
     }
 
-    public static Despesa Restaurar(DespesaId id, BemId bemId, TipoDespesa tipo, string? descricao, DateOnly vencimento, Dinheiro valor, DateOnly? pagaEm)
+    public static Despesa Restaurar(DespesaId id, BemId bemId, TipoDespesa tipo, string? descricao, DateOnly vencimento, Dinheiro valor, DateOnly? pagaEm,
+        bool recorrente = false)
     {
         var despesa = new Despesa(id, bemId);
         despesa.Atualizar(tipo, descricao, vencimento, valor);
         despesa.PagaEm = pagaEm;
+        despesa.Recorrente = recorrente;
         return despesa;
     }
+
+    public void DefinirRecorrencia(bool recorrente) => Recorrente = recorrente;
+
+    /// <summary>A conta do mês seguinte (mesmo tipo, descrição e valor, em aberto), para uma conta recorrente.</summary>
+    public Despesa ProximaRecorrencia()
+    {
+        if (!Recorrente)
+        {
+            throw new InvalidOperationException("esta despesa não é recorrente");
+        }
+
+        var proxima = Registrar(BemId, Tipo, Descricao, Vencimento.AddMonths(1), Valor);
+        proxima.Recorrente = true;
+        return proxima;
+    }
+
+    /// <summary>Se <paramref name="outra"/> é a conta do mês seguinte desta (já gerada antes, ex.: pagamento desfeito e refeito).</summary>
+    public bool EhProximaRecorrencia(Despesa outra) =>
+        outra.Recorrente && outra.BemId.Equals(BemId) && outra.Tipo == Tipo && outra.Descricao == Descricao && outra.Vencimento == Vencimento.AddMonths(1);
 
     public void Atualizar(TipoDespesa tipo, string? descricao, DateOnly vencimento, Dinheiro valor)
     {

@@ -122,7 +122,7 @@ public sealed class ContextoAplicacao
 
     public ExportarDados ExportarDados() => new(FonteDados());
 
-    public CalcularPatrimonio CalcularPatrimonio() => new(RepositorioBem);
+    public CalcularPatrimonio CalcularPatrimonio() => new(RepositorioBem, RepositorioDespesa);
 
     public AtivarCriptografiaBackup AtivarCriptografiaBackup() => new(RepositorioConfiguracaoBackup, _protecaoSenha);
 

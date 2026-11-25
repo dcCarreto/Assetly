@@ -36,10 +36,10 @@ internal sealed class ModuloPatrimonio : IModulo
     {
         _contexto = contexto;
         var recursos = Application.Current.Resources;
-        var cabecalho = CabecalhoTela("Patrimônio", "Quanto seus bens custaram e quanto valem hoje (estimativa por depreciação).", null);
+        var cabecalho = CabecalhoTela("Patrimônio", "Quanto seus bens custaram, quanto valem hoje e quanto sobra descontando os financiamentos.", null);
         cabecalho.Margin = new Thickness(0, 0, 0, 14);
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 4; i++)
         {
             _kpis.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         }
@@ -86,7 +86,11 @@ internal sealed class ModuloPatrimonio : IModulo
         var perda = ResumoOperacao("Depreciação acumulada", Dinheiro(resumo.Depreciacao), $"{resumo.PercentualDepreciado:P1} desde a compra", "StatusAviso");
         Posicionar(_kpis, compra, 0, 0, new Thickness(0, 0, 6, 0));
         Posicionar(_kpis, atual, 0, 1, new Thickness(6, 0, 6, 0));
-        Posicionar(_kpis, perda, 0, 2, new Thickness(6, 0, 0, 0));
+        var liquido = ResumoOperacao("Patrimônio líquido", Dinheiro(resumo.PatrimonioLiquido),
+            resumo.ParcelasEmAberto == 0 ? "sem financiamentos em aberto" : $"descontando {Dinheiro(resumo.Dividas)} em {resumo.ParcelasEmAberto} parcela(s) de financiamento",
+            resumo.PatrimonioLiquido < 0 ? "StatusPerigo" : "StatusOk");
+        Posicionar(_kpis, perda, 0, 2, new Thickness(6, 0, 6, 0));
+        Posicionar(_kpis, liquido, 0, 3, new Thickness(6, 0, 0, 0));
 
         _porTipo.Content = resumo.PorTipo.Count == 0
             ? Vazio("Cadastre bens com preço de compra para ver a distribuição.")
@@ -102,11 +106,12 @@ internal sealed class ModuloPatrimonio : IModulo
 
         var observacoes = new List<string>
         {
-            "Estimativa por depreciação linear: eletrônicos 20% ao ano, veículos 12%, demais 10%, com um valor residual mínimo; imóveis mantêm o valor de compra."
+            "Estimativa por depreciação linear: eletrônicos 20% ao ano, veículos 12%, demais 10%, com um valor residual mínimo; imóveis mantêm o valor de compra. " +
+            "Bens com valor atual informado (avaliação, tabela FIPE) ou taxa própria usam esses dados. Dívidas = parcelas de financiamento não pagas (Automóveis e Imóveis → Despesas)."
         };
         if (resumo.SemPreco > 0)
         {
-            observacoes.Add($"{resumo.SemPreco} bem(ns) sem preço de compra não entram nos totais.");
+            observacoes.Add($"{resumo.SemPreco} bem(ns) sem preço de compra nem valor informado não entram nos totais.");
         }
 
         if (resumo.SemDataCompra > 0)

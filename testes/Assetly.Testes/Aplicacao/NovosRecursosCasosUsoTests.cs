@@ -156,7 +156,7 @@ public class NovosRecursosCasosUsoTests
             repositorio.Salvar(bem);
         }
 
-        var resumo = new CalcularPatrimonio(repositorio).Executar(Hoje);
+        var resumo = new CalcularPatrimonio(repositorio, new RepositorioDespesaMemoria()).Executar(Hoje);
 
         resumo.ValorCompra.ShouldBe(305_000m);
         resumo.ValorAtual.ShouldBeInRange(303_990m, 304_010m);

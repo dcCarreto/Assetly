@@ -9,4 +9,8 @@ public sealed record CadastrarBemComando(
     decimal? PrecoCompra,
     string? CodigoMoeda,
     string? Observacoes,
-    BemId? Responsavel = null);
+    BemId? Responsavel = null,
+    InventarioBem? Inventario = null,
+    decimal? ValorAtual = null,
+    DateOnly? ValorAtualEm = null,
+    decimal? TaxaDepreciacao = null);

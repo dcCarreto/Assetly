@@ -78,6 +78,15 @@ internal static class ApoioCasosUso
         }
     }
 
+    /// <summary>Inventário, valor atual informado (na moeda do formulário; sem data = hoje) e taxa própria.</summary>
+    internal static void AplicarDetalhes(Bem bem, InventarioBem? inventario, decimal? valorAtual, DateOnly? valorAtualEm, string? codigoMoeda,
+        decimal? taxaDepreciacao)
+    {
+        bem.AtualizarInventario(inventario ?? InventarioBem.Vazio);
+        bem.InformarValorAtual(DinheiroOpcional(valorAtual, codigoMoeda), valorAtualEm ?? DateOnly.FromDateTime(DateTime.Now));
+        bem.DefinirTaxaDepreciacao(taxaDepreciacao);
+    }
+
     internal static Dinheiro? DinheiroOpcional(decimal? valor, string? codigoMoeda)
     {
         if (valor is null)

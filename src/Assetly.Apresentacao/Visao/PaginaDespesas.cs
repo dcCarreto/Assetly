@@ -104,7 +104,8 @@ internal sealed class PaginaDespesas : IPagina
         return despesas.Select(d =>
         {
             var status = d.StatusEm(hoje);
-            return new DespesaLinha(d.Id, nomeBem(d.BemId), Formatador.TextoEnum(d.Tipo), d.Descricao, Formatador.Data(d.Vencimento),
+            return new DespesaLinha(d.Id, nomeBem(d.BemId), Formatador.TextoEnum(d.Tipo), d.Recorrente ? $"{d.Descricao} · mensal" : d.Descricao,
+                Formatador.Data(d.Vencimento),
                 Formatador.Dinheiro(d.Valor), Formatador.TextoEnum(status), Formatador.ClasseEtiqueta(status), ClasseLinha(status),
                 Formatador.Data(d.PagaEm), d);
         }).ToList();
@@ -156,7 +157,8 @@ internal sealed class PaginaDespesas : IPagina
         var vencimento = DataPicker(despesa?.Vencimento ?? Hoje());
         var valor = CampoTexto("Valor (ex.: 1.234,56)", TextoValor(despesa?.Valor.Valor));
         var pagaEm = DataPicker(despesa?.PagaEm);
-        var repeticoes = CampoTexto("Quantidade de meses/parcelas", "1");
+        var repeticoes = CampoTexto("Quantidade de parcelas (IPVA, IPTU, financiamento)", "1");
+        var recorrente = CaixaMarcacao("Conta mensal sem fim (condomínio, energia...): ao pagar, gera a do mês seguinte", despesa?.Recorrente ?? false);
 
         var grade = GradeFormulario();
         AdicionarCampo(grade, 0, 0, $"{_rotuloBem} *", bem);
@@ -167,8 +169,11 @@ internal sealed class PaginaDespesas : IPagina
         AdicionarCampo(grade, 3, 0, "Paga em (vazio = em aberto)", pagaEm);
         if (despesa is null)
         {
-            AdicionarCampo(grade, 3, 1, "Repetir por (meses)", repeticoes);
+            AdicionarCampo(grade, 3, 1, "Parcelas (meses)", repeticoes);
+            recorrente.Checked += (_, _) => repeticoes.Text = "1";
         }
+
+        AdicionarCampo(grade, 4, 0, "Recorrência", recorrente, ocupaLinhaToda: true);
 
         // Preenche a descrição com o tipo quando o usuário ainda não digitou nada.
         tipo.SelectionChanged += (_, _) =>
@@ -198,7 +203,7 @@ internal sealed class PaginaDespesas : IPagina
 
                 var criadas = _contexto.RegistrarDespesa().Executar(new RegistrarDespesaComando(
                     ApoioFichas.ValorItem<BemId>(bem, "selecione o bem"), ValorEnum<TipoDespesa>(tipo), descricao.Text, dataVencimento,
-                    valorDecimal, ApoioFichas.MoedaPadrao, quantidade));
+                    valorDecimal, ApoioFichas.MoedaPadrao, quantidade, recorrente.IsChecked == true));
                 if (dataPagamento is not null)
                 {
                     _contexto.PagarDespesa().Executar(criadas[0].Id, dataPagamento.Value);
@@ -207,7 +212,7 @@ internal sealed class PaginaDespesas : IPagina
             else
             {
                 _contexto.EditarDespesa().Executar(new EditarDespesaComando(despesa.Id, ValorEnum<TipoDespesa>(tipo), descricao.Text,
-                    dataVencimento, valorDecimal, despesa.Valor.CodigoMoeda));
+                    dataVencimento, valorDecimal, despesa.Valor.CodigoMoeda, recorrente.IsChecked == true));
                 if (despesa.PagaEm != dataPagamento)
                 {
                     if (despesa.PagaEm is not null)

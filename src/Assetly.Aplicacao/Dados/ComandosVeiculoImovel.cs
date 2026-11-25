@@ -50,8 +50,9 @@ public sealed record CadastrarImovelComando(
 
 public sealed record EditarImovelComando(BemId BemId, DadosImovel Dados);
 
-/// <summary><paramref name="Repeticoes"/> &gt; 1 gera uma despesa por mês (parcelas de IPVA/IPTU,
-/// condomínio...), com "(1/N)" no fim da descrição.</summary>
+/// <summary><paramref name="Repeticoes"/> &gt; 1 gera uma despesa por mês (parcelas de IPVA/IPTU, financiamento),
+/// com "(1/N)" no fim da descrição. <paramref name="Recorrente"/>: conta sem fim (condomínio, energia), que gera a
+/// do mês seguinte ao ser paga.</summary>
 public sealed record RegistrarDespesaComando(
     BemId BemId,
     TipoDespesa Tipo,
@@ -59,7 +60,8 @@ public sealed record RegistrarDespesaComando(
     DateOnly Vencimento,
     decimal Valor,
     string CodigoMoeda,
-    int Repeticoes = 1);
+    int Repeticoes = 1,
+    bool Recorrente = false);
 
 public sealed record EditarDespesaComando(
     DespesaId Id,
@@ -67,4 +69,5 @@ public sealed record EditarDespesaComando(
     string? Descricao,
     DateOnly Vencimento,
     decimal Valor,
-    string CodigoMoeda);
+    string CodigoMoeda,
+    bool Recorrente = false);

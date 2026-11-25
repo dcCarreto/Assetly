@@ -14,6 +14,7 @@ public sealed class EditarDespesa(IRepositorioDespesa repositorioDespesa)
         ArgumentNullException.ThrowIfNull(comando);
         var despesa = ApoioCasosUso.ExigirDespesa(_repositorioDespesa, comando.Id);
         despesa.Atualizar(comando.Tipo, comando.Descricao, comando.Vencimento, Dinheiro.De(comando.Valor, comando.CodigoMoeda));
+        despesa.DefinirRecorrencia(comando.Recorrente);
         _repositorioDespesa.Salvar(despesa);
         return despesa;
     }

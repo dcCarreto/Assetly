@@ -31,9 +31,10 @@ internal sealed class ModuloBens : IModulo
         _contexto = contexto;
         ConfigurarTabela();
 
-        var (direita, busca) = CabecalhoBuscaCriacao("Buscar por nome, tipo, responsável ou observações", "Novo bem", () => AbrirDialogoBem(null));
+        var (direita, busca) = CabecalhoBuscaCriacao("Buscar por nome, tipo, marca, nº de série, local ou observações", "Novo bem", () => AbrirDialogoBem(null));
 
-        _filtro = new FiltroTabela<BemLinha>(_tabela, l => l.Id, l => $"{l.Nome} {l.Tipo} {l.Responsavel} {l.Observacoes}",
+        _filtro = new FiltroTabela<BemLinha>(_tabela, l => l.Id, l => $"{l.Nome} {l.Tipo} {l.Responsavel} {l.Observacoes} {l.Origem.Inventario.Marca} {l.Origem.Inventario.Modelo} " +
+            $"{l.Origem.Inventario.NumeroSerie} {l.Origem.Inventario.Loja} {l.Origem.Inventario.Localizacao}",
         [
             new("Todos", _ => true),
             new("Ativos", l => l.Origem.Status == StatusBem.Ativo),
@@ -152,6 +153,15 @@ internal sealed class ModuloBens : IModulo
         var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", bem?.PrecoCompra?.CodigoMoeda ?? "BRL");
         var observacoes = AreaTexto(bem?.Observacoes ?? string.Empty);
         var responsavel = ComboResponsavel(bem);
+        var inventario = bem?.Inventario ?? InventarioBem.Vazio;
+        var marca = CampoTexto("Marca", inventario.Marca);
+        var modelo = CampoTexto("Modelo", inventario.Modelo);
+        var numeroSerie = CampoTexto("Número de série (etiqueta do produto ou nota)", inventario.NumeroSerie);
+        var localizacao = CampoTexto("Onde fica (cômodo, endereço, garagem...)", inventario.Localizacao);
+        var loja = CampoTexto("Loja onde foi comprado", inventario.Loja);
+        var valorAtual = CampoTexto("Valor de hoje (avaliação, tabela FIPE...). Vazio = estimar pela depreciação", TextoValor(bem?.ValorInformado?.Valor));
+        var avaliadoEm = DataPicker(bem?.ValorInformado is null ? null : bem.ValorInformadoEm);
+        var taxa = CampoTexto("Depreciação própria em % ao ano. Vazio = a padrão do tipo", TextoValor(bem?.TaxaDepreciacao * 100));
         string? imagemNota = null;
         DadosNotaFiscal? dadosNota = null;
         var situacaoNota = UiApoio.Texto("Foto ou imagem escaneada da nota: lê o QR Code da NFC-e e o texto impresso (OCR do Windows, sem internet) e preenche data e valor.",
@@ -196,11 +206,21 @@ internal sealed class ModuloBens : IModulo
         AdicionarCampo(grade, 0, 0, "Nome *", nome, ocupaLinhaToda: true);
         AdicionarCampo(grade, 1, 0, "Tipo *", tipo);
         AdicionarCampo(grade, 1, 1, "Responsável (modo família)", responsavel);
-        AdicionarCampo(grade, 2, 0, "Data de compra", compradoEm);
-        AdicionarCampo(grade, 2, 1, "Preço de compra", preco);
-        AdicionarCampo(grade, 3, 0, "Moeda", moeda);
-        AdicionarCampo(grade, 4, 0, "Nota fiscal", UiApoio.Coluna(6, lerNota, situacaoNota), ocupaLinhaToda: true);
-        AdicionarCampo(grade, 5, 0, "Observações", observacoes, ocupaLinhaToda: true);
+        AdicionarCampo(grade, 2, 0, "Marca", marca);
+        AdicionarCampo(grade, 2, 1, "Modelo", modelo);
+        AdicionarCampo(grade, 3, 0, "Número de série", numeroSerie);
+        AdicionarCampo(grade, 3, 1, "Localização", localizacao);
+        AdicionarSecao(grade, 4, "Compra");
+        AdicionarCampo(grade, 5, 0, "Data de compra", compradoEm);
+        AdicionarCampo(grade, 5, 1, "Preço de compra", preco);
+        AdicionarCampo(grade, 6, 0, "Moeda", moeda);
+        AdicionarCampo(grade, 6, 1, "Loja", loja);
+        AdicionarCampo(grade, 7, 0, "Nota fiscal", UiApoio.Coluna(6, lerNota, situacaoNota), ocupaLinhaToda: true);
+        AdicionarSecao(grade, 8, "Valor atual (opcional)");
+        AdicionarCampo(grade, 9, 0, "Valor atual informado", valorAtual);
+        AdicionarCampo(grade, 9, 1, "Avaliado em (vazio = hoje)", avaliadoEm);
+        AdicionarCampo(grade, 10, 0, "Depreciação própria (% ao ano)", taxa);
+        AdicionarCampo(grade, 11, 0, "Observações", observacoes, ocupaLinhaToda: true);
         lerNota.HorizontalAlignment = HorizontalAlignment.Left;
 
         var salvou = MostrarFormulario(bem is null ? "Novo bem" : "Editar bem", grade, () =>
@@ -209,9 +229,14 @@ internal sealed class ModuloBens : IModulo
             var precoValor = DecimalOpcional(preco.Text);
             var moedaValor = TextoOpcional(moeda.Text);
             var responsavelValor = (responsavel.SelectedItem as ItemResponsavel)?.Pessoa?.Id;
+            var inventarioValor = new InventarioBem(marca.Text, modelo.Text, numeroSerie.Text, loja.Text, localizacao.Text);
+            var valorAtualValor = DecimalOpcional(valorAtual.Text);
+            var taxaValor = DecimalOpcional(taxa.Text) / 100;
             var salvo = bem is null
-                ? _contexto.CadastrarBem().Executar(new CadastrarBemComando(nome.Text, ValorEnum<TipoBem>(tipo), compradoEmValor, precoValor, moedaValor, observacoes.Text, responsavelValor))
-                : _contexto.EditarBem().Executar(new EditarBemComando(bem.Id, nome.Text, ValorEnum<TipoBem>(tipo), compradoEmValor, precoValor, moedaValor, observacoes.Text, responsavelValor));
+                ? _contexto.CadastrarBem().Executar(new CadastrarBemComando(nome.Text, ValorEnum<TipoBem>(tipo), compradoEmValor, precoValor, moedaValor,
+                    observacoes.Text, responsavelValor, inventarioValor, valorAtualValor, ValorData(avaliadoEm), taxaValor))
+                : _contexto.EditarBem().Executar(new EditarBemComando(bem.Id, nome.Text, ValorEnum<TipoBem>(tipo), compradoEmValor, precoValor, moedaValor,
+                    observacoes.Text, responsavelValor, inventarioValor, valorAtualValor, ValorData(avaliadoEm), taxaValor));
             if (imagemNota is not null)
             {
                 _contexto.RegistrarDocumento().Executar(new RegistrarDocumentoComando(salvo.Id, Dominio.Documento.TipoDocumento.NotaFiscal,
@@ -288,9 +313,12 @@ internal sealed class ModuloBens : IModulo
             Nome: {bem.Nome.Valor}
             Tipo: {Formatador.TextoEnum(bem.Tipo)}
             Status: {Formatador.TextoEnum(bem.Status)}
-            Compra: {Formatador.Data(bem.CompradoEm)}
+            Marca / modelo: {Formatador.TextoOuTraco($"{bem.Inventario.Marca} {bem.Inventario.Modelo}".Trim())}
+            Número de série: {Formatador.TextoOuTraco(bem.Inventario.NumeroSerie)}
+            Localização: {Formatador.TextoOuTraco(bem.Inventario.Localizacao)}
+            Compra: {Formatador.Data(bem.CompradoEm)} {(bem.Inventario.Loja.Length > 0 ? "· " + bem.Inventario.Loja : string.Empty)}
             Valor: {Formatador.Dinheiro(bem.PrecoCompra)}
-            Valor estimado hoje: {Formatador.Dinheiro(Depreciacao.ValorEstimado(bem, ContextoApoio.Hoje()))}
+            {(bem.ValorInformado is null ? "Valor estimado hoje" : $"Valor informado em {Formatador.Data(bem.ValorInformadoEm)}")}: {Formatador.Dinheiro(Depreciacao.ValorEstimado(bem, ContextoApoio.Hoje()))}
             Responsável: {NomeResponsavel(bem)}
             Observações: {Formatador.TextoOuTraco(bem.Observacoes)}
 

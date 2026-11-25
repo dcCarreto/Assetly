@@ -28,11 +28,23 @@ public static class Depreciacao
         _ => new RegraDepreciacao(0.10m, 0.10m)
     };
 
-    /// <summary>Se o bem entra no patrimônio: tem preço de compra e não é pessoa.</summary>
-    public static bool ContaNoPatrimonio(Bem bem) => bem.PrecoCompra is not null && bem.Tipo != TipoBem.Pessoa;
+    /// <summary>Regra deste bem: a do tipo, ou a taxa própria informada (com o mesmo valor residual mínimo;
+    /// 10% para tipos que normalmente não depreciam, como imóvel).</summary>
+    public static RegraDepreciacao Regra(Bem bem)
+    {
+        var doTipo = Regra(bem.Tipo);
+        return bem.TaxaDepreciacao is { } taxa
+            ? new RegraDepreciacao(taxa, doTipo.Deprecia ? doTipo.ResidualMinimo : 0.10m)
+            : doTipo;
+    }
 
-    /// <summary>Valor estimado do bem na data. Sem data de compra, não há como depreciar: vale o preço
-    /// de compra. Antes da compra, o bem ainda não fazia parte do patrimônio (nulo).</summary>
+    /// <summary>Se o bem entra no patrimônio: tem preço de compra ou valor informado e não é pessoa.</summary>
+    public static bool ContaNoPatrimonio(Bem bem) =>
+        (bem.PrecoCompra is not null || bem.ValorInformado is not null) && bem.Tipo != TipoBem.Pessoa;
+
+    /// <summary>Valor estimado do bem na data. O valor informado pelo usuário vale a partir da data da avaliação.
+    /// Sem ele: sem data de compra, não há como depreciar (vale o preço de compra); antes da compra, o bem ainda
+    /// não fazia parte do patrimônio (nulo).</summary>
     public static Dinheiro? ValorEstimado(Bem bem, DateOnly data)
     {
         if (!ContaNoPatrimonio(bem))
@@ -40,19 +52,19 @@ public static class Depreciacao
             return null;
         }
 
-        var preco = bem.PrecoCompra!;
-        if (bem.CompradoEm is null)
-        {
-            return preco;
-        }
-
-        if (data < bem.CompradoEm.Value)
+        if (bem.CompradoEm is { } compra && data < compra)
         {
             return null;
         }
 
-        var regra = Regra(bem.Tipo);
-        if (!regra.Deprecia)
+        if (bem.ValorInformado is { } informado && (data >= bem.ValorInformadoEm || bem.PrecoCompra is null))
+        {
+            return informado;
+        }
+
+        var preco = bem.PrecoCompra!;
+        var regra = Regra(bem);
+        if (bem.CompradoEm is null || !regra.Deprecia)
         {
             return preco;
         }
@@ -61,4 +73,7 @@ public static class Depreciacao
         var fator = Math.Max(regra.ResidualMinimo, 1m - regra.TaxaAnual * anos);
         return Dinheiro.De(preco.Valor * fator, preco.CodigoMoeda);
     }
+
+    /// <summary>Moeda em que o bem é avaliado (a do preço de compra ou, sem ele, a do valor informado).</summary>
+    public static string? Moeda(Bem bem) => bem.PrecoCompra?.CodigoMoeda ?? bem.ValorInformado?.CodigoMoeda;
 }

@@ -16,6 +16,17 @@ public sealed class Bem
     /// Nulo = sem responsável definido.</summary>
     public BemId? ResponsavelId { get; private set; }
 
+    public InventarioBem Inventario { get; private set; } = InventarioBem.Vazio;
+
+    /// <summary>Valor atual informado pelo usuário (avaliação, tabela FIPE, imóvel valorizado). A partir de
+    /// <see cref="ValorInformadoEm"/>, substitui a estimativa por depreciação.</summary>
+    public Dinheiro? ValorInformado { get; private set; }
+
+    public DateOnly? ValorInformadoEm { get; private set; }
+
+    /// <summary>Taxa anual de depreciação própria deste bem (0,15 = 15% ao ano). Nulo = a do tipo.</summary>
+    public decimal? TaxaDepreciacao { get; private set; }
+
     private Bem(
         BemId id,
         NomeBem nome,
@@ -51,8 +62,54 @@ public sealed class Bem
         DateOnly? compradoEm,
         Dinheiro? precoCompra,
         string observacoes,
-        BemId? responsavelId = null) =>
-        new(id, nome, tipo, status, compradoEm, precoCompra, observacoes) { ResponsavelId = responsavelId };
+        BemId? responsavelId = null,
+        InventarioBem? inventario = null,
+        Dinheiro? valorInformado = null,
+        DateOnly? valorInformadoEm = null,
+        decimal? taxaDepreciacao = null) =>
+        new(id, nome, tipo, status, compradoEm, precoCompra, observacoes)
+        {
+            ResponsavelId = responsavelId,
+            Inventario = inventario ?? InventarioBem.Vazio,
+            ValorInformado = valorInformado,
+            ValorInformadoEm = valorInformado is null ? null : valorInformadoEm ?? compradoEm ?? DateOnly.MinValue,
+            TaxaDepreciacao = taxaDepreciacao
+        };
+
+    public void AtualizarInventario(InventarioBem inventario)
+    {
+        Inventario = inventario ?? throw new ArgumentNullException(nameof(inventario));
+    }
+
+    /// <summary>Informa (ou limpa, com nulo) o valor atual do bem, avaliado em <paramref name="avaliadoEm"/>. Na
+    /// mesma moeda do preço de compra, para o patrimônio não misturar moedas.</summary>
+    public void InformarValorAtual(Dinheiro? valor, DateOnly avaliadoEm)
+    {
+        if (valor is null)
+        {
+            ValorInformado = null;
+            ValorInformadoEm = null;
+            return;
+        }
+
+        if (PrecoCompra is not null && PrecoCompra.CodigoMoeda != valor.CodigoMoeda)
+        {
+            throw new ArgumentException($"o valor atual deve estar na mesma moeda do preço de compra ({PrecoCompra.CodigoMoeda})");
+        }
+
+        ValorInformadoEm = Validacao.ExigirDataNaoFutura(avaliadoEm, "data da avaliação", DateOnly.FromDateTime(DateTime.Now));
+        ValorInformado = valor;
+    }
+
+    public void DefinirTaxaDepreciacao(decimal? taxaAnual)
+    {
+        if (taxaAnual is < 0 or > 1)
+        {
+            throw new ArgumentException("a taxa de depreciação deve ficar entre 0% e 100% ao ano");
+        }
+
+        TaxaDepreciacao = taxaAnual;
+    }
 
     public void Renomear(NomeBem novoNome)
     {

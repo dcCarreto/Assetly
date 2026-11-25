@@ -42,16 +42,30 @@ public sealed class ExportarDados(FonteDados dados)
     {
         static object? D(Dinheiro? valor) => valor is null ? null : new { valor = valor.Valor, moeda = valor.CodigoMoeda };
 
-        var bens = _dados.Bens.Listar().OrderBy(b => b.Id.Valor).Select(b => new
+        var bens = _dados.Bens.Listar().OrderBy(b => b.Id.Valor).Select(b =>
         {
-            id = b.Id.Valor,
-            nome = b.Nome.Valor,
-            tipo = b.Tipo.ToString(),
-            status = b.Status.ToString(),
-            compradoEm = b.CompradoEm,
-            precoCompra = D(b.PrecoCompra),
-            observacoes = b.Observacoes,
-            responsavelId = b.ResponsavelId?.Valor
+            var bem = new Dictionary<string, object?>
+            {
+                ["id"] = b.Id.Valor,
+                ["nome"] = b.Nome.Valor,
+                ["tipo"] = b.Tipo.ToString(),
+                ["status"] = b.Status.ToString(),
+                ["compradoEm"] = b.CompradoEm,
+                ["precoCompra"] = D(b.PrecoCompra),
+                ["observacoes"] = b.Observacoes,
+                ["responsavelId"] = b.ResponsavelId?.Valor
+            };
+
+            // Campos mais novos só entram quando preenchidos: a impressão digital de quem não os usa não muda com a versão.
+            Opcional(bem, "marca", b.Inventario.Marca);
+            Opcional(bem, "modelo", b.Inventario.Modelo);
+            Opcional(bem, "numeroSerie", b.Inventario.NumeroSerie);
+            Opcional(bem, "loja", b.Inventario.Loja);
+            Opcional(bem, "localizacao", b.Inventario.Localizacao);
+            Opcional(bem, "valorInformado", D(b.ValorInformado));
+            Opcional(bem, "valorInformadoEm", b.ValorInformado is null ? null : b.ValorInformadoEm);
+            Opcional(bem, "taxaDepreciacao", b.TaxaDepreciacao);
+            return bem;
         });
 
         var conteudo = new Dictionary<string, object?>
@@ -101,10 +115,15 @@ public sealed class ExportarDados(FonteDados dados)
                 inscricaoIptu = i.InscricaoIptu, valorCondominio = D(i.ValorCondominio), seguradora = i.Seguradora, apolice = i.Apolice,
                 vencimentoSeguro = i.VencimentoSeguro, inquilino = i.Inquilino, valorAluguel = D(i.ValorAluguel), fimContratoAluguel = i.FimContratoAluguel
             }),
-            ["despesas"] = _dados.Despesas.Listar().OrderBy(d => d.Id.Valor).Select(d => new
+            ["despesas"] = _dados.Despesas.Listar().OrderBy(d => d.Id.Valor).Select(d =>
             {
-                id = d.Id.Valor, bemId = d.BemId.Valor, tipo = d.Tipo.ToString(), descricao = d.Descricao,
-                vencimento = d.Vencimento, valor = D(d.Valor), pagaEm = d.PagaEm
+                var despesa = new Dictionary<string, object?>
+                {
+                    ["id"] = d.Id.Valor, ["bemId"] = d.BemId.Valor, ["tipo"] = d.Tipo.ToString(), ["descricao"] = d.Descricao,
+                    ["vencimento"] = d.Vencimento, ["valor"] = D(d.Valor), ["pagaEm"] = d.PagaEm
+                };
+                Opcional(despesa, "recorrente", d.Recorrente ? true : null);
+                return despesa;
             })
         };
 
@@ -120,5 +139,13 @@ public sealed class ExportarDados(FonteDados dados)
         }
 
         return conteudo;
+    }
+
+    private static void Opcional(Dictionary<string, object?> registro, string chave, object? valor)
+    {
+        if (valor is not (null or ""))
+        {
+            registro[chave] = valor;
+        }
     }
 }
