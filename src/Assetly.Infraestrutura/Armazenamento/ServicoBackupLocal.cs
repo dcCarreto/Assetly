@@ -121,6 +121,65 @@ public sealed class ServicoBackupLocal : IServicoBackup
         }
     }
 
+    public ResultadoTesteBackup TestarBackup(string caminhoBackup, string diretorioDocumentos, string? senha)
+    {
+        ArgumentNullException.ThrowIfNull(caminhoBackup);
+        var preparacao = CriarPastaPreparacao(diretorioDocumentos);
+        try
+        {
+            var pastaBackup = File.Exists(caminhoBackup) ? ExtrairArquivo(caminhoBackup, preparacao, senha) : caminhoBackup;
+            var banco = LocalizarBancoDoBackup(pastaBackup)
+                ?? throw new InvalidOperationException("não é um backup do Assetly (esperado: uma pasta \"banco\" com o arquivo .sqlite3).");
+            ValidarBancoAssetly(banco);
+
+            using var conexao = new SqliteConnection(TextoConexao(banco, SqliteOpenMode.ReadOnly));
+            conexao.Open();
+            using var comando = conexao.CreateCommand();
+            comando.CommandText = "PRAGMA integrity_check";
+            var integridade = comando.ExecuteScalar() as string;
+            if (!string.Equals(integridade, "ok", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"o banco de dados do backup está danificado ({integridade}).");
+            }
+
+            comando.CommandText = "SELECT COALESCE(MAX(versao), 0) FROM schema_migrations";
+            var versao = (int)(long)comando.ExecuteScalar()!;
+            comando.CommandText = "SELECT COUNT(*) FROM bens";
+            var bens = (int)(long)comando.ExecuteScalar()!;
+            comando.CommandText = "SELECT caminho_local FROM documentos";
+            var documentosDoBackup = Path.Combine(pastaBackup, PastaDocumentos);
+            var documentos = 0;
+            var semArquivo = 0;
+            using (var leitor = comando.ExecuteReader())
+            {
+                while (leitor.Read())
+                {
+                    documentos++;
+                    var nome = Path.GetFileName(leitor.GetString(0).Replace('/', Path.DirectorySeparatorChar));
+                    if (string.IsNullOrEmpty(nome) || !File.Exists(Path.Combine(documentosDoBackup, nome)))
+                    {
+                        semArquivo++;
+                    }
+                }
+            }
+
+            return new ResultadoTesteBackup(versao, bens, documentos, semArquivo);
+        }
+        catch (Exception excecao) when (excecao is IOException or SqliteException)
+        {
+            throw new InvalidOperationException($"não foi possível ler o backup: {excecao.Message}", excecao);
+        }
+        catch (UnauthorizedAccessException excecao)
+        {
+            throw new InvalidOperationException("sem permissão para ler o backup.", excecao);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            ApagarPastaSilenciosamente(preparacao);
+        }
+    }
+
     public void ManterUltimos(string diretorio, int quantidade)
     {
         if (!Directory.Exists(diretorio))

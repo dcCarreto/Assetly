@@ -1,7 +1,18 @@
 namespace Assetly.Aplicacao.Servico;
 
+/// <summary>O que foi conferido num backup sem restaurá-lo.</summary>
+public sealed record ResultadoTesteBackup(int VersaoBanco, int Bens, int Documentos, int DocumentosSemArquivo)
+{
+    public bool Completo => DocumentosSemArquivo == 0;
+}
+
 public interface IServicoBackup
 {
+    /// <summary>Abre o backup (pasta ou arquivo <c>.assetly</c>, com a senha se protegido) numa pasta de trabalho ao
+    /// lado de <paramref name="diretorioDocumentos"/>, confere a integridade do banco e se cada documento tem o seu
+    /// arquivo — sem tocar nos dados atuais. Lança se o backup não puder ser lido.</summary>
+    ResultadoTesteBackup TestarBackup(string caminhoBackup, string diretorioDocumentos, string? senha);
+
     /// <summary>Copia o banco e a pasta de documentos para dentro do diretório de destino e devolve o
     /// caminho gerado: uma pasta <c>Assetly-Backup-…</c> ou, com <paramref name="senha"/>, um único arquivo
     /// <c>Assetly-Backup-….assetly</c> criptografado (AES-256-GCM, chave derivada da senha).</summary>

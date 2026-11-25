@@ -34,6 +34,8 @@ internal sealed class ModuloPainel : IModulo
     private readonly TextBlock _contadorAlertasPainel = new();
     private readonly TextBlock _contadorPrioridadesPainel = new();
     private readonly TextBlock _horarioVerificacao = new();
+    private readonly Border _avisoBackup = new();
+    private readonly TextBlock _textoAvisoBackup = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5 };
 
     public string Titulo => "Painel";
     public string Descricao => "Resumo operacional";
@@ -89,20 +91,57 @@ internal sealed class ModuloPainel : IModulo
         painelInferior.Children.Add(painelAlertasBorda);
         painelInferior.Children.Add(painelPrioridadesBorda);
 
+        var irParaBackup = AcoesApoio.BotaoSecundario("Ir para Backup", () => _irParaModulo("Backup"));
+        _avisoBackup.BorderThickness = new Thickness(1);
+        _avisoBackup.CornerRadius = new CornerRadius(8);
+        _avisoBackup.Padding = new Thickness(14, 10, 10, 10);
+        _avisoBackup.Margin = new Thickness(0, 0, 0, 14);
+        _avisoBackup.Visibility = Visibility.Collapsed;
+        var linhaAviso = new Grid();
+        linhaAviso.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        linhaAviso.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        irParaBackup.Margin = new Thickness(12, 0, 0, 0);
+        Grid.SetColumn(irParaBackup, 1);
+        linhaAviso.Children.Add(_textoAvisoBackup);
+        linhaAviso.Children.Add(irParaBackup);
+        _avisoBackup.Child = linhaAviso;
+        System.Windows.Automation.AutomationProperties.SetLiveSetting(_textoAvisoBackup, System.Windows.Automation.AutomationLiveSetting.Polite);
+
         var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18) };
+        raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(cabecalho, 0);
-        Grid.SetRow(_painelOperacao, 1);
-        Grid.SetRow(_faixaIndicadoresSlot, 2);
-        Grid.SetRow(painelInferior, 3);
+        Grid.SetRow(_avisoBackup, 1);
+        Grid.SetRow(_painelOperacao, 2);
+        Grid.SetRow(_faixaIndicadoresSlot, 3);
+        Grid.SetRow(painelInferior, 4);
         raiz.Children.Add(cabecalho);
+        raiz.Children.Add(_avisoBackup);
         raiz.Children.Add(_painelOperacao);
         raiz.Children.Add(_faixaIndicadoresSlot);
         raiz.Children.Add(painelInferior);
         Conteudo = raiz;
+    }
+
+    private void AtualizarAvisoBackup(bool temDados)
+    {
+        var aviso = Aplicacao.CasoDeUso.LembreteBackup.Avaliar(_contexto.ObterConfiguracaoBackup().Executar(), DateTimeOffset.Now, temDados,
+            _contexto.FalhaBackupAutomatico);
+        _avisoBackup.Visibility = aviso is null ? Visibility.Collapsed : Visibility.Visible;
+        if (aviso is null)
+        {
+            return;
+        }
+
+        var recursos = Application.Current.Resources;
+        var prefixo = aviso.Critico ? "StatusPerigo" : "StatusAviso";
+        _avisoBackup.Background = (Brush)recursos[prefixo + "Bg"];
+        _avisoBackup.BorderBrush = (Brush)recursos[prefixo + "Border"];
+        _textoAvisoBackup.Foreground = (Brush)recursos[prefixo + "Text"];
+        _textoAvisoBackup.Text = aviso.Mensagem;
     }
 
     public void Atualizar()
@@ -143,6 +182,7 @@ internal sealed class ModuloPainel : IModulo
         var pontosAtencao = pendentes.Count + documentosAusentes.Count;
 
         _horarioVerificacao.Text = $"verificado {Formatador.DataHora(DateTime.Now)}";
+        AtualizarAvisoBackup(bens.Count > 0 || documentos.Count > 0);
 
         _painelOperacao.Children.Clear();
         AdicionarResumoOperacao(0, "Atenção necessária", pontosAtencao.ToString(),

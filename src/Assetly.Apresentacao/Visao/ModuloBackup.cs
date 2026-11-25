@@ -16,7 +16,7 @@ internal sealed class ModuloBackup : IModulo
 {
     private readonly ContextoAplicacao _contexto;
     private readonly Action _atualizarTela;
-    private string? _falhaAutomatica;
+    private string? FalhaAutomatica { get => _contexto.FalhaBackupAutomatico; set => _contexto.FalhaBackupAutomatico = value; }
     private string? _falhaSincronizacao;
     private string? _avisoSincronizacao;
 
@@ -87,16 +87,19 @@ internal sealed class ModuloBackup : IModulo
 
         var restaurarArquivo = BotaoSecundario("Restaurar de um arquivo .assetly…", RestaurarDeArquivo);
         var restaurar = BotaoSecundario("Restaurar de uma pasta…", RestaurarBackup);
-        var notaRestaurar = Nota("Substitui os dados atuais pelos de um backup (arquivo \"Assetly-Backup-….assetly\" ou pasta \"Assetly-Backup-…\"). Antes, o estado atual é copiado automaticamente para a pasta de segurança — a restauração pode ser desfeita.");
+        var testar = BotaoSecundario("Testar um backup…", TestarBackup);
+        var notaRestaurar = Nota("Substitui os dados atuais pelos de um backup (arquivo \"Assetly-Backup-….assetly\" ou pasta \"Assetly-Backup-…\"). Antes, o estado atual é copiado automaticamente para a pasta de segurança — a restauração pode ser desfeita. " +
+            "\"Testar um backup\" só abre e confere o backup (banco íntegro, todos os documentos presentes), sem mudar nada.");
         notaRestaurar.TextWrapping = TextWrapping.Wrap;
-        var cardRestaurar = CardConfiguracao("Restaurar", UiApoio.Coluna(10, UiApoio.Linha(8, restaurarArquivo, restaurar), notaRestaurar));
+        var cardRestaurar = CardConfiguracao("Restaurar", UiApoio.Coluna(10, UiApoio.Linha(8, restaurarArquivo, restaurar, testar), notaRestaurar));
 
         // Proteção por senha (AES-256): vale para backups manuais, automáticos, cópias em arquivo e sincronização.
         var statusSenha = Nota(string.Empty);
         statusSenha.TextWrapping = TextWrapping.Wrap;
         var botaoSenha = BotaoSecundario("Proteger com senha…", AlternarSenha);
+        var trocarSenha = BotaoSecundario("Trocar senha…", () => DefinirSenha(troca: true));
         var exportarArquivo = BotaoSecundario("Salvar cópia em arquivo…", SalvarCopiaEmArquivo);
-        var cardSenha = CardConfiguracao("Proteção por senha", UiApoio.Coluna(10, UiApoio.Linha(8, botaoSenha, exportarArquivo), statusSenha));
+        var cardSenha = CardConfiguracao("Proteção por senha", UiApoio.Coluna(10, UiApoio.Linha(8, botaoSenha, trocarSenha, exportarArquivo), statusSenha));
 
         // Sincronização opcional por uma pasta já sincronizada com a nuvem (OneDrive, Google Drive, Dropbox...).
         var statusSync = Nota(string.Empty);
@@ -183,9 +186,9 @@ internal sealed class ModuloBackup : IModulo
                 ?? OpcoesRetencao.First(item => item.Valor == 0);
             sincronizandoCombo = false;
 
-            statusAuto.Foreground = (Brush)recursos[_falhaAutomatica is null ? "TextMuted" : "StatusPerigoText"];
-            statusAuto.Text = _falhaAutomatica is not null
-                ? $"Último backup automático falhou: {_falhaAutomatica} Uma nova tentativa é feita no próximo ciclo."
+            statusAuto.Foreground = (Brush)recursos[FalhaAutomatica is null ? "TextMuted" : "StatusPerigoText"];
+            statusAuto.Text = FalhaAutomatica is not null
+                ? $"Último backup automático falhou: {FalhaAutomatica} Uma nova tentativa é feita no próximo ciclo."
                 : !configuracao.AutoBackupHabilitado
                     ? configuracao.CaminhoDestino is null
                         ? "Escolha uma pasta de destino para poder ativar o backup automático."
@@ -193,6 +196,7 @@ internal sealed class ModuloBackup : IModulo
                     : $"Backup automático ativo — frequência {Formatador.TextoEnum(configuracao.Frequencia).ToLowerInvariant()}. Executado enquanto o Assetly estiver aberto.";
 
             botaoSenha.Content = configuracao.Criptografado ? "Remover senha…" : "Proteger com senha…";
+            trocarSenha.Visibility = configuracao.Criptografado ? Visibility.Visible : Visibility.Collapsed;
             statusSenha.Foreground = (Brush)recursos[configuracao.Criptografado ? "StatusOkText" : "TextMuted"];
             statusSenha.Text = configuracao.Criptografado
                 ? "Ativa: os backups são gravados num único arquivo .assetly criptografado (AES-256). Sem a senha não é possível restaurá-los — guarde-a num lugar seguro."
@@ -245,16 +249,16 @@ internal sealed class ModuloBackup : IModulo
         {
             if (resultado.FalhaBackup is null)
             {
-                _falhaAutomatica = null;
+                FalhaAutomatica = null;
             }
             else
             {
-                if (_falhaAutomatica is null)
+                if (FalhaAutomatica is null)
                 {
                     RegistroErros.Registrar("Falha no backup automático", resultado.FalhaBackup);
                 }
 
-                _falhaAutomatica = MensagemErro(resultado.FalhaBackup);
+                FalhaAutomatica = MensagemErro(resultado.FalhaBackup);
             }
 
             AplicarSincronizacao(resultado.Sincronizacao);
@@ -432,10 +436,28 @@ internal sealed class ModuloBackup : IModulo
             return;
         }
 
+        DefinirSenha(troca: false);
+    }
+
+    /// <summary>Liga a proteção ou troca a senha num passo só (antes era preciso remover e proteger de novo).</summary>
+    private void DefinirSenha(bool troca)
+    {
         var senha = CampoSenha();
         var confirmacao = CampoSenha();
-        var aviso = Nota($"Mínimo de {Aplicacao.CasoDeUso.SenhaBackup.TamanhoMinimo} caracteres. A senha fica guardada neste computador protegida pelo Windows (só sua conta consegue lê-la), " +
-            "para que os backups automáticos funcionem. Se você esquecer a senha, os backups criptografados não poderão ser restaurados.");
+        var texto = $"Mínimo de {Aplicacao.CasoDeUso.SenhaBackup.TamanhoMinimo} caracteres. A senha fica guardada neste computador protegida pelo Windows (só sua conta consegue lê-la), " +
+            "para que os backups automáticos funcionem. Se você esquecer a senha, os backups criptografados não poderão ser restaurados.";
+        if (troca)
+        {
+            texto += "\n\nOs backups já feitos continuam abrindo só com a senha antiga — guarde as duas enquanto eles existirem.";
+        }
+
+        if (_contexto.ConfigurarSincronizacao().Obter().Ativa)
+        {
+            texto += "\n\nA sincronização entre computadores usa esta mesma senha: no outro computador, defina a mesma senha em Backup → Proteção por senha, " +
+                "senão ele não consegue abrir a cópia da pasta sincronizada (erro \"senha incorreta\").";
+        }
+
+        var aviso = Nota(texto);
         aviso.TextWrapping = TextWrapping.Wrap;
         var grade = GradeFormulario();
         AdicionarCampo(grade, 0, 0, "Senha *", senha);
@@ -445,7 +467,8 @@ internal sealed class ModuloBackup : IModulo
         aviso.Margin = new Thickness(0, 14, 0, 0);
         grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grade.Children.Add(aviso);
-        if (MostrarFormulario("Proteger backups com senha", grade, () => _contexto.AtivarCriptografiaBackup().Executar(senha.Password, confirmacao.Password), largura: 560))
+        if (MostrarFormulario(troca ? "Trocar a senha dos backups" : "Proteger backups com senha", grade,
+                () => _contexto.AtivarCriptografiaBackup().Executar(senha.Password, confirmacao.Password), largura: 560))
         {
             _atualizarTela();
         }
@@ -475,6 +498,65 @@ internal sealed class ModuloBackup : IModulo
                 return destino;
             },
             salvo => MostrarInformacao("Cópia salva", $"Banco de dados e documentos salvos em um único arquivo{(protegido ? ", criptografado com a senha dos backups" : " (sem senha)")}:\n\n{salvo}"));
+    }
+
+    /// <summary>Abre e confere um backup sem restaurar: o último do destino, um arquivo .assetly ou uma pasta.</summary>
+    private void TestarBackup()
+    {
+        var destino = _contexto.ObterConfiguracaoBackup().Executar().CaminhoDestino;
+        var ultimo = UltimoBackupDoDestino(destino);
+        var opcoes = ultimo is null
+            ? new[] { "Escolher arquivo .assetly…", "Escolher pasta…" }
+            : new[] { "Testar o último backup", "Escolher arquivo .assetly…", "Escolher pasta…" };
+        var escolha = MostrarEscolha("Testar um backup",
+            ultimo is null
+                ? "Qual backup você quer conferir? Nada é alterado: o backup só é aberto e verificado."
+                : $"Qual backup você quer conferir? Nada é alterado: o backup só é aberto e verificado.\n\nÚltimo backup no destino:\n{ultimo}",
+            opcoes);
+        if (escolha < 0)
+        {
+            return;
+        }
+
+        var caminho = opcoes[escolha] switch
+        {
+            "Testar o último backup" => ultimo,
+            "Escolher pasta…" => SelecionarPasta("Selecione a pasta do backup (Assetly-Backup-…)", destino),
+            _ => SelecionarArquivoBackup(destino)
+        };
+        if (caminho is null)
+        {
+            return;
+        }
+
+        string? senha = null;
+        if (File.Exists(caminho) && Infraestrutura.Armazenamento.ArquivoProtegido.EhProtegidoPorSenha(caminho))
+        {
+            // Sem usar a senha guardada: o teste também confirma que você ainda sabe a senha deste backup.
+            senha = PedirSenha("Backup protegido por senha", "Este backup é criptografado. Digite a senha usada quando ele foi criado — o teste também confirma que você ainda lembra dela.");
+            if (senha is null)
+            {
+                return;
+            }
+        }
+
+        OperacaoEmSegundoPlano.ComEspera("Conferindo o backup…", () => _contexto.TestarBackup().Executar(caminho, senha), resultado =>
+            MostrarInformacao(resultado.Completo ? "Backup em ordem" : "Backup incompleto",
+                (resultado.Completo ? "O backup abre normalmente e está completo.\n\n" : $"O backup abre, mas {resultado.DocumentosSemArquivo} documento(s) estão sem o arquivo.\n\n") +
+                $"{resultado.Bens} bem(ns) e {resultado.Documentos} documento(s) cadastrados · banco íntegro (versão {resultado.VersaoBanco}).\n\n{caminho}"));
+    }
+
+    private static string? UltimoBackupDoDestino(string? destino)
+    {
+        if (string.IsNullOrWhiteSpace(destino) || !Directory.Exists(destino))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFileSystemEntries(destino, "Assetly-Backup-*")
+            .Where(caminho => Directory.Exists(caminho) || caminho.EndsWith(Infraestrutura.Armazenamento.ArquivoProtegido.Extensao, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(Path.GetFileName, StringComparer.Ordinal)
+            .FirstOrDefault();
     }
 
     private void RestaurarDeArquivo()
@@ -529,7 +611,7 @@ internal sealed class ModuloBackup : IModulo
     {
         OperacaoEmSegundoPlano.ComEspera("Fazendo o backup…", () => _contexto.ExecutarBackupAgora().Executar(), caminho =>
         {
-            _falhaAutomatica = null;
+            FalhaAutomatica = null;
             _atualizarTela();
             MostrarInformacao("Backup concluído", $"Banco de dados e documentos copiados para:\n\n{caminho}");
         });
@@ -565,7 +647,7 @@ internal sealed class ModuloBackup : IModulo
         }
 
         _contexto.DefinirDestinoBackup().Executar(new DefinirDestinoBackupComando(pasta));
-        _falhaAutomatica = null;
+        FalhaAutomatica = null;
         _atualizarTela();
     }
 

@@ -80,6 +80,8 @@ public class BackupCasosUsoTests
 
     private sealed class ServicoBackupFalso : IServicoBackup
     {
+        public ResultadoTesteBackup TestarBackup(string caminhoBackup, string diretorioDocumentos, string? senha) => throw new NotSupportedException();
+
         internal int Chamadas { get; private set; }
 
         internal string CaminhoRetornado { get; } = @"D:\Backups\Assetly\Assetly-Backup-2026-01-01";

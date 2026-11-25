@@ -196,6 +196,8 @@ public class AlertasCoberturaRestauracaoTests
 
     private sealed class ServicoBackupRoteirizado : IServicoBackup
     {
+        public ResultadoTesteBackup TestarBackup(string caminhoBackup, string diretorioDocumentos, string? senha) => throw new NotSupportedException();
+
         internal const string CopiaSeguranca = @"C:\dados\seguranca\Assetly-Backup-2026-11-25_120000";
 
         internal bool FalharNaPrimeiraRestauracao { get; init; }

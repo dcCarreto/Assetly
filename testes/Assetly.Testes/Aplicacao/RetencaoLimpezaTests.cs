@@ -113,6 +113,8 @@ public class RetencaoLimpezaTests
 
     private sealed class ServicoQueRegistraRetencao : IServicoBackup
     {
+        public ResultadoTesteBackup TestarBackup(string caminhoBackup, string diretorioDocumentos, string? senha) => throw new NotSupportedException();
+
         internal bool Falhar { get; init; }
 
         internal List<(string, int)> Retencoes { get; } = [];

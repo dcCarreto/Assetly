@@ -61,6 +61,9 @@ public sealed class ContextoAplicacao
 
     public IRepositorioConfiguracaoSincronizacao RepositorioConfiguracaoSincronizacao { get; }
 
+    /// <summary>Última falha do backup automático nesta sessão (nula se o último deu certo) — mostrada no módulo Backup e no painel.</summary>
+    public string? FalhaBackupAutomatico { get; set; }
+
     /// <summary>Uma por programa aberto (guarda quando foi o último envio automático), compartilhada pelas telas.</summary>
     public SincronizacaoAutomatica SincronizacaoAutomatica { get; }
 
@@ -274,6 +277,8 @@ public sealed class ContextoAplicacao
 
     public VerificarEExecutarBackupAutomatico VerificarEExecutarBackupAutomatico() =>
         new(RepositorioConfiguracaoBackup, _servicoBackup, ArquivoBanco, DiretorioDocumentos, _protecaoSenha);
+
+    public TestarBackup TestarBackup() => new(_servicoBackup, DiretorioDocumentos);
 
     public RestaurarBackup RestaurarBackup() =>
         new(RepositorioConfiguracaoBackup, RepositorioDocumento, _servicoBackup, _armazenamentoDocumento, _bancoDados.Inicializar,
