@@ -18,6 +18,7 @@ public sealed class EditarGastoSaude(IRepositorioGastoSaude repositorioGastoSaud
         gasto.AtualizarDescricao(comando.Descricao);
         gasto.AlterarData(comando.Data);
         gasto.AlterarValor(Dinheiro.De(comando.Valor, comando.CodigoMoeda));
+        gasto.DefinirPrestador(comando.Prestador, comando.DocumentoPrestador);
 
         _repositorioGastoSaude.Salvar(gasto);
         return gasto;

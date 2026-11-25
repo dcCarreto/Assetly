@@ -24,8 +24,8 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
     public void Salvar(Documento documento)
     {
         const string sql = """
-            INSERT INTO documentos (id, bem_id, tipo, nome, caminho_local, registrado_em, status, chave_acesso, url_consulta)
-            VALUES ($id, $bemId, $tipo, $nome, $caminhoLocal, $registradoEm, $status, $chaveAcesso, $urlConsulta)
+            INSERT INTO documentos (id, bem_id, tipo, nome, caminho_local, registrado_em, status, chave_acesso, url_consulta, vinculo_tipo, vinculo_id)
+            VALUES ($id, $bemId, $tipo, $nome, $caminhoLocal, $registradoEm, $status, $chaveAcesso, $urlConsulta, $vinculoTipo, $vinculoId)
             ON CONFLICT(id) DO UPDATE SET
                 bem_id = excluded.bem_id,
                 tipo = excluded.tipo,
@@ -34,7 +34,9 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
                 registrado_em = excluded.registrado_em,
                 status = excluded.status,
                 chave_acesso = excluded.chave_acesso,
-                url_consulta = excluded.url_consulta
+                url_consulta = excluded.url_consulta,
+                vinculo_tipo = excluded.vinculo_tipo,
+                vinculo_id = excluded.vinculo_id
             """;
         _executor.Executar(sql, "Não foi possível salvar documento",
             ("$id", documento.Id.Valor.ToString()),
@@ -45,7 +47,9 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
             ("$registradoEm", ConversorSqlite.Texto(documento.RegistradoEm)!),
             ("$status", ConversorSqlite.EnumParaTexto(documento.Status)),
             ("$chaveAcesso", documento.ChaveAcesso),
-            ("$urlConsulta", documento.UrlConsulta));
+            ("$urlConsulta", documento.UrlConsulta),
+            ("$vinculoTipo", ConversorSqlite.Nulo(documento.Vinculo is null ? null : ConversorSqlite.EnumParaTexto(documento.Vinculo.Tipo))),
+            ("$vinculoId", ConversorSqlite.Nulo(documento.Vinculo?.Id.ToString())));
     }
 
     public void Excluir(DocumentoId id) =>

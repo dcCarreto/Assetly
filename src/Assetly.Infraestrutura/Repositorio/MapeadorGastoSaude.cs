@@ -13,5 +13,7 @@ internal static class MapeadorGastoSaude
             ConversorSqlite.EnumDeTexto<TipoGastoSaude>(leitor.GetString(leitor.GetOrdinal("tipo"))),
             leitor.GetString(leitor.GetOrdinal("descricao")),
             ConversorSqlite.Data(leitor, "data")!.Value,
-            ConversorSqlite.LerDinheiro(leitor, "valor", "moeda")!);
+            ConversorSqlite.LerDinheiro(leitor, "valor", "moeda")!,
+            ConversorSqlite.TextoColuna(leitor, "prestador"),
+            ConversorSqlite.TextoColuna(leitor, "documento_prestador"));
 }

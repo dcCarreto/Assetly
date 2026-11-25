@@ -10,4 +10,5 @@ public sealed record RegistrarDocumentoComando(
     string CaminhoLocal,
     DateOnly RegistradoEm,
     string? ChaveAcesso = null,
-    string? UrlConsulta = null);
+    string? UrlConsulta = null,
+    VinculoDocumento? Vinculo = null);

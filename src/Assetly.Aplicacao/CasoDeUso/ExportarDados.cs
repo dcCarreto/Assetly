@@ -81,11 +81,17 @@ public sealed class ExportarDados(FonteDados dados)
                 id = m.Id.Valor, bemId = m.BemId.Valor, tipo = m.Tipo.ToString(), descricao = m.Descricao,
                 agendadaPara = m.AgendadaPara, concluidaEm = m.ConcluidaEm, custo = D(m.Custo), status = m.Status.ToString()
             }),
-            ["documentos"] = _dados.Documentos.Listar().OrderBy(d => d.Id.Valor).Select(d => new
+            ["documentos"] = _dados.Documentos.Listar().OrderBy(d => d.Id.Valor).Select(d =>
             {
-                id = d.Id.Valor, bemId = d.BemId.Valor, tipo = d.Tipo.ToString(), nome = d.Nome.Valor,
-                arquivo = paraComparacao ? Path.GetFileName(d.CaminhoLocal.Valor) : d.CaminhoLocal.Valor,
-                registradoEm = d.RegistradoEm, status = d.Status.ToString(), chaveAcesso = d.ChaveAcesso, urlConsulta = d.UrlConsulta
+                var documento = new Dictionary<string, object?>
+                {
+                    ["id"] = d.Id.Valor, ["bemId"] = d.BemId.Valor, ["tipo"] = d.Tipo.ToString(), ["nome"] = d.Nome.Valor,
+                    ["arquivo"] = paraComparacao ? Path.GetFileName(d.CaminhoLocal.Valor) : d.CaminhoLocal.Valor,
+                    ["registradoEm"] = d.RegistradoEm, ["status"] = d.Status.ToString(), ["chaveAcesso"] = d.ChaveAcesso, ["urlConsulta"] = d.UrlConsulta
+                };
+                Opcional(documento, "vinculoTipo", d.Vinculo?.Tipo.ToString());
+                Opcional(documento, "vinculoId", d.Vinculo?.Id);
+                return documento;
             }),
             ["alertas"] = _dados.Alertas.Listar().Where(a => !paraComparacao || !a.Automatico).OrderBy(a => a.Id.Valor).Select(a => new
             {
@@ -97,9 +103,15 @@ public sealed class ExportarDados(FonteDados dados)
                 id = s.Id.Valor, bemId = s.BemId.Valor, tipo = s.Tipo.ToString(), fornecedor = s.Fornecedor, contato = s.Contato,
                 iniciaEm = s.Periodo.IniciaEm, terminaEm = s.Periodo.TerminaEm, canceladoEm = s.DataCancelamento
             }),
-            ["gastosSaude"] = _dados.GastosSaude.Listar().OrderBy(g => g.Id.Valor).Select(g => new
+            ["gastosSaude"] = _dados.GastosSaude.Listar().OrderBy(g => g.Id.Valor).Select(g =>
             {
-                id = g.Id.Valor, bemId = g.BemId.Valor, tipo = g.Tipo.ToString(), descricao = g.Descricao, data = g.Data, valor = D(g.Valor)
+                var gasto = new Dictionary<string, object?>
+                {
+                    ["id"] = g.Id.Valor, ["bemId"] = g.BemId.Valor, ["tipo"] = g.Tipo.ToString(), ["descricao"] = g.Descricao, ["data"] = g.Data, ["valor"] = D(g.Valor)
+                };
+                Opcional(gasto, "prestador", g.Prestador);
+                Opcional(gasto, "documentoPrestador", g.DocumentoPrestador);
+                return gasto;
             }),
             ["veiculos"] = _dados.Veiculos.Listar().OrderBy(v => v.BemId.Valor).Select(v => new { bemId = v.BemId.Valor, ficha = v.Dados() }),
             ["abastecimentos"] = _dados.Abastecimentos.Listar().OrderBy(a => a.Id.Valor).Select(a => new

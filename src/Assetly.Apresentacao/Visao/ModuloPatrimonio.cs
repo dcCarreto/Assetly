@@ -36,7 +36,8 @@ internal sealed class ModuloPatrimonio : IModulo
     {
         _contexto = contexto;
         var recursos = Application.Current.Resources;
-        var cabecalho = CabecalhoTela("Patrimônio", "Quanto seus bens custaram, quanto valem hoje e quanto sobra descontando os financiamentos.", null);
+        var cabecalho = CabecalhoTela("Patrimônio", "Quanto seus bens custaram, quanto valem hoje e quanto sobra descontando os financiamentos.",
+            AcoesApoio.BotaoSecundario("Relatório para o IR…", () => RelatorioIrpfApoio.Gerar(_contexto)));
         cabecalho.Margin = new Thickness(0, 0, 0, 14);
 
         for (var i = 0; i < 4; i++)

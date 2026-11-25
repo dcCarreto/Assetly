@@ -16,6 +16,7 @@ public sealed class RegistrarGastoSaude(IRepositorioBem repositorioBem, IReposit
         ApoioCasosUso.ExigirBem(_repositorioBem, comando.BemId);
 
         var gasto = GastoSaude.Registrar(comando.BemId, comando.Tipo, comando.Descricao, comando.Data, Dinheiro.De(comando.Valor, comando.CodigoMoeda));
+        gasto.DefinirPrestador(comando.Prestador, comando.DocumentoPrestador);
         _repositorioGastoSaude.Salvar(gasto);
         return gasto;
     }

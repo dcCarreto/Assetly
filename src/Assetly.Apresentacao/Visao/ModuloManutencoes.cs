@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using Assetly.Aplicacao.Dados;
+using Assetly.Dominio.Documento;
 using Assetly.Dominio.Manutencao;
 using static Assetly.Apresentacao.Visao.AcoesApoio;
 using static Assetly.Apresentacao.Visao.ContextoApoio;
@@ -45,7 +46,9 @@ internal sealed class ModuloManutencoes : IModulo
         [
             ("Detalhes", () => MostrarInformacao("Manutenção", Detalhes(SelecionadaAtual()))),
             ("Editar", () => AbrirDialogoManutencao(SelecionadaAtual().Origem)),
-            ("Concluir", () => ConcluirManutencao(SelecionadaAtual().Origem))
+            ("Concluir", () => ConcluirManutencao(SelecionadaAtual().Origem)),
+            ("Anexar comprovante", () => AnexarComprovante(SelecionadaAtual().Origem)),
+            ("Ver comprovante", () => ComprovanteApoio.Abrir(_contexto, Vinculo(SelecionadaAtual().Origem)))
         ],
         [
             ("Cancelar", () => CancelarManutencao(SelecionadaAtual().Origem)),
@@ -90,6 +93,7 @@ internal sealed class ModuloManutencoes : IModulo
         _resumoEsquerda.Text = $"{manutencoes.Count} manutenções · {atrasadas} atrasada{(atrasadas == 1 ? "" : "s")} · {agendadas} agendada{(agendadas == 1 ? "" : "s")}";
         _resumoDireita.Text = $"Custo acumulado {Formatador.Total(manutencoes.Select(m => m.Custo))}";
 
+        var comComprovante = ComprovanteApoio.ComComprovante(_contexto, TipoVinculoDocumento.Manutencao);
         return manutencoes.Select(m =>
         {
             var status = m.StatusEm(hoje);
@@ -97,7 +101,7 @@ internal sealed class ModuloManutencoes : IModulo
                 m.Id,
                 nomeBem(m.BemId),
                 Formatador.TextoEnum(m.Tipo),
-                m.Descricao,
+                comComprovante.Contains(m.Id.Valor) ? m.Descricao + ComprovanteApoio.Marca : m.Descricao,
                 Formatador.Data(m.AgendadaPara),
                 Formatador.Data(m.ConcluidaEm),
                 Formatador.Dinheiro(m.Custo),
@@ -141,6 +145,8 @@ internal sealed class ModuloManutencoes : IModulo
         menu.Items.Add(ItemMenu("Editar", () => AbrirDialogoManutencao(linha.Origem)));
         menu.Items.Add(ItemMenu("Detalhes", () => MostrarInformacao("Manutenção", Detalhes(linha))));
         menu.Items.Add(ItemMenu("Concluir", () => ConcluirManutencao(linha.Origem), aberta));
+        menu.Items.Add(ItemMenu("Anexar comprovante…", () => AnexarComprovante(linha.Origem)));
+        menu.Items.Add(ItemMenu("Ver comprovante", () => ComprovanteApoio.Abrir(_contexto, Vinculo(linha.Origem))));
         menu.Items.Add(new Separator());
         menu.Items.Add(ItemMenu("Cancelar", () => CancelarManutencao(linha.Origem), aberta));
         menu.Items.Add(ItemMenu("Excluir…", () => ExcluirManutencao(linha)));
@@ -226,6 +232,11 @@ internal sealed class ModuloManutencoes : IModulo
         _contexto.CancelarManutencao().Executar(manutencao.Id);
         _contexto.NotificarAlteracao();
     }
+
+    private static VinculoDocumento Vinculo(Manutencao manutencao) => new(TipoVinculoDocumento.Manutencao, manutencao.Id.Valor);
+
+    private void AnexarComprovante(Manutencao manutencao) =>
+        ComprovanteApoio.Anexar(_contexto, manutencao.BemId, Vinculo(manutencao), manutencao.Descricao);
 
     private void ExcluirManutencao(ManutencaoLinha linha)
     {

@@ -16,5 +16,8 @@ internal static class MapeadorDocumento
             ConversorSqlite.Data(leitor, "registrado_em")!.Value,
             ConversorSqlite.EnumDeTexto<StatusDocumento>(leitor.GetString(leitor.GetOrdinal("status"))),
             ConversorSqlite.TextoColuna(leitor, "chave_acesso"),
-            ConversorSqlite.TextoColuna(leitor, "url_consulta"));
+            ConversorSqlite.TextoColuna(leitor, "url_consulta"),
+            ConversorSqlite.TextoColuna(leitor, "vinculo_tipo") is { Length: > 0 } tipoVinculo
+                ? new VinculoDocumento(ConversorSqlite.EnumDeTexto<TipoVinculoDocumento>(tipoVinculo), Guid.Parse(leitor.GetString(leitor.GetOrdinal("vinculo_id"))))
+                : null);
 }

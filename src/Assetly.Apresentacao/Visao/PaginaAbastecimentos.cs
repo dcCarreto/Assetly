@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using Assetly.Aplicacao.Dados;
+using Assetly.Dominio.Documento;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Veiculo;
 using static Assetly.Apresentacao.Visao.AcoesApoio;
@@ -42,7 +43,9 @@ internal sealed class PaginaAbastecimentos : IPagina
 
         var contextual = BarraContextual(_tabela,
         [
-            ("Editar", () => AbrirDialogo(Selecionado().Origem, null))
+            ("Editar", () => AbrirDialogo(Selecionado().Origem, null)),
+            ("Anexar comprovante", () => AnexarComprovante(Selecionado().Origem)),
+            ("Ver comprovante", () => ComprovanteApoio.Abrir(_contexto, Vinculo(Selecionado().Origem)))
         ],
         [
             ("Excluir", () => Excluir(Selecionado()))
@@ -87,6 +90,7 @@ internal sealed class PaginaAbastecimentos : IPagina
             ? $"Gasto em {Hoje().Year}: {Formatador.Total([])}"
             : $"Gasto em {Hoje().Year}: {Formatador.Total(doAno.Select(a => (Dominio.Compartilhado.Dinheiro?)a.Valor))} · média {Formatador.Numero(doAno.Sum(a => a.Valor.Valor) / litrosAno, 3)}/L";
 
+        var comComprovante = ComprovanteApoio.ComComprovante(_contexto, TipoVinculoDocumento.Abastecimento);
         return abastecimentos.Select(a => new AbastecimentoLinha(
             a.Id,
             nomeBem(a.BemId),
@@ -98,7 +102,7 @@ internal sealed class PaginaAbastecimentos : IPagina
             Formatador.TextoEnum(a.Combustivel),
             a.TanqueCheio ? "Sim" : "Não",
             consumoPorFechamento.TryGetValue(a.Id, out var kmL) ? $"{Formatador.Numero(kmL, 1)} km/l" : Formatador.TextoOuTraco(null),
-            Formatador.TextoOuTraco(a.Posto),
+            Formatador.TextoOuTraco(a.Posto) + (comComprovante.Contains(a.Id.Valor) ? ComprovanteApoio.Marca : string.Empty),
             a)).ToList();
     }
 
@@ -110,6 +114,12 @@ internal sealed class PaginaAbastecimentos : IPagina
         var excluir = new MenuItem { Header = "Excluir…" };
         excluir.Click += (_, _) => ExecutarComTratamento(() => Excluir(linha));
         menu.Items.Add(editar);
+        var anexar = new MenuItem { Header = "Anexar comprovante…" };
+        anexar.Click += (_, _) => ExecutarComTratamento(() => AnexarComprovante(linha.Origem));
+        var ver = new MenuItem { Header = "Ver comprovante" };
+        ver.Click += (_, _) => ExecutarComTratamento(() => ComprovanteApoio.Abrir(_contexto, Vinculo(linha.Origem)));
+        menu.Items.Add(anexar);
+        menu.Items.Add(ver);
         menu.Items.Add(new Separator());
         menu.Items.Add(excluir);
         return menu;
@@ -192,6 +202,12 @@ internal sealed class PaginaAbastecimentos : IPagina
 
     private static TipoCombustivel CombustivelSugerido(TipoCombustivel doVeiculo) =>
         doVeiculo is TipoCombustivel.Flex or TipoCombustivel.Hibrido ? TipoCombustivel.Gasolina : doVeiculo;
+
+    private static VinculoDocumento Vinculo(Abastecimento abastecimento) => new(TipoVinculoDocumento.Abastecimento, abastecimento.Id.Valor);
+
+    private void AnexarComprovante(Abastecimento abastecimento) =>
+        ComprovanteApoio.Anexar(_contexto, abastecimento.BemId, Vinculo(abastecimento),
+            $"abastecimento {Formatador.Data(abastecimento.Data)}" + (string.IsNullOrWhiteSpace(abastecimento.Posto) ? string.Empty : $" · {abastecimento.Posto}"));
 
     private void Excluir(AbastecimentoLinha linha)
     {

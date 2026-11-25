@@ -4,6 +4,7 @@ using Assetly.Aplicacao.CasoDeUso;
 using Assetly.Aplicacao.Dados;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Despesa;
+using Assetly.Dominio.Documento;
 using static Assetly.Apresentacao.Visao.AcoesApoio;
 using static Assetly.Apresentacao.Visao.ContextoApoio;
 using static Assetly.Apresentacao.Visao.DialogoApoio;
@@ -59,7 +60,9 @@ internal sealed class PaginaDespesas : IPagina
         [
             ("Pagar", () => Pagar(Selecionada().Origem)),
             ("Desfazer pagamento", () => DesfazerPagamento(Selecionada().Origem)),
-            ("Editar", () => AbrirDialogo(Selecionada().Origem, null))
+            ("Editar", () => AbrirDialogo(Selecionada().Origem, null)),
+            ("Anexar comprovante", () => AnexarComprovante(Selecionada().Origem)),
+            ("Ver comprovante", () => ComprovanteApoio.Abrir(_contexto, Vinculo(Selecionada().Origem)))
         ],
         [
             ("Excluir", () => Excluir(Selecionada()))
@@ -101,10 +104,12 @@ internal sealed class PaginaDespesas : IPagina
         _resumoEsquerda.Text = $"{abertas.Count} em aberto · {vencidas} vencida{(vencidas == 1 ? "" : "s")} · em aberto {Formatador.Total(abertas.Select(d => (Dominio.Compartilhado.Dinheiro?)d.Valor))}";
         _resumoDireita.Text = $"Pago em {hoje.Year}: {Formatador.Total(pagasNoAno.Select(d => (Dominio.Compartilhado.Dinheiro?)d.Valor))}";
 
+        var comComprovante = ComprovanteApoio.ComComprovante(_contexto, TipoVinculoDocumento.Despesa);
         return despesas.Select(d =>
         {
             var status = d.StatusEm(hoje);
-            return new DespesaLinha(d.Id, nomeBem(d.BemId), Formatador.TextoEnum(d.Tipo), d.Recorrente ? $"{d.Descricao} · mensal" : d.Descricao,
+            var descricao = (d.Recorrente ? $"{d.Descricao} · mensal" : d.Descricao) + (comComprovante.Contains(d.Id.Valor) ? ComprovanteApoio.Marca : string.Empty);
+            return new DespesaLinha(d.Id, nomeBem(d.BemId), Formatador.TextoEnum(d.Tipo), descricao,
                 Formatador.Data(d.Vencimento),
                 Formatador.Dinheiro(d.Valor), Formatador.TextoEnum(status), Formatador.ClasseEtiqueta(status), ClasseLinha(status),
                 Formatador.Data(d.PagaEm), d);
@@ -126,6 +131,8 @@ internal sealed class PaginaDespesas : IPagina
         menu.Items.Add(ItemMenu("Marcar como paga", () => Pagar(linha.Origem), !paga));
         menu.Items.Add(ItemMenu("Desfazer pagamento", () => DesfazerPagamento(linha.Origem), paga));
         menu.Items.Add(ItemMenu("Editar", () => AbrirDialogo(linha.Origem, null)));
+        menu.Items.Add(ItemMenu("Anexar comprovante…", () => AnexarComprovante(linha.Origem)));
+        menu.Items.Add(ItemMenu("Ver comprovante", () => ComprovanteApoio.Abrir(_contexto, Vinculo(linha.Origem))));
         menu.Items.Add(new Separator());
         menu.Items.Add(ItemMenu("Excluir…", () => Excluir(linha)));
         return menu;
@@ -256,6 +263,10 @@ internal sealed class PaginaDespesas : IPagina
         _contexto.DesfazerPagamentoDespesa().Executar(despesa.Id);
         _contexto.NotificarAlteracao();
     }
+
+    private static VinculoDocumento Vinculo(Despesa despesa) => new(TipoVinculoDocumento.Despesa, despesa.Id.Valor);
+
+    private void AnexarComprovante(Despesa despesa) => ComprovanteApoio.Anexar(_contexto, despesa.BemId, Vinculo(despesa), despesa.Descricao);
 
     private void Excluir(DespesaLinha linha)
     {

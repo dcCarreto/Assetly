@@ -301,7 +301,7 @@ internal sealed class ModuloDocumentos : IModulo
         return arquivo;
     }
 
-    private static void AbrirDocumento(Documento documento)
+    internal static void AbrirDocumento(Documento documento)
     {
         var arquivo = ArquivoExistente(documento);
         try

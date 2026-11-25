@@ -40,6 +40,7 @@ public sealed class RegistrarDocumento
             comando.RegistradoEm);
 
         documento.VincularNotaEletronica(string.IsNullOrWhiteSpace(comando.ChaveAcesso) ? null : ChaveAcessoNfe.Criar(comando.ChaveAcesso), comando.UrlConsulta);
+        documento.VincularRegistro(comando.Vinculo);
         _repositorioDocumento.Salvar(documento);
         return documento;
     }

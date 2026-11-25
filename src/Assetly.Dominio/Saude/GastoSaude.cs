@@ -14,6 +14,15 @@ public sealed class GastoSaude
     public DateOnly Data { get; private set; }
     public Dinheiro Valor { get; private set; }
 
+    /// <summary>Quem prestou o serviço (médico, clínica, laboratório) — vai para o relatório do IRPF.</summary>
+    public string Prestador { get; private set; } = string.Empty;
+
+    /// <summary>CPF ou CNPJ do prestador, só os dígitos (vazio = não informado). A Receita exige para deduzir.</summary>
+    public string DocumentoPrestador { get; private set; } = string.Empty;
+
+    /// <summary>Consultas, exames e procedimentos são dedutíveis no IRPF; farmácia (remédios) e "outro" não.</summary>
+    public bool DedutivelNoIrpf => Tipo is TipoGastoSaude.Consulta or TipoGastoSaude.Exame or TipoGastoSaude.Procedimento;
+
     private GastoSaude(
         GastoSaudeId id,
         BemId bemId,
@@ -39,8 +48,20 @@ public sealed class GastoSaude
         TipoGastoSaude tipo,
         string? descricao,
         DateOnly data,
-        Dinheiro valor) =>
-        new(id, bemId, tipo, descricao, data, valor);
+        Dinheiro valor,
+        string? prestador = null,
+        string? documentoPrestador = null)
+    {
+        var gasto = new GastoSaude(id, bemId, tipo, descricao, data, valor);
+        gasto.DefinirPrestador(prestador, documentoPrestador);
+        return gasto;
+    }
+
+    public void DefinirPrestador(string? nome, string? cpfCnpj)
+    {
+        Prestador = Validacao.TextoOpcional(nome, "prestador", 120);
+        DocumentoPrestador = CpfCnpj.Normalizar(cpfCnpj, "documento do prestador");
+    }
 
     public void AlterarTipo(TipoGastoSaude tipo)
     {

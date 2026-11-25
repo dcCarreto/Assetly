@@ -24,15 +24,17 @@ public sealed class RepositorioGastoSaudeSqlite(FabricaConexaoSqlite fabricaCone
     public void Salvar(GastoSaude gastoSaude)
     {
         const string sql = """
-            INSERT INTO gastos_saude (id, bem_id, tipo, descricao, data, valor, moeda)
-            VALUES ($id, $bemId, $tipo, $descricao, $data, $valor, $moeda)
+            INSERT INTO gastos_saude (id, bem_id, tipo, descricao, data, valor, moeda, prestador, documento_prestador)
+            VALUES ($id, $bemId, $tipo, $descricao, $data, $valor, $moeda, $prestador, $documentoPrestador)
             ON CONFLICT(id) DO UPDATE SET
                 bem_id = excluded.bem_id,
                 tipo = excluded.tipo,
                 descricao = excluded.descricao,
                 data = excluded.data,
                 valor = excluded.valor,
-                moeda = excluded.moeda
+                moeda = excluded.moeda,
+                prestador = excluded.prestador,
+                documento_prestador = excluded.documento_prestador
             """;
         _executor.Executar(sql, "Não foi possível salvar gasto de saúde",
             ("$id", gastoSaude.Id.Valor.ToString()),
@@ -41,7 +43,9 @@ public sealed class RepositorioGastoSaudeSqlite(FabricaConexaoSqlite fabricaCone
             ("$descricao", gastoSaude.Descricao),
             ("$data", ConversorSqlite.Texto(gastoSaude.Data)!),
             ("$valor", ConversorSqlite.Valor(gastoSaude.Valor)!),
-            ("$moeda", ConversorSqlite.Moeda(gastoSaude.Valor)!));
+            ("$moeda", ConversorSqlite.Moeda(gastoSaude.Valor)!),
+            ("$prestador", gastoSaude.Prestador),
+            ("$documentoPrestador", gastoSaude.DocumentoPrestador));
     }
 
     public void Excluir(GastoSaudeId id) =>

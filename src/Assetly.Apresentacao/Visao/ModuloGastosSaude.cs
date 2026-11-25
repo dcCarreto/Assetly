@@ -29,9 +29,10 @@ internal sealed class ModuloGastosSaude : IModulo
         _contexto = contexto;
         ConfigurarTabela();
 
-        var (direita, busca) = CabecalhoBuscaCriacao("Buscar por titular, tipo ou descrição", "Novo gasto", () => AbrirDialogoGastoSaude(null));
+        var (criacao, busca) = CabecalhoBuscaCriacao("Buscar por titular, tipo, descrição ou prestador", "Novo gasto", () => AbrirDialogoGastoSaude(null));
+        var direita = UiApoio.Linha(10, BotaoSecundario("Relatório para o IR…", () => RelatorioIrpfApoio.Gerar(_contexto)), criacao);
 
-        _filtro = new FiltroTabela<GastoSaudeLinha>(_tabela, l => l.Id, l => $"{l.Bem} {l.Tipo} {l.Descricao}",
+        _filtro = new FiltroTabela<GastoSaudeLinha>(_tabela, l => l.Id, l => $"{l.Bem} {l.Tipo} {l.Descricao} {l.Origem.Prestador} {l.Origem.DocumentoPrestador}",
         [
             new("Todos", _ => true),
             new("Este ano", l => l.Origem.Data.Year == Hoje().Year),
@@ -118,6 +119,9 @@ internal sealed class ModuloGastosSaude : IModulo
         var data = DataPicker(gasto?.Data ?? Hoje());
         var valor = CampoTexto("Valor (ex.: 89,90)", TextoValor(gasto?.Valor.Valor));
         var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", gasto?.Valor.CodigoMoeda ?? "BRL");
+        var prestador = CampoTexto("Médico, clínica, laboratório...", gasto?.Prestador ?? string.Empty);
+        var documentoPrestador = CampoTexto("CPF ou CNPJ de quem recebeu (está no recibo ou na nota)",
+            gasto is null || gasto.DocumentoPrestador.Length == 0 ? string.Empty : Dominio.Compartilhado.CpfCnpj.Formatar(gasto.DocumentoPrestador));
         var grade = GradeFormulario();
         AdicionarCampo(grade, 0, 0, "Titular *", bem);
         AdicionarCampo(grade, 0, 1, "Tipo *", tipo);
@@ -125,6 +129,9 @@ internal sealed class ModuloGastosSaude : IModulo
         AdicionarCampo(grade, 2, 0, "Data *", data);
         AdicionarCampo(grade, 2, 1, "Valor *", valor);
         AdicionarCampo(grade, 3, 0, "Moeda *", moeda);
+        AdicionarSecao(grade, 4, "Para o Imposto de Renda (consultas, exames e procedimentos)");
+        AdicionarCampo(grade, 5, 0, "Prestador", prestador);
+        AdicionarCampo(grade, 5, 1, "CPF/CNPJ do prestador", documentoPrestador);
 
         var salvou = MostrarFormulario(gasto is null ? "Novo gasto" : "Editar gasto", grade, () =>
         {
@@ -134,12 +141,14 @@ internal sealed class ModuloGastosSaude : IModulo
             if (gasto is null)
             {
                 _contexto.RegistrarGastoSaude().Executar(new RegistrarGastoSaudeComando(
-                    ExigirBemSelecionado(bem).Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda));
+                    ExigirBemSelecionado(bem).Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda,
+                    prestador.Text, documentoPrestador.Text));
             }
             else
             {
                 _contexto.EditarGastoSaude().Executar(new EditarGastoSaudeComando(
-                    gasto.Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda));
+                    gasto.Id, ValorEnum<TipoGastoSaude>(tipo), descricao.Text, dataValor, valorDecimal, codigoMoeda,
+                    prestador.Text, documentoPrestador.Text));
             }
         });
 

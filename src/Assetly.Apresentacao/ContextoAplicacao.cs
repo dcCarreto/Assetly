@@ -127,6 +127,8 @@ public sealed class ContextoAplicacao
 
     public CalcularPatrimonio CalcularPatrimonio() => new(RepositorioBem, RepositorioDespesa);
 
+    public GerarRelatorioIrpf GerarRelatorioIrpf() => new(RepositorioBem, RepositorioGastoSaude);
+
     public AtivarCriptografiaBackup AtivarCriptografiaBackup() => new(RepositorioConfiguracaoBackup, _protecaoSenha);
 
     public DesativarCriptografiaBackup DesativarCriptografiaBackup() => new(RepositorioConfiguracaoBackup);

@@ -18,6 +18,9 @@ public sealed class Documento
     /// <summary>Endereço de consulta da nota na Sefaz (lido do QR Code), quando houver.</summary>
     public string UrlConsulta { get; private set; } = string.Empty;
 
+    /// <summary>Manutenção, despesa ou abastecimento de que este documento é o comprovante (nulo = só do bem).</summary>
+    public VinculoDocumento? Vinculo { get; private set; }
+
     private Documento(
         DocumentoId id,
         BemId bemId,
@@ -52,16 +55,20 @@ public sealed class Documento
         DateOnly registradoEm,
         StatusDocumento status,
         string? chaveAcesso = null,
-        string? urlConsulta = null)
+        string? urlConsulta = null,
+        VinculoDocumento? vinculo = null)
     {
         var documento = new Documento(id, bemId, tipo, nome, caminhoLocal, registradoEm)
         {
             Status = status,
             ChaveAcesso = chaveAcesso ?? string.Empty,
-            UrlConsulta = urlConsulta ?? string.Empty
+            UrlConsulta = urlConsulta ?? string.Empty,
+            Vinculo = vinculo
         };
         return documento;
     }
+
+    public void VincularRegistro(VinculoDocumento? vinculo) => Vinculo = vinculo;
 
     public void Renomear(NomeDocumento nome)
     {

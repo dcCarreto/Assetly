@@ -18,7 +18,9 @@ public sealed class MigradorBancoDados
         new Migracao(9, "V009__origem_alertas.sql", "Assetly.Infraestrutura.Banco.Migracoes.V009__origem_alertas.sql"),
         new Migracao(10, "V010__retencao_backup.sql", "Assetly.Infraestrutura.Banco.Migracoes.V010__retencao_backup.sql"),
         new Migracao(11, "V011__inventario_valor_bens.sql", "Assetly.Infraestrutura.Banco.Migracoes.V011__inventario_valor_bens.sql"),
-        new Migracao(12, "V012__despesa_recorrente.sql", "Assetly.Infraestrutura.Banco.Migracoes.V012__despesa_recorrente.sql")
+        new Migracao(12, "V012__despesa_recorrente.sql", "Assetly.Infraestrutura.Banco.Migracoes.V012__despesa_recorrente.sql"),
+        new Migracao(13, "V013__prestador_gasto_saude.sql", "Assetly.Infraestrutura.Banco.Migracoes.V013__prestador_gasto_saude.sql"),
+        new Migracao(14, "V014__vinculo_documento.sql", "Assetly.Infraestrutura.Banco.Migracoes.V014__vinculo_documento.sql")
     ];
 
     private const string PrefixoCopiaSeguranca = "antes-da-atualizacao-";

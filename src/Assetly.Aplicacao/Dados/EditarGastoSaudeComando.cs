@@ -8,4 +8,6 @@ public sealed record EditarGastoSaudeComando(
     string? Descricao,
     DateOnly Data,
     decimal Valor,
-    string CodigoMoeda);
+    string CodigoMoeda,
+    string? Prestador = null,
+    string? DocumentoPrestador = null);
