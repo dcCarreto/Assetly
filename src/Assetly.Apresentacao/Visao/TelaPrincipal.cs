@@ -120,6 +120,7 @@ internal sealed class TelaPrincipal
         try
         {
             var hoje = ContextoApoio.Hoje();
+            _contexto.LixeiraBens().EsvaziarVencidos(hoje);
             _contexto.GerarAlertasAutomaticos().Executar(hoje);
             _diaDosAlertas = hoje;
             foreach (var modulo in _modulos)

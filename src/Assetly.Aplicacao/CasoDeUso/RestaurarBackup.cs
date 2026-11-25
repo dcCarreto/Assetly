@@ -29,7 +29,8 @@ public sealed class RestaurarBackup(
     string diretorioDocumentos,
     string diretorioSeguranca,
     IRepositorioConfiguracaoSincronizacao? repositorioSincronizacao = null,
-    IProtecaoSenha? protecaoSenha = null)
+    IProtecaoSenha? protecaoSenha = null,
+    IRepositorioLixeira? repositorioLixeira = null)
 {
     public const int CopiasSegurancaRetidas = 5;
 
@@ -142,5 +143,7 @@ public sealed class RestaurarBackup(
     /// <summary>A restauração junta os arquivos do backup aos de hoje: os que nenhum documento usa sobram para sempre
     /// (e entrariam em todo backup e sincronização).</summary>
     private void RemoverArquivosSemDocumento() =>
-        _armazenamentoDocumento.RemoverNaoReferenciados(_repositorioDocumento.Listar().Select(d => d.CaminhoLocal.Valor).ToList());
+        _armazenamentoDocumento.RemoverNaoReferenciados(_repositorioDocumento.Listar().Select(d => d.CaminhoLocal.Valor)
+            .Concat(repositorioLixeira?.Listar().SelectMany(item => item.Arquivos) ?? [])
+            .ToList());
 }

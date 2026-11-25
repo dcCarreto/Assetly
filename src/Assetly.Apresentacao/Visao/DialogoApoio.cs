@@ -17,9 +17,9 @@ internal static class DialogoApoio
 
     /// <summary>Janela principal já visível, ou nulo (ex.: autoteste sem janela) — nunca o próprio diálogo, que o WPF
     /// registraria como janela principal se ela ainda não existisse.</summary>
-    private static Window? DonoDialogo() => Application.Current.MainWindow is { IsVisible: true } principal ? principal : null;
+    internal static Window? DonoDialogo() => Application.Current.MainWindow is { IsVisible: true } principal ? principal : null;
 
-    private static void ExibirModal(Window janela)
+    internal static void ExibirModal(Window janela)
     {
         if (InterceptarDialogo is not null)
         {

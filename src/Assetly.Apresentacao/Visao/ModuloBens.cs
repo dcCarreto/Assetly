@@ -31,7 +31,11 @@ internal sealed class ModuloBens : IModulo
         _contexto = contexto;
         ConfigurarTabela();
 
-        var (direita, busca) = CabecalhoBuscaCriacao("Buscar por nome, tipo, marca, nº de série, local ou observações", "Novo bem", () => AbrirDialogoBem(null));
+        var (criacao, busca) = CabecalhoBuscaCriacao("Buscar por nome, tipo, marca, nº de série, local ou observações", "Novo bem", () => AbrirDialogoBem(null));
+        var direita = UiApoio.Linha(10,
+            BotaoSecundario("Importar planilha…", () => ImportacaoApoio.ImportarCsvBens(_contexto)),
+            BotaoSecundario("Lixeira", () => LixeiraDialogo.Mostrar(_contexto)),
+            criacao);
 
         _filtro = new FiltroTabela<BemLinha>(_tabela, l => l.Id, l => $"{l.Nome} {l.Tipo} {l.Responsavel} {l.Observacoes} {l.Origem.Inventario.Marca} {l.Origem.Inventario.Modelo} " +
             $"{l.Origem.Inventario.NumeroSerie} {l.Origem.Inventario.Loja} {l.Origem.Inventario.Localizacao}",
@@ -287,9 +291,9 @@ internal sealed class ModuloBens : IModulo
               $"(incluindo as cópias dos arquivos), {convenios} convênio(s), {gastos} gasto(s) de saúde, {abastecimentos} abastecimento(s), " +
               $"{despesas} despesa(s)/conta(s) e {alertas} alerta(s), além da ficha de veículo ou imóvel, se houver.";
         if (!MostrarConfirmacao("Excluir bem",
-                $"\"{bem.Nome.Valor}\" será excluído permanentemente. {detalhe}\n\nEsta ação não pode ser desfeita (exceto restaurando um backup). " +
-                "Se o item só saiu de uso, prefira Arquivar ou Descartar para manter o histórico.",
-                "Excluir definitivamente"))
+                $"\"{bem.Nome.Valor}\" será excluído. {detalhe}\n\nTudo vai para a lixeira (botão \"Lixeira\" no topo desta tela) e pode ser restaurado " +
+                $"por {Aplicacao.CasoDeUso.LixeiraBens.DiasRetencao} dias. Se o item só saiu de uso, prefira Arquivar ou Descartar para manter o histórico.",
+                "Excluir"))
         {
             return;
         }

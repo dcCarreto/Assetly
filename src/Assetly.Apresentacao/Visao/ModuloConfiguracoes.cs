@@ -196,7 +196,11 @@ internal sealed class ModuloConfiguracoes : IModulo
         var exportar = BotaoSecundario("Exportar todos os dados (JSON)…", ExportarJson);
         exportar.HorizontalAlignment = HorizontalAlignment.Left;
         exportar.ToolTip = "Gera um arquivo JSON legível com todos os cadastros (bens, garantias, manutenções, documentos, saúde, veículos, imóveis, contas e alertas) — para planilhas, outros programas ou arquivo pessoal.";
-        return CardConfiguracao("Dados locais", UiApoio.Coluna(12, linhas, nota, exportar));
+        var importar = BotaoSecundario("Importar dados (JSON)…", () => ImportacaoApoio.ImportarJson(_contexto));
+        importar.ToolTip = "Traz de volta um arquivo gerado por \"Exportar todos os dados\": registros novos são criados e os existentes, atualizados. Nada é apagado.";
+        var botoes = UiApoio.Linha(8, exportar, importar);
+        botoes.HorizontalAlignment = HorizontalAlignment.Left;
+        return CardConfiguracao("Dados locais", UiApoio.Coluna(12, linhas, nota, botoes));
     }
 
     private void ExportarJson()

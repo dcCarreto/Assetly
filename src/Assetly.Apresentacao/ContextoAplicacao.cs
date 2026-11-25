@@ -61,6 +61,8 @@ public sealed class ContextoAplicacao
 
     public IRepositorioConfiguracaoSincronizacao RepositorioConfiguracaoSincronizacao { get; }
 
+    public IRepositorioLixeira RepositorioLixeira { get; }
+
     /// <summary>Última falha do backup automático nesta sessão (nula se o último deu certo) — mostrada no módulo Backup e no painel.</summary>
     public string? FalhaBackupAutomatico { get; set; }
 
@@ -92,6 +94,7 @@ public sealed class ContextoAplicacao
         RepositorioConfiguracaoBackup = new RepositorioConfiguracaoBackupSqlite(fabricaConexao);
         RepositorioConfiguracaoPreferencias = new RepositorioConfiguracaoPreferenciasSqlite(fabricaConexao);
         RepositorioConfiguracaoSincronizacao = new RepositorioConfiguracaoSincronizacaoSqlite(fabricaConexao);
+        RepositorioLixeira = new RepositorioLixeiraSqlite(fabricaConexao);
         SincronizacaoAutomatica = new SincronizacaoAutomatica(SincronizarDados, RepositorioConfiguracaoSincronizacao);
         RotuloAmbiente = rotuloAmbiente ?? throw new ArgumentNullException(nameof(rotuloAmbiente), "rótulo do ambiente é obrigatório");
         AmbienteTeste = ambienteTeste;
@@ -125,6 +128,12 @@ public sealed class ContextoAplicacao
 
     public ExportarDados ExportarDados() => new(FonteDados());
 
+    public ImportarDados ImportarDados() => new(FonteDados(), _armazenamentoDocumento);
+
+    public ImportarBensCsv ImportarBensCsv() => new(RepositorioBem);
+
+    public LixeiraBens LixeiraBens() => new(RepositorioLixeira, ExportarDados(), ImportarDados(), RepositorioDocumento, _armazenamentoDocumento);
+
     public CalcularPatrimonio CalcularPatrimonio() => new(RepositorioBem, RepositorioDespesa);
 
     public GerarRelatorioIrpf GerarRelatorioIrpf() => new(RepositorioBem, RepositorioGastoSaude);
@@ -151,7 +160,7 @@ public sealed class ContextoAplicacao
 
     public AlterarStatusBem AlterarStatusBem() => new(RepositorioBem);
 
-    public ExcluirBem ExcluirBem() => new(RepositorioBem, RepositorioDocumento, _armazenamentoDocumento);
+    public ExcluirBem ExcluirBem() => new(RepositorioBem, RepositorioDocumento, _armazenamentoDocumento, LixeiraBens());
 
     public RegistrarGarantia RegistrarGarantia() => new(RepositorioBem, RepositorioGarantia);
 
@@ -284,7 +293,26 @@ public sealed class ContextoAplicacao
 
     public RestaurarBackup RestaurarBackup() =>
         new(RepositorioConfiguracaoBackup, RepositorioDocumento, _servicoBackup, _armazenamentoDocumento, _bancoDados.Inicializar,
-            ArquivoBanco, DiretorioDocumentos, _diretorioSeguranca, RepositorioConfiguracaoSincronizacao, _protecaoSenha);
+            ArquivoBanco, DiretorioDocumentos, _diretorioSeguranca, RepositorioConfiguracaoSincronizacao, _protecaoSenha, RepositorioLixeira);
+
+    /// <summary>Copia o estado atual para a pasta de segurança (antes de uma importação), com a senha dos backups se ela puder
+    /// ser lida, mantendo só as últimas cópias. Devolve onde ficou.</summary>
+    public string CriarCopiaSeguranca()
+    {
+        string? senha;
+        try
+        {
+            senha = SenhaBackupSalva();
+        }
+        catch (InvalidOperationException)
+        {
+            senha = null;
+        }
+
+        var copia = _servicoBackup.ExecutarBackup(ArquivoBanco, DiretorioDocumentos, _diretorioSeguranca, senha);
+        _servicoBackup.ManterUltimos(_diretorioSeguranca, Aplicacao.CasoDeUso.RestaurarBackup.CopiasSegurancaRetidas);
+        return copia;
+    }
 
     /// <summary>Senha dos backups guardada (protegida pelo Windows) ou nulo se a proteção estiver desligada.</summary>
     public string? SenhaBackupSalva() => SenhaBackup.Obter(RepositorioConfiguracaoBackup.Obter(), _protecaoSenha);
