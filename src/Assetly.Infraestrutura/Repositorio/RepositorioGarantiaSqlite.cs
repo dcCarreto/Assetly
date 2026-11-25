@@ -2,36 +2,24 @@ using Assetly.Aplicacao.Repositorio;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Garantia;
 using Assetly.Infraestrutura.Banco;
-using Microsoft.Data.Sqlite;
 
 namespace Assetly.Infraestrutura.Repositorio;
 
 public sealed class RepositorioGarantiaSqlite(FabricaConexaoSqlite fabricaConexao) : IRepositorioGarantia
 {
-    private readonly FabricaConexaoSqlite _fabricaConexao = fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória");
+    private const string Ordem = "ORDER BY termina_em, fornecedor";
+    private readonly ExecutorSqlite _executor = new(fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória"));
 
-    public Garantia? BuscarPorId(GarantiaId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM garantias WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            using var resultado = comando.ExecuteReader();
-            return resultado.Read() ? MapeadorGarantia.Mapear(resultado) : null;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível buscar garantia", excecao);
-        }
-    }
+    public Garantia? BuscarPorId(GarantiaId id) =>
+        _executor.Consultar("SELECT * FROM garantias WHERE id = $id", MapeadorGarantia.Mapear, "Não foi possível buscar garantia",
+            ("$id", id.Valor.ToString())).FirstOrDefault();
 
     public IReadOnlyList<Garantia> Listar() =>
-        Consultar("SELECT * FROM garantias ORDER BY termina_em, fornecedor", null);
+        _executor.Consultar($"SELECT * FROM garantias {Ordem}", MapeadorGarantia.Mapear, "Não foi possível listar garantias");
 
     public IReadOnlyList<Garantia> ListarPorBem(BemId bemId) =>
-        Consultar("SELECT * FROM garantias WHERE bem_id = $bemId ORDER BY termina_em, fornecedor", bemId);
+        _executor.Consultar($"SELECT * FROM garantias WHERE bem_id = $bemId {Ordem}", MapeadorGarantia.Mapear, "Não foi possível listar garantias",
+            ("$bemId", bemId.Valor.ToString()));
 
     public void Salvar(Garantia garantia)
     {
@@ -46,66 +34,16 @@ public sealed class RepositorioGarantiaSqlite(FabricaConexaoSqlite fabricaConexa
                 termina_em = excluded.termina_em,
                 contato_suporte = excluded.contato_suporte
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            comando.Parameters.AddWithValue("$id", garantia.Id.Valor.ToString());
-            comando.Parameters.AddWithValue("$bemId", garantia.BemId.Valor.ToString());
-            comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(garantia.Tipo));
-            comando.Parameters.AddWithValue("$fornecedor", garantia.Fornecedor);
-            comando.Parameters.AddWithValue("$iniciaEm", ConversorSqlite.Texto(garantia.Periodo.IniciaEm)!);
-            comando.Parameters.AddWithValue("$terminaEm", ConversorSqlite.Texto(garantia.Periodo.TerminaEm)!);
-            comando.Parameters.AddWithValue("$contatoSuporte", garantia.ContatoSuporte);
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar garantia", excecao);
-        }
+        _executor.Executar(sql, "Não foi possível salvar garantia",
+            ("$id", garantia.Id.Valor.ToString()),
+            ("$bemId", garantia.BemId.Valor.ToString()),
+            ("$tipo", ConversorSqlite.EnumParaTexto(garantia.Tipo)),
+            ("$fornecedor", garantia.Fornecedor),
+            ("$iniciaEm", ConversorSqlite.Texto(garantia.Periodo.IniciaEm)!),
+            ("$terminaEm", ConversorSqlite.Texto(garantia.Periodo.TerminaEm)!),
+            ("$contatoSuporte", garantia.ContatoSuporte));
     }
 
-    private List<Garantia> Consultar(string sql, BemId? bemId)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            if (bemId is not null)
-            {
-                comando.Parameters.AddWithValue("$bemId", bemId.Value.Valor.ToString());
-            }
-
-            using var resultado = comando.ExecuteReader();
-            var garantias = new List<Garantia>();
-            while (resultado.Read())
-            {
-                garantias.Add(MapeadorGarantia.Mapear(resultado));
-            }
-
-            return garantias;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível listar garantias", excecao);
-        }
-    }
-
-    public void Excluir(GarantiaId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "DELETE FROM garantias WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível excluir garantia", excecao);
-        }
-    }
+    public void Excluir(GarantiaId id) =>
+        _executor.Executar("DELETE FROM garantias WHERE id = $id", "Não foi possível excluir garantia", ("$id", id.Valor.ToString()));
 }

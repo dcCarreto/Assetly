@@ -27,6 +27,16 @@ public sealed class ExecutarBackupAgora(
         var caminhoGerado = _servicoBackup.ExecutarBackup(_arquivoBanco, _diretorioDocumentos, configuracao.CaminhoDestino, SenhaBackup.Obter(configuracao, _protecaoSenha));
         configuracao.RegistrarBackupConcluido(DateTimeOffset.Now);
         _repositorioConfiguracaoBackup.Salvar(configuracao);
+        AplicarRetencao(_servicoBackup, configuracao);
         return caminhoGerado;
+    }
+
+    /// <summary>Só depois de um backup bem-sucedido: os antigos nunca são apagados sem um novo no lugar.</summary>
+    internal static void AplicarRetencao(IServicoBackup servicoBackup, Dominio.Backup.ConfiguracaoBackup configuracao)
+    {
+        if (configuracao.ManterUltimos > 0 && configuracao.CaminhoDestino is not null)
+        {
+            servicoBackup.ManterUltimos(configuracao.CaminhoDestino, configuracao.ManterUltimos);
+        }
     }
 }

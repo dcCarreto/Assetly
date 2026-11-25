@@ -127,10 +127,11 @@ public class ConfiguracaoPreferenciasTests
     [Fact]
     public void IntervaloComoTimeSpanDeveRefletirOValorEscolhido()
     {
-        ConfiguracaoPreferencias.Padrao().IntervaloComoTimeSpan().ShouldBe(TimeSpan.FromSeconds(5));
+        // Os dados só mudam por ação do usuário (que já atualiza na hora): o ciclo automático não precisa ser frequente.
+        ConfiguracaoPreferencias.Padrao().IntervaloComoTimeSpan().ShouldBe(TimeSpan.FromSeconds(30));
 
         var configuracao = ConfiguracaoPreferencias.Padrao();
-        configuracao.DefinirIntervaloAtualizacao(IntervaloAtualizacao.Segundos30);
-        configuracao.IntervaloComoTimeSpan().ShouldBe(TimeSpan.FromSeconds(30));
+        configuracao.DefinirIntervaloAtualizacao(IntervaloAtualizacao.Segundos5);
+        configuracao.IntervaloComoTimeSpan().ShouldBe(TimeSpan.FromSeconds(5));
     }
 }

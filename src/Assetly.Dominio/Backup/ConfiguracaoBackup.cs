@@ -18,6 +18,13 @@ public sealed class ConfiguracaoBackup
     /// necessária para o backup automático rodar sem perguntar a senha.</summary>
     public string? SenhaProtegida { get; private set; }
 
+    /// <summary>Quantos backups manter no destino: depois de cada backup, os mais antigos são apagados.
+    /// 0 = manter todos.</summary>
+    public int ManterUltimos { get; private set; }
+
+    public const int ManterUltimosPadrao = 10;
+    public const int ManterUltimosMaximo = 365;
+
     private ConfiguracaoBackup(string? caminhoDestino, bool autoBackupHabilitado, FrequenciaBackup frequencia, DateTimeOffset? ultimoBackupEm)
     {
         CaminhoDestino = caminhoDestino;
@@ -26,15 +33,27 @@ public sealed class ConfiguracaoBackup
         UltimoBackupEm = ultimoBackupEm;
     }
 
-    public static ConfiguracaoBackup Padrao() => new(null, false, FrequenciaBackup.Diaria, null);
+    public static ConfiguracaoBackup Padrao() => new(null, false, FrequenciaBackup.Diaria, null) { ManterUltimos = ManterUltimosPadrao };
 
     public static ConfiguracaoBackup Restaurar(string? caminhoDestino, bool autoBackupHabilitado, FrequenciaBackup frequencia, DateTimeOffset? ultimoBackupEm,
-        bool criptografado = false, string? senhaProtegida = null) =>
+        bool criptografado = false, string? senhaProtegida = null, int manterUltimos = 0) =>
         new(caminhoDestino, autoBackupHabilitado, frequencia, ultimoBackupEm)
         {
             Criptografado = criptografado && !string.IsNullOrEmpty(senhaProtegida),
-            SenhaProtegida = senhaProtegida
+            SenhaProtegida = senhaProtegida,
+            ManterUltimos = Math.Clamp(manterUltimos, 0, ManterUltimosMaximo)
         };
+
+    /// <summary>Define quantos backups manter no destino (0 = todos).</summary>
+    public void DefinirRetencao(int manterUltimos)
+    {
+        if (manterUltimos is < 0 or > ManterUltimosMaximo)
+        {
+            throw new ArgumentException($"a quantidade de backups mantidos deve ser de 0 (todos) a {ManterUltimosMaximo}.");
+        }
+
+        ManterUltimos = manterUltimos;
+    }
 
     public void AtivarCriptografia(string senhaProtegida)
     {

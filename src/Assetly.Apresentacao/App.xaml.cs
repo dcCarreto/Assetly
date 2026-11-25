@@ -21,6 +21,8 @@ public partial class App : Application
     private Mutex? _travaInstalador;
     private GerenciadorAtualizacoes? _atualizacoes;
     private System.Windows.Controls.Button? _botaoAtualizacao;
+    private bool _finalizando;
+    private bool _podeFechar;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -37,11 +39,14 @@ public partial class App : Application
         // Consultada pelo instalador (AppMutex do Inno Setup): ele espera o Assetly fechar antes de atualizar.
         _travaInstalador = new Mutex(initiallyOwned: false, NomeTravaInstalador);
 
+#if DEBUG
+        // Ferramenta de desenvolvimento (conferir o tema): não vai no executável publicado.
         if (e.Args.Contains("--tema"))
         {
-            ThemeGalleryWindow.Mostrar();
+            GaleriaTema.Mostrar();
             return;
         }
+#endif
 
         var ambienteTeste = UsarAmbienteTeste(e.Args);
         if (ambienteTeste)
@@ -90,8 +95,8 @@ public partial class App : Application
             MainWindow = _janela;
             _janela.Show();
             _atualizacoes.Iniciar();
-            _janela.Closing += (_, _) => _telaPrincipal.SincronizarDados(somenteEnviar: true);
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _telaPrincipal.SincronizarDados(somenteEnviar: false));
+            _janela.Closing += AoFecharJanela;
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _telaPrincipal.SincronizarAoAbrir());
         }
         catch (Exception excecao) when (excecao is not OutOfMemoryException)
         {
@@ -99,6 +104,30 @@ public partial class App : Application
             // encerra de vez, com o motivo.
             FalharInicializacao("Não foi possível montar a janela do Assetly.", excecao);
         }
+    }
+
+    /// <summary>O primeiro pedido de fechar é adiado: a operação em andamento (um backup automático, por exemplo)
+    /// termina e as alterações são enviadas para a pasta sincronizada — com o painel de espera, fora da thread da
+    /// interface — e então a janela fecha de verdade. Um segundo pedido enquanto isso é ignorado.</summary>
+    private void AoFecharJanela(object? remetente, System.ComponentModel.CancelEventArgs evento)
+    {
+        if (_podeFechar)
+        {
+            return;
+        }
+
+        evento.Cancel = true;
+        if (_finalizando)
+        {
+            return;
+        }
+
+        _finalizando = true;
+        _telaPrincipal.FinalizarAntesDeFechar(() =>
+        {
+            _podeFechar = true;
+            _janela.Close();
+        });
     }
 
     private static IServicoAtualizacao CriarServicoAtualizacao()

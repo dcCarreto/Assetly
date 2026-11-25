@@ -7,7 +7,7 @@ namespace Assetly.Apresentacao.Visao;
 /// <summary>Estrutura de tela compartilhada por todos os módulos: primeira linha (título + ação),
 /// contêiner de tabela, cards de configuração/resumo. Extraído da antiga TelaPrincipal.Abas.cs /
 /// TelaPrincipal.cs na modularização — inclui os dois construtores (ResumoOperacao, FaixaIndicadores)
-/// também usados pela galeria do tema (ThemeGalleryWindow), por isso ficam aqui e não em um módulo.</summary>
+/// também usados pela galeria do tema (GaleriaTema), por isso ficam aqui e não em um módulo.</summary>
 internal static class LayoutApoio
 {
     /// <summary>Primeira linha de toda tela: título + subtítulo à esquerda, conteúdo específico da tela

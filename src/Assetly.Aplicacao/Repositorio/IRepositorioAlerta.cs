@@ -23,4 +23,13 @@ public interface IRepositorioAlerta
     }
 
     void Excluir(AlertaId id);
+
+    /// <summary>Exclui vários alertas de uma vez — no banco, numa única transação.</summary>
+    void ExcluirTodos(IEnumerable<AlertaId> ids)
+    {
+        foreach (var id in ids)
+        {
+            Excluir(id);
+        }
+    }
 }

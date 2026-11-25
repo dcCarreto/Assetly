@@ -32,7 +32,7 @@ public sealed class ConfiguracaoPreferencias
     }
 
     public static ConfiguracaoPreferencias Padrao() =>
-        new(TemaVisual.Escuro, CorDestaque.Ciano, DensidadeTabela.Confortavel, IntervaloAtualizacao.Segundos5, [], [], null);
+        new(TemaVisual.Escuro, CorDestaque.Ciano, DensidadeTabela.Confortavel, IntervaloAtualizacao.Segundos30, [], [], null);
 
     public static ConfiguracaoPreferencias Restaurar(TemaVisual tema, CorDestaque corDestaque, DensidadeTabela densidadeTabela,
         IntervaloAtualizacao intervaloAtualizacao, IEnumerable<string> ordemModulos, IEnumerable<string> modulosOcultos, string? moduloInicial,

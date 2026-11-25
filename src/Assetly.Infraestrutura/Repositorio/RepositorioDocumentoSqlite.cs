@@ -2,36 +2,24 @@ using Assetly.Aplicacao.Repositorio;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Documento;
 using Assetly.Infraestrutura.Banco;
-using Microsoft.Data.Sqlite;
 
 namespace Assetly.Infraestrutura.Repositorio;
 
 public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConexao) : IRepositorioDocumento
 {
-    private readonly FabricaConexaoSqlite _fabricaConexao = fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória");
+    private const string Ordem = "ORDER BY registrado_em DESC, nome";
+    private readonly ExecutorSqlite _executor = new(fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória"));
 
-    public Documento? BuscarPorId(DocumentoId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM documentos WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            using var resultado = comando.ExecuteReader();
-            return resultado.Read() ? MapeadorDocumento.Mapear(resultado) : null;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível buscar documento", excecao);
-        }
-    }
+    public Documento? BuscarPorId(DocumentoId id) =>
+        _executor.Consultar("SELECT * FROM documentos WHERE id = $id", MapeadorDocumento.Mapear, "Não foi possível buscar documento",
+            ("$id", id.Valor.ToString())).FirstOrDefault();
 
     public IReadOnlyList<Documento> Listar() =>
-        Consultar("SELECT * FROM documentos ORDER BY registrado_em DESC, nome", null);
+        _executor.Consultar($"SELECT * FROM documentos {Ordem}", MapeadorDocumento.Mapear, "Não foi possível listar documentos");
 
     public IReadOnlyList<Documento> ListarPorBem(BemId bemId) =>
-        Consultar("SELECT * FROM documentos WHERE bem_id = $bemId ORDER BY registrado_em DESC, nome", bemId);
+        _executor.Consultar($"SELECT * FROM documentos WHERE bem_id = $bemId {Ordem}", MapeadorDocumento.Mapear, "Não foi possível listar documentos",
+            ("$bemId", bemId.Valor.ToString()));
 
     public void Salvar(Documento documento)
     {
@@ -48,68 +36,18 @@ public sealed class RepositorioDocumentoSqlite(FabricaConexaoSqlite fabricaConex
                 chave_acesso = excluded.chave_acesso,
                 url_consulta = excluded.url_consulta
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            comando.Parameters.AddWithValue("$id", documento.Id.Valor.ToString());
-            comando.Parameters.AddWithValue("$bemId", documento.BemId.Valor.ToString());
-            comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(documento.Tipo));
-            comando.Parameters.AddWithValue("$nome", documento.Nome.Valor);
-            comando.Parameters.AddWithValue("$caminhoLocal", documento.CaminhoLocal.Valor);
-            comando.Parameters.AddWithValue("$registradoEm", ConversorSqlite.Texto(documento.RegistradoEm)!);
-            comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(documento.Status));
-            comando.Parameters.AddWithValue("$chaveAcesso", documento.ChaveAcesso);
-            comando.Parameters.AddWithValue("$urlConsulta", documento.UrlConsulta);
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar documento", excecao);
-        }
+        _executor.Executar(sql, "Não foi possível salvar documento",
+            ("$id", documento.Id.Valor.ToString()),
+            ("$bemId", documento.BemId.Valor.ToString()),
+            ("$tipo", ConversorSqlite.EnumParaTexto(documento.Tipo)),
+            ("$nome", documento.Nome.Valor),
+            ("$caminhoLocal", documento.CaminhoLocal.Valor),
+            ("$registradoEm", ConversorSqlite.Texto(documento.RegistradoEm)!),
+            ("$status", ConversorSqlite.EnumParaTexto(documento.Status)),
+            ("$chaveAcesso", documento.ChaveAcesso),
+            ("$urlConsulta", documento.UrlConsulta));
     }
 
-    private List<Documento> Consultar(string sql, BemId? bemId)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            if (bemId is not null)
-            {
-                comando.Parameters.AddWithValue("$bemId", bemId.Value.Valor.ToString());
-            }
-
-            using var resultado = comando.ExecuteReader();
-            var documentos = new List<Documento>();
-            while (resultado.Read())
-            {
-                documentos.Add(MapeadorDocumento.Mapear(resultado));
-            }
-
-            return documentos;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível listar documentos", excecao);
-        }
-    }
-
-    public void Excluir(DocumentoId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "DELETE FROM documentos WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível excluir documento", excecao);
-        }
-    }
+    public void Excluir(DocumentoId id) =>
+        _executor.Executar("DELETE FROM documentos WHERE id = $id", "Não foi possível excluir documento", ("$id", id.Valor.ToString()));
 }

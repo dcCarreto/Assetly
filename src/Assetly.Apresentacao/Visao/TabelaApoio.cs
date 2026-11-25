@@ -146,13 +146,13 @@ internal static class TabelaApoio
     {
         var fabricaBorda = new FrameworkElementFactory(typeof(Border));
         fabricaBorda.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeStyle"]);
-        fabricaBorda.SetBinding(Border.BackgroundProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter() });
-        fabricaBorda.SetBinding(Border.BorderBrushProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter(), ConverterParameter = "Borda" });
+        fabricaBorda.SetBinding(Border.BackgroundProperty, new Binding(caminhoClasse) { Converter = new ConversorStatusPincel() });
+        fabricaBorda.SetBinding(Border.BorderBrushProperty, new Binding(caminhoClasse) { Converter = new ConversorStatusPincel(), ConverterParameter = "Borda" });
 
         var fabricaTexto = new FrameworkElementFactory(typeof(TextBlock));
         fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeTextoStyle"]);
         fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminhoTexto));
-        fabricaTexto.SetBinding(TextBlock.ForegroundProperty, new Binding(caminhoClasse) { Converter = new StatusToBrushConverter(), ConverterParameter = "Texto" });
+        fabricaTexto.SetBinding(TextBlock.ForegroundProperty, new Binding(caminhoClasse) { Converter = new ConversorStatusPincel(), ConverterParameter = "Texto" });
         fabricaBorda.AppendChild(fabricaTexto);
 
         return new DataGridTemplateColumn

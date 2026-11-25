@@ -8,7 +8,8 @@ using Assetly.Dominio.Preferencias;
 namespace Assetly.Apresentacao.Visao;
 
 /// <summary>
-/// Casca da aplicação: sidebar, área de conteúdo, scrim de diálogo e o loop de atualização (intervalo configurável).
+/// Casca da aplicação: sidebar, área de conteúdo, scrim de diálogo, painel de espera das operações em segundo
+/// plano e o loop de atualização (intervalo configurável).
 /// Não conhece nenhum módulo específico — só monta a lista de <see cref="IModulo"/> e itera sobre
 /// ela para desenhar a sidebar, trocar de conteúdo e atualizar os dados. Adicionar um módulo novo
 /// é criar uma classe implementando IModulo e adicionar uma linha na lista abaixo.
@@ -23,10 +24,16 @@ internal sealed class TelaPrincipal
     private readonly List<ToggleButton> _botoesNavegacao = [];
     private readonly Dictionary<string, ToggleButton> _botoesPorTitulo = [];
     private readonly Dictionary<string, TextBlock> _contadoresNavegacao = [];
+    private readonly Border _painelEspera = new();
+    private readonly TextBlock _textoEspera = new();
+    private readonly DockPanel _estrutura = new();
     private int _dialogosAbertos;
+    private bool _emEspera;
     private bool _atualizando;
     private bool _falhaAtualizacaoNotificada;
     private DispatcherTimer? _atualizacaoTempoReal;
+    private IModulo? _moduloVisivel;
+    private DateOnly _diaDosAlertas;
 
     internal UIElement Raiz => _raizComScrim;
 
@@ -34,9 +41,23 @@ internal sealed class TelaPrincipal
 
     internal IReadOnlyList<IModulo> Modulos => _modulos;
 
-    /// <summary>Sincronização opcional entre computadores (ver ModuloBackup): ao abrir pode receber; ao fechar só envia.</summary>
-    internal void SincronizarDados(bool somenteEnviar) =>
-        _modulos.OfType<ModuloBackup>().FirstOrDefault()?.SincronizarAutomaticamente(somenteEnviar);
+    private ModuloBackup? Backup => _modulos.OfType<ModuloBackup>().FirstOrDefault();
+
+    /// <summary>Sincronização opcional entre computadores (ver ModuloBackup): ao abrir pode receber.</summary>
+    internal void SincronizarAoAbrir() => Backup?.SincronizarAoAbrir();
+
+    /// <summary>Antes de fechar: termina a operação em andamento e envia a sincronização; depois chama <paramref name="fechar"/>.</summary>
+    internal void FinalizarAntesDeFechar(Action fechar)
+    {
+        if (Backup is { } backup)
+        {
+            backup.FinalizarAntesDeFechar(fechar);
+        }
+        else
+        {
+            fechar();
+        }
+    }
 
     /// <summary>Mostra um módulo mesmo que esteja oculto na barra lateral (usado pelo autoteste).</summary>
     internal void IrPara(string titulo)
@@ -59,6 +80,8 @@ internal sealed class TelaPrincipal
             _dialogosAbertos += visivel ? 1 : -1;
             _scrim.Visibility = _dialogosAbertos > 0 ? Visibility.Visible : Visibility.Collapsed;
         };
+
+        OperacaoEmSegundoPlano.AlternarEspera = AlternarEspera;
 
         _modulos.Add(new ModuloPainel(_contexto, IrParaModulo));
         _modulos.Add(new ModuloBens(_contexto));
@@ -96,7 +119,9 @@ internal sealed class TelaPrincipal
         _atualizando = true;
         try
         {
-            _contexto.GerarAlertasAutomaticos().Executar(ContextoApoio.Hoje());
+            var hoje = ContextoApoio.Hoje();
+            _contexto.GerarAlertasAutomaticos().Executar(hoje);
+            _diaDosAlertas = hoje;
             foreach (var modulo in _modulos)
             {
                 modulo.Atualizar();
@@ -135,20 +160,32 @@ internal sealed class TelaPrincipal
         _atualizacaoTempoReal.Start();
     }
 
-    /// <summary>Ciclo automático: não atualiza por trás de um diálogo aberto (o usuário pode estar
-    /// lendo/editando aqueles dados) e, se a atualização falhar (ex.: banco bloqueado por outro
-    /// programa), avisa uma única vez — sem empilhar uma janela de erro a cada ciclo — e registra
-    /// as falhas seguintes no log até a próxima atualização bem-sucedida.</summary>
+    /// <summary>Ciclo automático, leve: os dados só mudam por ação do usuário ou por uma sincronização recebida —
+    /// e as duas já atualizam tudo na hora (<see cref="ContextoAplicacao.DadosAlterados"/>). Aqui só o módulo visível
+    /// é redesenhado; os alertas são refeitos e todos os módulos recarregados apenas na virada do dia (prazos mudam
+    /// com a data). Também dispara o backup automático e o envio da sincronização, em segundo plano.
+    /// <para>Não atualiza por trás de um diálogo aberto ou de uma operação em andamento e, se a atualização falhar
+    /// (ex.: banco bloqueado por outro programa), avisa uma única vez — sem empilhar uma janela de erro a cada ciclo —
+    /// e registra as falhas seguintes no log até a próxima atualização bem-sucedida.</para></summary>
     private void AtualizarPorTemporizador()
     {
-        if (_dialogosAbertos > 0)
+        if (_dialogosAbertos > 0 || _emEspera)
         {
             return;
         }
 
         try
         {
-            AtualizarTudo();
+            if (ContextoApoio.Hoje() != _diaDosAlertas)
+            {
+                AtualizarTudo();
+            }
+            else
+            {
+                _moduloVisivel?.Atualizar();
+            }
+
+            Backup?.ExecutarTarefasPeriodicas();
             _falhaAtualizacaoNotificada = false;
         }
         catch (Exception excecao) when (excecao is not OutOfMemoryException)
@@ -164,18 +201,63 @@ internal sealed class TelaPrincipal
 
     private void ConfigurarRaiz(ConfiguracaoPreferencias preferencias, string? selecaoForcada)
     {
-        var estrutura = new DockPanel();
+        var recursos = Application.Current.Resources;
         var navegacao = NavegacaoLateral(preferencias, selecaoForcada);
         DockPanel.SetDock(navegacao, Dock.Left);
-        estrutura.Children.Add(navegacao);
-        estrutura.Children.Add(_areaConteudo);
+        _estrutura.Children.Add(navegacao);
+        _estrutura.Children.Add(_areaConteudo);
 
-        _scrim.Background = (Brush)Application.Current.Resources["DialogScrim"];
+        _scrim.Background = (Brush)recursos["DialogScrim"];
         _scrim.Visibility = Visibility.Collapsed;
         _scrim.IsHitTestVisible = false;
 
-        _raizComScrim.Children.Add(estrutura);
+        _raizComScrim.Children.Add(_estrutura);
         _raizComScrim.Children.Add(_scrim);
+        _raizComScrim.Children.Add(CriarPainelEspera(recursos));
+    }
+
+    /// <summary>Painel por cima de tudo enquanto uma operação pedida pelo usuário roda em segundo plano: a janela
+    /// continua respondendo (move, redesenha), mas não aceita cliques nem teclas até a operação terminar.</summary>
+    private Border CriarPainelEspera(ResourceDictionary recursos)
+    {
+        _textoEspera.FontSize = 13;
+        _textoEspera.Foreground = (Brush)recursos["TextTitle"];
+        _textoEspera.TextWrapping = TextWrapping.Wrap;
+        _textoEspera.TextAlignment = TextAlignment.Center;
+        var barra = new ProgressBar
+        {
+            IsIndeterminate = true,
+            Height = 4,
+            Margin = new Thickness(0, 14, 0, 0),
+            BorderThickness = new Thickness(0),
+            Foreground = (Brush)recursos["AccentPrimary"],
+            Background = (Brush)recursos["BgSurface2"]
+        };
+        var detalhe = UiApoio.Texto("Isso pode levar alguns instantes se houver muitos documentos.", 11.5, FontWeights.Normal, (Brush)recursos["TextMuted"]);
+        detalhe.Margin = new Thickness(0, 10, 0, 0);
+        detalhe.HorizontalAlignment = HorizontalAlignment.Center;
+        var cartao = new Border
+        {
+            Style = (Style)recursos["CardPanelStyle"],
+            Padding = new Thickness(28, 22, 28, 22),
+            Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = UiApoio.Coluna(0, _textoEspera, barra, detalhe)
+        };
+        _painelEspera.Background = (Brush)recursos["DialogScrim"];
+        _painelEspera.Visibility = Visibility.Collapsed;
+        _painelEspera.Child = cartao;
+        System.Windows.Automation.AutomationProperties.SetLiveSetting(_textoEspera, System.Windows.Automation.AutomationLiveSetting.Polite);
+        return _painelEspera;
+    }
+
+    private void AlternarEspera(string? mensagem)
+    {
+        _emEspera = mensagem is not null;
+        _textoEspera.Text = mensagem ?? string.Empty;
+        _painelEspera.Visibility = _emEspera ? Visibility.Visible : Visibility.Collapsed;
+        _estrutura.IsEnabled = !_emEspera;
     }
 
     private Border CriarSeloAmbiente()
@@ -440,6 +522,7 @@ internal sealed class TelaPrincipal
     private void SelecionarConteudo(UIElement conteudo)
     {
         _areaConteudo.Content = conteudo;
+        _moduloVisivel = _modulos.FirstOrDefault(modulo => ReferenceEquals(modulo.Conteudo, conteudo));
         if (conteudo.Focusable)
         {
             conteudo.Dispatcher.BeginInvoke(DispatcherPriority.Input, () => conteudo.Focus());

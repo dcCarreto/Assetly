@@ -14,8 +14,17 @@
 #   3. autoteste do executável publicado (Assetly.exe --autoteste): banco novo + migrações, dados
 #      fictícios, todas as telas e formulários desenhados, exportação, patrimônio e backup criptografado;
 #   4. instalador Inno Setup; instalação silenciosa, autoteste do programa INSTALADO e desinstalação;
-#   5. SHA-256 do instalador (conferido pelo atualizador automático do Assetly antes de instalar).
+#   5. SHA-256 do instalador, assinado com a chave de atualização (ECDSA P-256). O atualizador automático do
+#      Assetly só instala se a assinatura conferir com a chave pública embutida no programa.
 # Os Assetly já instalados encontram a versão nova sozinhos, baixam, conferem e se atualizam.
+#
+# Chave de atualização (obrigatória): o segredo CHAVE_ATUALIZACAO_PEM guarda a chave privada (PEM, PKCS#8) cujo
+# par público está em ServicoAtualizacaoGithub.ChavePublica. Sem o segredo — ou com uma chave que não seja o par
+# da embutida — a release é cancelada (os programas instalados recusariam a atualização).
+#
+# Aprovação manual (recomendada): o job usa o ambiente "release". Em Settings → Environments → release,
+# marque "Required reviewers" para que nenhuma release (nem de quem obtiver acesso ao repositório) saia sem
+# a sua aprovação.
 #
 # Assinatura digital (opcional): cadastre os segredos CERTIFICADO_PFX_BASE64 (arquivo .pfx em base64) e
 # CERTIFICADO_SENHA. Com eles, o executável, o instalador e o desinstalador são assinados (Authenticode).
@@ -49,6 +58,7 @@ jobs:
     name: Testar, empacotar e publicar
     runs-on: windows-latest
     timeout-minutes: 45
+    environment: release
     env:
       GH_TOKEN: ${{ github.token }}
       TEM_CERTIFICADO: ${{ secrets.CERTIFICADO_PFX_BASE64 != '' }}
@@ -91,6 +101,24 @@ jobs:
           # "gh release view" devolve código de erro quando a release ainda não existe (o caso normal).
           exit 0
 
+      # Antes dos ~20 minutos de compilação e testes: sem a chave certa, a release não serviria aos programas instalados.
+      - name: Conferir a chave de atualização
+        shell: pwsh
+        env:
+          CHAVE_ATUALIZACAO_PEM: ${{ secrets.CHAVE_ATUALIZACAO_PEM }}
+        run: |
+          if (-not $env:CHAVE_ATUALIZACAO_PEM) { throw "Cadastre o segredo CHAVE_ATUALIZACAO_PEM (chave privada de atualização) antes de publicar." }
+          $fonte = Get-Content -Raw src\Assetly.Infraestrutura\Atualizacao\ServicoAtualizacaoGithub.cs
+          $publica = [System.Security.Cryptography.ECDsa]::Create()
+          $publica.ImportFromPem([regex]::Match($fonte, '(?s)-----BEGIN PUBLIC KEY-----.*?-----END PUBLIC KEY-----').Value -replace '(?m)^\s+', '')
+          $privada = [System.Security.Cryptography.ECDsa]::Create()
+          $privada.ImportFromPem($env:CHAVE_ATUALIZACAO_PEM)
+          $teste = [Text.Encoding]::UTF8.GetBytes("conferencia")
+          if (-not $publica.VerifyData($teste, $privada.SignData($teste, [System.Security.Cryptography.HashAlgorithmName]::SHA256), [System.Security.Cryptography.HashAlgorithmName]::SHA256)) {
+            throw "O segredo CHAVE_ATUALIZACAO_PEM não é o par da chave pública embutida no programa."
+          }
+          Write-Host "Chave de atualização: ok"
+
       - name: Testes automatizados
         run: dotnet test Assetly.slnx --configuration Release
 
@@ -110,8 +138,10 @@ jobs:
       - name: Assinar o executável (opcional)
         if: env.TEM_CERTIFICADO == 'true'
         shell: pwsh
+        env:
+          CERTIFICADO_SENHA: ${{ secrets.CERTIFICADO_SENHA }}
         run: |
-          & $env:SIGNTOOL sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $env:CERTIFICADO_PFX /p "${{ secrets.CERTIFICADO_SENHA }}" publicar\Assetly.exe
+          & $env:SIGNTOOL sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $env:CERTIFICADO_PFX /p $env:CERTIFICADO_SENHA publicar\Assetly.exe
           if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar o executável." }
 
       - name: Autoteste do executável publicado
@@ -147,11 +177,13 @@ jobs:
 
       - name: Gerar o instalador
         shell: pwsh
+        env:
+          CERTIFICADO_SENHA: ${{ secrets.CERTIFICADO_SENHA }}
         run: |
           $argumentos = @("/Q", "/DVersao=${{ steps.versao.outputs.valor }}")
           if ($env:TEM_CERTIFICADO -eq "true") {
             $argumentos += "/DAssinar"
-            $argumentos += "/Sassetly=`"$env:SIGNTOOL`" sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f `"$env:CERTIFICADO_PFX`" /p `"${{ secrets.CERTIFICADO_SENHA }}`" `$f"
+            $argumentos += "/Sassetly=`"$env:SIGNTOOL`" sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f `"$env:CERTIFICADO_PFX`" /p `"$env:CERTIFICADO_SENHA`" `$f"
           }
           & $env:ISCC @argumentos instalador\Assetly.iss
           if ($LASTEXITCODE -ne 0) { throw "O Inno Setup falhou (código $LASTEXITCODE)." }
@@ -186,6 +218,25 @@ jobs:
           "$hash  $nome" | Set-Content -Encoding ascii -NoNewline "publicar\instalador\Assetly-Setup-$versao.sha256"
           Write-Host "$hash  $nome"
 
+      - name: Assinar o SHA-256 com a chave de atualização
+        shell: pwsh
+        env:
+          CHAVE_ATUALIZACAO_PEM: ${{ secrets.CHAVE_ATUALIZACAO_PEM }}
+        run: |
+          $versao = "${{ steps.versao.outputs.valor }}"
+          $arquivo = "publicar\instalador\Assetly-Setup-$versao.sha256"
+          $conteudo = [IO.File]::ReadAllBytes((Resolve-Path $arquivo))
+          $privada = [System.Security.Cryptography.ECDsa]::Create()
+          $privada.ImportFromPem($env:CHAVE_ATUALIZACAO_PEM)
+          $assinatura = $privada.SignData($conteudo, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+          [IO.File]::WriteAllText((Join-Path (Resolve-Path "publicar\instalador") "Assetly-Setup-$versao.sha256.sig"), [Convert]::ToBase64String($assinatura))
+          # Confere com a chave pública embutida no programa: o que os Assetly instalados vão exigir.
+          $fonte = Get-Content -Raw src\Assetly.Infraestrutura\Atualizacao\ServicoAtualizacaoGithub.cs
+          $publica = [System.Security.Cryptography.ECDsa]::Create()
+          $publica.ImportFromPem([regex]::Match($fonte, '(?s)-----BEGIN PUBLIC KEY-----.*?-----END PUBLIC KEY-----').Value -replace '(?m)^\s+', '')
+          if (-not $publica.VerifyData($conteudo, $assinatura, [System.Security.Cryptography.HashAlgorithmName]::SHA256)) { throw "A assinatura não confere com a chave pública embutida no programa." }
+          Write-Host "SHA-256 assinado: Assetly-Setup-$versao.sha256.sig"
+
       - name: Notas da versão
         shell: pwsh
         env:
@@ -206,7 +257,7 @@ jobs:
 
           ---
           Verificado antes da publicação: testes automatizados, autoteste do executável, instalação silenciosa, autoteste do programa instalado e desinstalação.
-          SHA-256 do instalador: ``Assetly-Setup-$versao.sha256``.
+          SHA-256 do instalador: ``Assetly-Setup-$versao.sha256`` (assinado: ``Assetly-Setup-$versao.sha256.sig``).
           "@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP\notas.md"
           Get-Content "$env:RUNNER_TEMP\notas.md"
 
@@ -217,6 +268,7 @@ jobs:
           gh release create $versao `
             "publicar\instalador\Assetly-Setup-$versao.exe" `
             "publicar\instalador\Assetly-Setup-$versao.sha256" `
+            "publicar\instalador\Assetly-Setup-$versao.sha256.sig" `
             --target "${{ github.sha }}" `
             --title "Assetly — ${{ steps.versao.outputs.exibicao }}" `
             --notes-file "$env:RUNNER_TEMP\notas.md" `

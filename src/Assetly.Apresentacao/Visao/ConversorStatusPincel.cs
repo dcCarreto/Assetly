@@ -11,7 +11,7 @@ namespace Assetly.Apresentacao.Visao;
 /// Usado tanto pelo badge da coluna de status quanto pelo tingimento da linha da tabela, para que
 /// as duas representações sempre venham do mesmo mapeamento semântico.
 /// </summary>
-internal sealed class StatusToBrushConverter : IValueConverter
+internal sealed class ConversorStatusPincel : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

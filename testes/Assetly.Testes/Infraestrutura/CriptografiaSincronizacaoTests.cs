@@ -232,6 +232,57 @@ public sealed class CriptografiaSincronizacaoTests : IDisposable
     }
 
     [Fact]
+    public void SincronizacaoAutomaticaSoRecebeAoAbrirEAvisaOQueFicouPendente()
+    {
+        var pasta = Path.Combine(_raiz, "nuvem");
+        Directory.CreateDirectory(pasta);
+        var casa = new Computador(Path.Combine(_raiz, "casa"));
+        var trabalho = new Computador(Path.Combine(_raiz, "trabalho"));
+        var automaticaTrabalho = trabalho.Automatica();
+        automaticaTrabalho.AoFechar(DateTimeOffset.Now).ShouldBeNull(); // desligada: nada a fazer
+
+        new ConfigurarSincronizacao(casa.ConfiguracaoSincronizacao).Ativar(pasta);
+        new ConfigurarSincronizacao(trabalho.ConfiguracaoSincronizacao).Ativar(pasta);
+        casa.Bens.Salvar(Bem.Criar(new NomeBem("Geladeira"), TipoBem.Eletrodomestico));
+        casa.Automatica().AoFechar(DateTimeOffset.Now)!.Aviso.ShouldBeNull();
+
+        // Fechando (ou durante o uso) o trabalho não recebe: fica um aviso.
+        var aoFechar = automaticaTrabalho.AoFechar(DateTimeOffset.Now)!;
+        aoFechar.DadosRecebidos.ShouldBeFalse();
+        aoFechar.Aviso.ShouldBe(SincronizacaoAutomatica.AvisoRecebimentoPendente);
+        trabalho.Bens.Listar().ShouldBeEmpty();
+
+        // Ao abrir, recebe.
+        var aoAbrir = automaticaTrabalho.AoAbrir(DateTimeOffset.Now, _ => EscolhaConflito.Cancelar)!;
+        aoAbrir.DadosRecebidos.ShouldBeTrue();
+        aoAbrir.Aviso.ShouldBeNull();
+        SqliteConnection.ClearAllPools();
+        trabalho.Bens.Listar().Single().Nome.Valor.ShouldBe("Geladeira");
+
+        // Os dois mudam: ao fechar não pergunta nada, só avisa.
+        casa.Bens.Salvar(Bem.Criar(new NomeBem("Sofá"), TipoBem.Movel));
+        casa.Automatica().AoFechar(DateTimeOffset.Now);
+        trabalho.Bens.Salvar(Bem.Criar(new NomeBem("Monitor"), TipoBem.Eletronico));
+        automaticaTrabalho.AoFechar(DateTimeOffset.Now)!.Aviso.ShouldBe(SincronizacaoAutomatica.AvisoConflito);
+    }
+
+    [Fact]
+    public void EnvioDuranteOUsoRespeitaOIntervaloERegistraFalhaSemLancar()
+    {
+        var pc = new Computador(Path.Combine(_raiz, "pc"));
+        var automatica = pc.Automatica();
+        var inicio = DateTimeOffset.Now;
+        new ConfigurarSincronizacao(pc.ConfiguracaoSincronizacao).Ativar(Path.Combine(_raiz, "pasta-que-nao-existe"));
+
+        automatica.DuranteUso(inicio).ShouldBeNull();
+        automatica.DuranteUso(inicio.AddMinutes(5)).ShouldBeNull();
+
+        var situacao = automatica.DuranteUso(inicio.AddMinutes(10))!;
+        situacao.Falha.ShouldNotBeNull().Message.ShouldContain("não está acessível");
+        automatica.DuranteUso(inicio.AddMinutes(11)).ShouldBeNull();
+    }
+
+    [Fact]
     public void RestauracoesGuardamCopiasDeSegurancaCifradasEMantemSoAsUltimas()
     {
         var pc = new Computador(Path.Combine(_raiz, "pc"));
@@ -361,7 +412,10 @@ public sealed class CriptografiaSincronizacaoTests : IDisposable
                 Banco.Inicializar, ArquivoBanco, DiretorioDocumentos, Path.Combine(_pasta, "seguranca"), ConfiguracaoSincronizacao, Protecao);
         }
 
-        internal ResultadoSincronizacao Sincronizar(EscolhaConflito escolha, bool permitirReceber = true)
+        internal ResultadoSincronizacao Sincronizar(EscolhaConflito escolha, bool permitirReceber = true) =>
+            CriarSincronizacao().Executar(_ => escolha, permitirReceber);
+
+        internal SincronizarDados CriarSincronizacao()
         {
             var fabrica = Banco.FabricaConexao;
             var fonte = new FonteDados(Bens, new RepositorioGarantiaSqlite(fabrica), new RepositorioManutencaoSqlite(fabrica), new RepositorioDocumentoSqlite(fabrica),
@@ -369,7 +423,9 @@ public sealed class CriptografiaSincronizacaoTests : IDisposable
                 new RepositorioAbastecimentoSqlite(fabrica), new RepositorioImovelSqlite(fabrica), new RepositorioDespesaSqlite(fabrica));
             var servico = new ServicoBackupLocal();
             return new SincronizarDados(ConfiguracaoSincronizacao, ConfiguracaoBackup, new ExportarDados(fonte), new SincronizacaoPastaLocal(servico),
-                Restaurar(), Protecao, ArquivoBanco, DiretorioDocumentos, Path.GetFileName(_pasta)).Executar(_ => escolha, permitirReceber);
+                Restaurar(), Protecao, ArquivoBanco, DiretorioDocumentos, Path.GetFileName(_pasta));
         }
+
+        internal SincronizacaoAutomatica Automatica() => new(CriarSincronizacao, ConfiguracaoSincronizacao, TimeSpan.FromMinutes(10));
     }
 }

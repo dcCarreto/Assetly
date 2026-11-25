@@ -32,6 +32,7 @@ internal sealed class GerenciadorAtualizacoes
     private readonly DispatcherTimer _temporizador;
     private bool _emAndamento;
     private bool _aplicacaoAgendada;
+    private bool _reabrirDepois;
 
     internal EstadoAtualizacao Estado { get; private set; }
     internal string VersaoAtual => _servico.VersaoAtual;
@@ -141,8 +142,10 @@ internal sealed class GerenciadorAtualizacoes
             throw new InvalidOperationException("nenhuma versão nova foi baixada ainda.");
         }
 
-        _servico.IniciarInstalacao(reabrirDepois: true);
-        Application.Current.Shutdown();
+        // Fecha a janela como o usuário faria (o envio da sincronização e um backup em andamento terminam antes);
+        // o instalador é iniciado ao sair, em AplicarAoFecharSePronta, e reabre o programa depois.
+        _reabrirDepois = true;
+        Application.Current.MainWindow?.Close();
     }
 
     /// <summary>Chamado ao fechar o programa: se há versão baixada, instala logo após o fechamento.</summary>
@@ -155,7 +158,7 @@ internal sealed class GerenciadorAtualizacoes
 
         try
         {
-            _servico.IniciarInstalacao(reabrirDepois: false);
+            _servico.IniciarInstalacao(_reabrirDepois);
             _aplicacaoAgendada = true;
         }
         catch (Exception excecao) when (excecao is not OutOfMemoryException)

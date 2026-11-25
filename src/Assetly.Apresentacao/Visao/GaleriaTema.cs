@@ -1,3 +1,4 @@
+#if DEBUG
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -7,11 +8,12 @@ namespace Assetly.Apresentacao.Visao;
 
 /// <summary>
 /// Janela de QA visual do tema — não faz parte do fluxo normal do app, só existe para
-/// conferir tokens, tipografia e componentes lado a lado. Aberta via "dotnet run -- --tema".
+/// conferir tokens, tipografia e componentes lado a lado. Aberta via "dotnet run -- --tema" (só em
+/// compilações Debug: fica fora do executável publicado).
 /// Reaproveita os mesmos construtores usados pela tela principal (ResumoOperacao, FaixaIndicadores)
 /// sempre que possível, para que a galeria reflita o componente real, não uma cópia divergente.
 /// </summary>
-internal static class ThemeGalleryWindow
+internal static class GaleriaTema
 {
     internal static void Mostrar()
     {
@@ -292,3 +294,4 @@ internal static class ThemeGalleryWindow
         return raiz;
     }
 }
+#endif

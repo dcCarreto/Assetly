@@ -1,52 +1,19 @@
 using Assetly.Aplicacao.Repositorio;
 using Assetly.Dominio.Bem;
 using Assetly.Infraestrutura.Banco;
-using Microsoft.Data.Sqlite;
 
 namespace Assetly.Infraestrutura.Repositorio;
 
 public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : IRepositorioBem
 {
-    private readonly FabricaConexaoSqlite _fabricaConexao = fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória");
+    private readonly ExecutorSqlite _executor = new(fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória"));
 
-    public Bem? BuscarPorId(BemId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM bens WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            using var resultado = comando.ExecuteReader();
-            return resultado.Read() ? MapeadorBem.Mapear(resultado) : null;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível buscar bem", excecao);
-        }
-    }
+    public Bem? BuscarPorId(BemId id) =>
+        _executor.Consultar("SELECT * FROM bens WHERE id = $id", MapeadorBem.Mapear, "Não foi possível buscar bem",
+            ("$id", id.Valor.ToString())).FirstOrDefault();
 
-    public IReadOnlyList<Bem> Listar()
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM bens ORDER BY nome";
-            using var resultado = comando.ExecuteReader();
-            var bens = new List<Bem>();
-            while (resultado.Read())
-            {
-                bens.Add(MapeadorBem.Mapear(resultado));
-            }
-
-            return bens;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível listar bens", excecao);
-        }
-    }
+    public IReadOnlyList<Bem> Listar() =>
+        _executor.Consultar("SELECT * FROM bens ORDER BY nome", MapeadorBem.Mapear, "Não foi possível listar bens");
 
     public void Salvar(Bem bem)
     {
@@ -63,42 +30,19 @@ public sealed class RepositorioBemSqlite(FabricaConexaoSqlite fabricaConexao) : 
                 observacoes = excluded.observacoes,
                 responsavel_id = excluded.responsavel_id
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            var preco = bem.PrecoCompra;
-            comando.Parameters.AddWithValue("$id", bem.Id.Valor.ToString());
-            comando.Parameters.AddWithValue("$nome", bem.Nome.Valor);
-            comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(bem.Tipo));
-            comando.Parameters.AddWithValue("$status", ConversorSqlite.EnumParaTexto(bem.Status));
-            comando.Parameters.AddWithValue("$compradoEm", (object?)ConversorSqlite.Texto(bem.CompradoEm) ?? DBNull.Value);
-            comando.Parameters.AddWithValue("$precoCompra", (object?)ConversorSqlite.Valor(preco) ?? DBNull.Value);
-            comando.Parameters.AddWithValue("$moeda", (object?)ConversorSqlite.Moeda(preco) ?? DBNull.Value);
-            comando.Parameters.AddWithValue("$observacoes", bem.Observacoes);
-            comando.Parameters.AddWithValue("$responsavelId", ConversorSqlite.Nulo(bem.ResponsavelId?.Valor.ToString()));
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar bem", excecao);
-        }
+        var preco = bem.PrecoCompra;
+        _executor.Executar(sql, "Não foi possível salvar bem",
+            ("$id", bem.Id.Valor.ToString()),
+            ("$nome", bem.Nome.Valor),
+            ("$tipo", ConversorSqlite.EnumParaTexto(bem.Tipo)),
+            ("$status", ConversorSqlite.EnumParaTexto(bem.Status)),
+            ("$compradoEm", ConversorSqlite.Nulo(ConversorSqlite.Texto(bem.CompradoEm))),
+            ("$precoCompra", ConversorSqlite.Nulo(ConversorSqlite.Valor(preco))),
+            ("$moeda", ConversorSqlite.Nulo(ConversorSqlite.Moeda(preco))),
+            ("$observacoes", bem.Observacoes),
+            ("$responsavelId", ConversorSqlite.Nulo(bem.ResponsavelId?.Valor.ToString())));
     }
 
-    public void Excluir(BemId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "DELETE FROM bens WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível excluir bem", excecao);
-        }
-    }
+    public void Excluir(BemId id) =>
+        _executor.Executar("DELETE FROM bens WHERE id = $id", "Não foi possível excluir bem", ("$id", id.Valor.ToString()));
 }

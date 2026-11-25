@@ -61,7 +61,7 @@ O foco do projeto é simples:
 - Valores em formato brasileiro (`1.234,56`) e totais separados por moeda.
 - Registro local de erros para diagnóstico, sem envio para lugar nenhum.
 - Ambiente de produção local e ambiente de teste isolado com dados fictícios e anexos reais.
-- Instalador para Windows (Inno Setup) com atualização automática verificada por SHA-256.
+- Instalador para Windows (Inno Setup) com atualização automática verificada por SHA-256 assinado (só instala o que foi publicado com a chave do projeto).
 
 ### Telas
 
@@ -81,7 +81,7 @@ As imagens mostram o ambiente de teste, com dados fictícios.
 2. Execute o arquivo. A instalação é por usuário (em `%LOCALAPPDATA%\Programs\Assetly`), não pede senha de administrador nem exige o .NET, e cria atalhos no menu Iniciar — inclusive um para o ambiente de teste — e, se você quiser, na área de trabalho.
 3. Na primeira vez, o Windows pode mostrar "O Windows protegeu o computador" (SmartScreen), porque o instalador ainda não tem assinatura digital paga. Clique em **Mais informações → Executar assim mesmo**.
 
-**Atualizações automáticas:** o Assetly instalado procura versão nova ao abrir e a cada 6 horas, baixa o instalador em segundo plano, confere o SHA-256 publicado (um download alterado é descartado) e mostra o botão **Atualizar para 23/11/2026** (a data da versão) na barra de título. Clique para fechar, atualizar e reabrir em poucos segundos — ou simplesmente continue usando: a versão nova é instalada quando você fechar o programa. Em `Configurações > Versão e atualizações` você vê a versão instalada, pode procurar manualmente e desligar a atualização automática.
+**Atualizações automáticas:** o Assetly instalado procura versão nova ao abrir e a cada 6 horas, baixa o instalador em segundo plano, confere o SHA-256 publicado e a assinatura dele com a chave do projeto embutida no programa (um download alterado, ou uma versão publicada sem essa chave, é descartado) e mostra o botão **Atualizar para 23/11/2026** (a data da versão) na barra de título. Clique para fechar, atualizar e reabrir em poucos segundos — ou simplesmente continue usando: a versão nova é instalada quando você fechar o programa. Em `Configurações > Versão e atualizações` você vê a versão instalada, pode procurar manualmente e desligar a atualização automática.
 
 **Seus dados ficam a salvo:** eles moram em `~/.assetly`, fora da pasta do programa. Atualizar ou desinstalar (Configurações do Windows > Aplicativos > Assetly) nunca apaga os dados. Antes de uma versão nova mudar a estrutura do banco, uma cópia automática é guardada em `~/.assetly/seguranca/`; e uma versão antiga do programa se recusa a abrir dados gravados por uma mais nova, em vez de corrompê-los.
 
@@ -235,7 +235,7 @@ Ao abrir o aplicativo, a primeira tela é o painel. Ele mostra:
 
 Os números consideram apenas bens em uso (ativos ou em manutenção): uma garantia vencida de um item descartado não é pendência.
 
-Clique em uma linha de alerta ou de prioridade para ir direto ao módulo onde ela é resolvida. Os dados se atualizam sozinhos (a cada 5 segundos, por padrão) e logo depois de qualquer alteração; o botão `Reprocessar alertas` força uma verificação imediata.
+Clique em uma linha de alerta ou de prioridade para ir direto ao módulo onde ela é resolvida. Os dados se atualizam na hora depois de qualquer alteração, e a tela aberta é redesenhada sozinha a cada 30 segundos (por padrão; ajuste em `Configurações`); os alertas são refeitos também na virada do dia. O botão `Reprocessar alertas` força uma verificação imediata.
 
 ### 2. Registrar um Bem
 
@@ -386,7 +386,10 @@ Entre em `Backup`.
 
 1. Clique em `Escolher pasta…` e selecione onde guardar as cópias — de preferência um pendrive, HD externo ou uma pasta sincronizada com a nuvem. O Assetly não aceita uma pasta dentro da sua própria pasta de dados.
 2. Clique em `Fazer backup agora`. Uma pasta `Assetly-Backup-AAAA-MM-DD_HHMMSS` é criada com o banco e os documentos — ou, com senha ativada, um único arquivo `Assetly-Backup-….assetly` criptografado.
-3. Opcional: ative o backup automático (diário, semanal ou mensal). Ele roda enquanto o Assetly estiver aberto; se falhar (pendrive desconectado, por exemplo), o motivo aparece no card e uma nova tentativa é feita no ciclo seguinte.
+3. Opcional: ative o backup automático (diário, semanal ou mensal). Ele roda enquanto o Assetly estiver aberto, em segundo plano (a janela continua respondendo); se falhar (pendrive desconectado, por exemplo), o motivo aparece no card e uma nova tentativa é feita no ciclo seguinte. Se você fechar o programa no meio de um backup, ele termina antes de fechar.
+4. Em `Manter no destino`, escolha quantos backups guardar (5, 10, 20, 30 ou todos). Depois de cada backup bem-sucedido, os mais antigos são apagados do destino — assim o pendrive não enche e o backup automático não para de funcionar. Instalações novas começam com 10; quem já usava o Assetly continua com "todos" até mudar.
+
+Backup, restauração e sincronização rodam fora da tela: enquanto você espera, um painel mostra o que está sendo feito e a janela continua respondendo.
 
 **Proteção por senha (recomendada para pendrive ou nuvem):** em `Proteção por senha`, clique em `Proteger com senha…`. A partir daí todo backup (manual, automático, `Salvar cópia em arquivo…` e a sincronização) é gravado num arquivo `.assetly` criptografado com AES-256 (chave derivada da senha com PBKDF2, 600 mil iterações). A senha fica guardada neste computador protegida pelo Windows (só a sua conta consegue lê-la) para os backups automáticos funcionarem. **Sem a senha não há como restaurar** — guarde-a num lugar seguro.
 
@@ -596,11 +599,15 @@ Antes de publicar, o workflow verifica tudo e **cancela a release se algo falhar
 2. compilação autocontida (`-p:PublishProfile=win-x64 -p:Version=<data>`);
 3. **autoteste** do executável publicado — `Assetly.exe --autoteste` abre o programa de verdade, sem janela, numa pasta temporária: banco novo e migrações, dados fictícios, desenho em memória de todas as telas, abas e formulários principais, exportação JSON, cálculo do patrimônio e backup criptografado (gerar, recusar senha errada, restaurar e comparar). As telas desenhadas ficam como artefato da execução;
 4. instalador Inno Setup ([`instalador/Assetly.iss`](instalador/Assetly.iss)); **instalação silenciosa, autoteste do programa instalado e desinstalação**;
-5. SHA-256 do instalador (`Assetly-Setup-<data>.sha256`), conferido pelo atualizador automático antes de instalar.
+5. SHA-256 do instalador (`Assetly-Setup-<data>.sha256`) e a assinatura dele (`.sha256.sig`, ECDSA P-256), conferidos pelo atualizador automático antes de instalar.
 
 Depois disso, a Release é publicada com o instalador, o `.sha256` e as notas (o texto informado ou a lista de commits desde a versão anterior). Todos os Assetly instalados encontram a versão nova sozinhos.
 
-**Como funciona a atualização:** o programa consulta a API pública de Releases do GitHub, compara a data da versão, baixa o `Assetly-Setup-<data>.exe`, confere o SHA-256 e executa o instalador em modo silencioso (`/VERYSILENT … /REABRIR`) logo antes de fechar. O instalador espera o Assetly fechar (até 30 s), substitui o executável e o reabre. A instalação é por usuário (sem administrador), então nada pede confirmação.
+**Como funciona a atualização:** o programa consulta a API pública de Releases do GitHub, compara a data da versão, baixa o `.sha256` e a assinatura dele, confere a assinatura com a chave pública embutida no programa, baixa o `Assetly-Setup-<data>.exe`, confere o SHA-256 e executa o instalador em modo silencioso (`/VERYSILENT … /REABRIR`) logo depois de fechar (o envio da sincronização e um backup em andamento terminam antes).
+
+**Chave de atualização (obrigatória para publicar):** o *secret* `CHAVE_ATUALIZACAO_PEM` guarda a chave privada ECDSA P-256 (PEM, PKCS#8) cujo par público está em `ServicoAtualizacaoGithub.ChavePublica`. O workflow assina o `.sha256` com ela e confere a assinatura com a chave pública do código antes de publicar; sem o *secret*, ou com uma chave que não é o par, a release é cancelada logo no começo. Assim, quem obtiver acesso à conta do GitHub mas não à chave não consegue fazer os Assetly instalados executarem outro instalador. Guarde uma cópia da chave privada fora do computador: sem ela, versões novas não chegam pela atualização automática (só por download manual). Trocar a chave exige publicar antes uma versão com a nova chave pública.
+
+**Aprovação manual (recomendada):** o job de release usa o ambiente `release`. Em *Settings → Environments → release*, ative *Required reviewers*: nenhuma release sai sem a sua aprovação. O instalador espera o Assetly fechar (até 30 s), substitui o executável e o reabre. A instalação é por usuário (sem administrador), então nada pede confirmação.
 
 Para testar o instalador localmente, sem publicar nada (precisa do [Inno Setup 6](https://jrsoftware.org/isinfo.php)):
 

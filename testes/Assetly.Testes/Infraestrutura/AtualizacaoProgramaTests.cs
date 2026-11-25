@@ -49,6 +49,27 @@ public sealed class AtualizacaoProgramaTests : IDisposable
     }
 
     [Fact]
+    public void QuemJaUsavaOProgramaContinuaMantendoTodosOsBackups()
+    {
+        // Banco de antes da retenção (V010), com destino de backup já configurado.
+        var fabrica = new FabricaConexaoSqlite(ArquivoBanco);
+        new MigradorBancoDados(fabrica).Migrar(9);
+        using (var conexao = fabrica.Abrir())
+        using (var comando = conexao.CreateCommand())
+        {
+            comando.CommandText = "INSERT INTO configuracao_backup (id, caminho_destino, auto_backup_habilitado, frequencia) VALUES (1, 'E:\\Backups', 1, 'DIARIA')";
+            comando.ExecuteNonQuery();
+        }
+
+        var banco = new BancoDadosAssetly(fabrica, DiretorioSeguranca);
+        banco.Inicializar();
+
+        var configuracao = new RepositorioConfiguracaoBackupSqlite(banco.FabricaConexao).Obter();
+        configuracao.CaminhoDestino.ShouldBe(@"E:\Backups");
+        configuracao.ManterUltimos.ShouldBe(0);
+    }
+
+    [Fact]
     public void DeveRecusarBancoGravadoPorVersaoMaisNovaSemAlterarNada()
     {
         var banco = new BancoDadosAssetly(new FabricaConexaoSqlite(ArquivoBanco), DiretorioSeguranca);

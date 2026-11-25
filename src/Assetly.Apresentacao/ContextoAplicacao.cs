@@ -61,6 +61,9 @@ public sealed class ContextoAplicacao
 
     public IRepositorioConfiguracaoSincronizacao RepositorioConfiguracaoSincronizacao { get; }
 
+    /// <summary>Uma por programa aberto (guarda quando foi o último envio automático), compartilhada pelas telas.</summary>
+    public SincronizacaoAutomatica SincronizacaoAutomatica { get; }
+
     private ContextoAplicacao(
         BancoDadosAssetly bancoDados,
         string diretorioDocumentos,
@@ -86,6 +89,7 @@ public sealed class ContextoAplicacao
         RepositorioConfiguracaoBackup = new RepositorioConfiguracaoBackupSqlite(fabricaConexao);
         RepositorioConfiguracaoPreferencias = new RepositorioConfiguracaoPreferenciasSqlite(fabricaConexao);
         RepositorioConfiguracaoSincronizacao = new RepositorioConfiguracaoSincronizacaoSqlite(fabricaConexao);
+        SincronizacaoAutomatica = new SincronizacaoAutomatica(SincronizarDados, RepositorioConfiguracaoSincronizacao);
         RotuloAmbiente = rotuloAmbiente ?? throw new ArgumentNullException(nameof(rotuloAmbiente), "rótulo do ambiente é obrigatório");
         AmbienteTeste = ambienteTeste;
         ArquivoBanco = fabricaConexao.ArquivoBanco;
@@ -263,6 +267,8 @@ public sealed class ContextoAplicacao
     public HabilitarAutoBackup HabilitarAutoBackup() => new(RepositorioConfiguracaoBackup);
 
     public DesabilitarAutoBackup DesabilitarAutoBackup() => new(RepositorioConfiguracaoBackup);
+
+    public DefinirRetencaoBackup DefinirRetencaoBackup() => new(RepositorioConfiguracaoBackup);
 
     public ExecutarBackupAgora ExecutarBackupAgora() => new(RepositorioConfiguracaoBackup, _servicoBackup, ArquivoBanco, DiretorioDocumentos, _protecaoSenha);
 

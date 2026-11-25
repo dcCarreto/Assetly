@@ -23,6 +23,9 @@ namespace Assetly.Aplicacao.CasoDeUso;
 public sealed class GerarAlertasAutomaticos
 {
     private const int DiasManutencaoProxima = 7;
+
+    /// <summary>Por quantos dias um alerta automático resolvido (e sem situação atual) fica no histórico.</summary>
+    public const int DiasRetencaoResolvidos = 90;
     private const int TamanhoDescricaoAlerta = 120;
     private const string FormatoData = "dd/MM/yyyy";
 
@@ -272,6 +275,26 @@ public sealed class GerarAlertasAutomaticos
             {
                 _repositorioAlerta.SalvarTodos(_aGravar);
             }
+
+            var obsoletos = Obsoletos().Select(a => a.Id).ToList();
+            if (obsoletos.Count > 0)
+            {
+                _repositorioAlerta.ExcluirTodos(obsoletos);
+            }
+        }
+
+        /// <summary>Alertas automáticos já resolvidos antes desta rodada, cuja situação não existe mais e cujo prazo
+        /// (ou criação) passou há mais de <see cref="DiasRetencaoResolvidos"/> dias: sem isso a tabela só cresce
+        /// (cada conta mensal deixa dois alertas por mês). Os que ainda correspondem a uma situação atual ficam —
+        /// são eles que impedem um alerta já resolvido pelo usuário de voltar. Alertas manuais nunca são apagados.</summary>
+        private IEnumerable<Alerta> Obsoletos()
+        {
+            var limite = _dataReferencia.AddDays(-DiasRetencaoResolvidos);
+            return _existentes.Where(a => a.Automatico
+                && a.Status == StatusAlerta.Resolvido
+                && !_aGravar.Contains(a)
+                && !_chavesExigidas.Contains(Chave(a))
+                && (a.PrazoEm ?? a.CriadoEm) < limite);
         }
 
         private static (BemId, TipoAlerta, string, Guid?) Chave(Alerta alerta) => (alerta.BemId, alerta.Tipo, alerta.Mensagem, alerta.OrigemId);

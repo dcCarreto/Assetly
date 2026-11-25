@@ -29,6 +29,7 @@ public sealed class VerificarEExecutarBackupAutomatico(
         _servicoBackup.ExecutarBackup(_arquivoBanco, _diretorioDocumentos, configuracao.CaminhoDestino!, SenhaBackup.Obter(configuracao, _protecaoSenha));
         configuracao.RegistrarBackupConcluido(agora);
         _repositorioConfiguracaoBackup.Salvar(configuracao);
+        ExecutarBackupAgora.AplicarRetencao(_servicoBackup, configuracao);
         return true;
     }
 }

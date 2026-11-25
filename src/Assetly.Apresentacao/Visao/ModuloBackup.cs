@@ -18,8 +18,17 @@ internal sealed class ModuloBackup : IModulo
     private readonly Action _atualizarTela;
     private string? _falhaAutomatica;
     private string? _falhaSincronizacao;
-    private DateTime _ultimoEnvioAutomatico = DateTime.Now;
-    private static readonly TimeSpan IntervaloEnvioAutomatico = TimeSpan.FromMinutes(10);
+    private string? _avisoSincronizacao;
+
+    /// <summary>Opções de quantos backups manter no destino (0 = todos).</summary>
+    private static readonly IReadOnlyList<ItemValor<int>> OpcoesRetencao =
+    [
+        new(5, "os últimos 5"),
+        new(10, "os últimos 10"),
+        new(20, "os últimos 20"),
+        new(30, "os últimos 30"),
+        new(0, "todos (nunca apagar)")
+    ];
 
     public string Titulo => "Backup";
     public string Descricao => "Cópia local dos seus dados";
@@ -53,7 +62,15 @@ internal sealed class ModuloBackup : IModulo
         linhaDestino.Children.Add(abrirPasta);
         linhaDestino.Children.Add(escolherPasta);
         var dicaDestino = Nota("Prefira um pendrive, HD externo ou uma pasta sincronizada com a nuvem: um backup no mesmo disco não protege contra falha do disco.");
-        var cardDestino = CardConfiguracao("Destino do backup", UiApoio.Coluna(10, linhaDestino, dicaDestino));
+        var retencaoCombo = ApoioFichas.ComboItens(OpcoesRetencao);
+        retencaoCombo.Width = 200;
+        retencaoCombo.HorizontalAlignment = HorizontalAlignment.Left;
+        var rotuloRetencao = UiApoio.Texto("Manter no destino:", 12.5, FontWeights.Normal, (Brush)recursos["TextBody"]);
+        rotuloRetencao.VerticalAlignment = VerticalAlignment.Center;
+        var notaRetencao = Nota("Depois de cada backup, os mais antigos são apagados do destino — assim o pendrive ou o disco não enche e o backup automático não para de funcionar.");
+        notaRetencao.TextWrapping = TextWrapping.Wrap;
+        var cardDestino = CardConfiguracao("Destino do backup",
+            UiApoio.Coluna(10, linhaDestino, dicaDestino, UiApoio.Linha(10, rotuloRetencao, retencaoCombo), notaRetencao));
 
         var frequenciaCombo = Combo(FrequenciaBackup.Diaria);
         frequenciaCombo.Width = 160;
@@ -120,6 +137,13 @@ internal sealed class ModuloBackup : IModulo
         Conteudo = raiz;
 
         var sincronizandoCombo = false;
+        retencaoCombo.SelectionChanged += (_, _) =>
+        {
+            if (!sincronizandoCombo && retencaoCombo.SelectedItem is ItemValor<int> item)
+            {
+                ExecutarComTratamento(() => _contexto.DefinirRetencaoBackup().Executar(item.Valor));
+            }
+        };
         frequenciaCombo.SelectionChanged += (_, _) =>
         {
             if (sincronizandoCombo)
@@ -155,6 +179,8 @@ internal sealed class ModuloBackup : IModulo
             sincronizandoCombo = true;
             var itens = (IEnumerable<ItemEnum<FrequenciaBackup>>)frequenciaCombo.ItemsSource;
             frequenciaCombo.SelectedItem = itens.First(item => item.Valor == configuracao.Frequencia);
+            retencaoCombo.SelectedItem = OpcoesRetencao.FirstOrDefault(item => item.Valor == configuracao.ManterUltimos)
+                ?? OpcoesRetencao.First(item => item.Valor == 0);
             sincronizandoCombo = false;
 
             statusAuto.Foreground = (Brush)recursos[_falhaAutomatica is null ? "TextMuted" : "StatusPerigoText"];
@@ -175,9 +201,13 @@ internal sealed class ModuloBackup : IModulo
             var sincronizacao = _contexto.ConfigurarSincronizacao().Obter();
             sincronizarAgora.IsEnabled = sincronizacao.Ativa;
             desligarSync.IsEnabled = sincronizacao.Ativa;
-            statusSync.Foreground = (Brush)recursos[_falhaSincronizacao is not null ? "StatusPerigoText" : sincronizacao.Ativa ? "StatusOkText" : "TextMuted"];
+            statusSync.Foreground = (Brush)recursos[_falhaSincronizacao is not null ? "StatusPerigoText"
+                : _avisoSincronizacao is not null && sincronizacao.Ativa ? "StatusAvisoText"
+                : sincronizacao.Ativa ? "StatusOkText" : "TextMuted"];
             statusSync.Text = _falhaSincronizacao is not null
                 ? $"Última sincronização falhou: {_falhaSincronizacao}"
+                : _avisoSincronizacao is not null && sincronizacao.Ativa
+                    ? $"Atenção: {_avisoSincronizacao}"
                 : !sincronizacao.Ativa
                     ? "Desligada."
                     : $"Ligada — pasta {sincronizacao.Pasta}. " + (sincronizacao.UltimaSincronizacaoEm is { } quando
@@ -187,92 +217,164 @@ internal sealed class ModuloBackup : IModulo
         _atualizarTela();
     }
 
-    /// <summary>Falha de backup automático (destino indisponível, sem permissão etc.) não interrompe o
-    /// usuário com um diálogo a cada ciclo: fica registrada no card (e no log) e o backup é tentado de
-    /// novo no próximo ciclo, sem ser marcado como concluído.</summary>
-    public void Atualizar()
+    /// <summary>Só redesenha o card: o backup automático e o envio da sincronização ficam em
+    /// <see cref="ExecutarTarefasPeriodicas"/>, chamado pelo ciclo da tela principal.</summary>
+    public void Atualizar() => _atualizarTela();
+
+    /// <summary>Backup automático (quando devido) e envio da sincronização (a cada 10 minutos), fora da thread da
+    /// interface e sem bloquear nada. Falhas não interrompem o usuário com um diálogo a cada ciclo: ficam registradas
+    /// no card (e no log) e são tentadas de novo no ciclo seguinte.</summary>
+    internal void ExecutarTarefasPeriodicas()
     {
-        try
+        var agora = DateTimeOffset.Now;
+        var sincronizacao = _contexto.SincronizacaoAutomatica;
+        OperacaoEmSegundoPlano.Silenciosa(() =>
         {
-            _contexto.VerificarEExecutarBackupAutomatico().Executar(DateTimeOffset.Now);
-            _falhaAutomatica = null;
-        }
-        catch (Exception excecao) when (excecao is not OutOfMemoryException)
-        {
-            if (_falhaAutomatica is null)
+            Exception? falhaBackup = null;
+            try
             {
-                RegistroErros.Registrar("Falha no backup automático", excecao);
+                _contexto.VerificarEExecutarBackupAutomatico().Executar(agora);
+            }
+            catch (Exception excecao) when (excecao is not OutOfMemoryException)
+            {
+                falhaBackup = excecao;
             }
 
-            _falhaAutomatica = MensagemErro(excecao);
-        }
-
-        // Durante o uso, só envia (nunca substitui os dados sem o usuário pedir): a cada 10 minutos, se algo mudou.
-        if (DateTime.Now - _ultimoEnvioAutomatico >= IntervaloEnvioAutomatico)
+            return (FalhaBackup: falhaBackup, Sincronizacao: sincronizacao.DuranteUso(agora));
+        }, resultado =>
         {
-            _ultimoEnvioAutomatico = DateTime.Now;
-            SincronizarAutomaticamente(somenteEnviar: true);
-        }
+            if (resultado.FalhaBackup is null)
+            {
+                _falhaAutomatica = null;
+            }
+            else
+            {
+                if (_falhaAutomatica is null)
+                {
+                    RegistroErros.Registrar("Falha no backup automático", resultado.FalhaBackup);
+                }
 
-        _atualizarTela();
+                _falhaAutomatica = MensagemErro(resultado.FalhaBackup);
+            }
+
+            AplicarSincronizacao(resultado.Sincronizacao);
+            _atualizarTela();
+        });
     }
 
-    /// <summary>Sincronização automática (ao abrir: envia ou recebe; durante o uso e ao fechar: só envia).
-    /// Falhas não interrompem o usuário — ficam registradas no card. Conflito ao abrir pergunta ao usuário;
-    /// nos demais momentos, fica para a próxima sincronização manual ou abertura.</summary>
-    internal void SincronizarAutomaticamente(bool somenteEnviar)
+    /// <summary>Ao abrir o programa: envia ou recebe (com o painel de espera — receber substitui os dados) e, se os
+    /// dois lados mudaram, pergunta ao usuário.</summary>
+    internal void SincronizarAoAbrir()
     {
-        if (!_contexto.ConfigurarSincronizacao().Obter().Ativa)
+        var sincronizacao = _contexto.SincronizacaoAutomatica;
+        if (!sincronizacao.Ativa)
         {
             return;
         }
 
-        try
-        {
-            var resultado = _contexto.SincronizarDados().Executar(
-                remoto => somenteEnviar ? EscolhaConflito.Cancelar : PerguntarConflito(remoto), permitirReceber: !somenteEnviar);
-            _falhaSincronizacao = resultado.Acao == AcaoSincronizacao.Conflito && !resultado.Executada && somenteEnviar
-                ? "os dados mudaram aqui e no outro computador. Clique em \"Sincronizar agora\" para escolher qual versão manter."
-                : null;
-            if (resultado.Acao == AcaoSincronizacao.Receber && resultado.Executada)
+        var agora = DateTimeOffset.Now;
+        OperacaoEmSegundoPlano.ComEspera("Sincronizando com a pasta da nuvem…",
+            () => sincronizacao.AoAbrir(agora, NaInterface<Aplicacao.Servico.MetadadosSincronizacao, EscolhaConflito>(PerguntarConflito)),
+            situacao =>
             {
-                _contexto.NotificarAlteracao();
-            }
+                AplicarSincronizacao(situacao);
+                _atualizarTela();
+            });
+    }
+
+    /// <summary>Ao fechar: espera a operação em andamento (um backup automático, por exemplo) terminar, envia as
+    /// alterações para a pasta sincronizada e só então chama <paramref name="fechar"/> — que é sempre chamado,
+    /// mesmo se a sincronização falhar.</summary>
+    internal void FinalizarAntesDeFechar(Action fechar)
+    {
+        var sincronizacao = _contexto.SincronizacaoAutomatica;
+        if (!sincronizacao.Ativa && !OperacaoEmSegundoPlano.EmAndamento)
+        {
+            fechar();
+            return;
         }
-        catch (Exception excecao) when (excecao is not OutOfMemoryException)
+
+        OperacaoEmSegundoPlano.ComEspera(sincronizacao.Ativa ? "Enviando suas alterações para a pasta sincronizada…" : "Concluindo o backup em andamento…",
+            () =>
+            {
+                try
+                {
+                    return sincronizacao.AoFechar(DateTimeOffset.Now);
+                }
+                catch (Exception excecao) when (excecao is not OutOfMemoryException)
+                {
+                    return new SituacaoSincronizacao(false, null, excecao);
+                }
+            },
+            situacao =>
+            {
+                if (situacao?.Falha is { } falha)
+                {
+                    RegistroErros.Registrar("Falha na sincronização ao fechar", falha);
+                }
+
+                fechar();
+            });
+    }
+
+    private void AplicarSincronizacao(SituacaoSincronizacao? situacao)
+    {
+        if (situacao is null)
+        {
+            return;
+        }
+
+        if (situacao.Falha is not null)
         {
             if (_falhaSincronizacao is null)
             {
-                RegistroErros.Registrar("Falha na sincronização automática", excecao);
+                RegistroErros.Registrar("Falha na sincronização automática", situacao.Falha);
             }
 
-            _falhaSincronizacao = MensagemErro(excecao);
+            _falhaSincronizacao = MensagemErro(situacao.Falha);
+            return;
         }
 
-        _atualizarTela?.Invoke();
+        _falhaSincronizacao = null;
+        _avisoSincronizacao = situacao.Aviso;
+        if (situacao.DadosRecebidos)
+        {
+            _contexto.NotificarAlteracao();
+        }
     }
 
     private void Sincronizar(bool manual)
     {
-        _falhaSincronizacao = null;
-        var resultado = _contexto.SincronizarDados().Executar(PerguntarConflito);
-        if (resultado.Acao == AcaoSincronizacao.Receber && resultado.Executada)
-        {
-            _contexto.NotificarAlteracao();
-        }
-
-        _atualizarTela();
-        if (manual)
-        {
-            MostrarInformacao("Sincronização", resultado.Acao switch
+        OperacaoEmSegundoPlano.ComEspera("Sincronizando com a pasta da nuvem…",
+            () => _contexto.SincronizarDados().Executar(NaInterface<Aplicacao.Servico.MetadadosSincronizacao, EscolhaConflito>(PerguntarConflito)),
+            resultado =>
             {
-                AcaoSincronizacao.Enviar => "Suas alterações foram enviadas para a pasta sincronizada.",
-                AcaoSincronizacao.Receber => $"Os dados de \"{resultado.Remoto?.Dispositivo}\" foram trazidos para este computador (o estado anterior foi guardado na pasta de segurança).",
-                AcaoSincronizacao.Conflito => "Sincronização cancelada: nada foi alterado.",
-                _ => "Tudo em dia: os dados deste computador e da pasta sincronizada são iguais."
+                _falhaSincronizacao = null;
+                _avisoSincronizacao = resultado.Acao == AcaoSincronizacao.Conflito && !resultado.Executada
+                    ? SincronizacaoAutomatica.AvisoConflito
+                    : null;
+                if (resultado.Acao == AcaoSincronizacao.Receber && resultado.Executada)
+                {
+                    _contexto.NotificarAlteracao();
+                }
+
+                _atualizarTela();
+                if (manual)
+                {
+                    MostrarInformacao("Sincronização", resultado.Acao switch
+                    {
+                        AcaoSincronizacao.Enviar => "Suas alterações foram enviadas para a pasta sincronizada.",
+                        AcaoSincronizacao.Receber => $"Os dados de \"{resultado.Remoto?.Dispositivo}\" foram trazidos para este computador (o estado anterior foi guardado na pasta de segurança).",
+                        AcaoSincronizacao.Conflito => "Sincronização cancelada: nada foi alterado.",
+                        _ => "Tudo em dia: os dados deste computador e da pasta sincronizada são iguais."
+                    });
+                }
             });
-        }
     }
+
+    /// <summary>Pergunta feita de dentro de uma operação em segundo plano: o diálogo precisa abrir na thread da interface.</summary>
+    private static Func<TEntrada, TSaida> NaInterface<TEntrada, TSaida>(Func<TEntrada, TSaida> pergunta) =>
+        entrada => Application.Current.Dispatcher.Invoke(() => pergunta(entrada));
 
     private static EscolhaConflito PerguntarConflito(Aplicacao.Servico.MetadadosSincronizacao remoto)
     {
@@ -310,6 +412,7 @@ internal sealed class ModuloBackup : IModulo
     {
         _contexto.ConfigurarSincronizacao().Desativar();
         _falhaSincronizacao = null;
+        _avisoSincronizacao = null;
         _atualizarTela();
     }
 
@@ -364,8 +467,14 @@ internal sealed class ModuloBackup : IModulo
             return;
         }
 
-        _contexto.GerarArquivoBackup(dialogo.FileName);
-        MostrarInformacao("Cópia salva", $"Banco de dados e documentos salvos em um único arquivo{(protegido ? ", criptografado com a senha dos backups" : " (sem senha)")}:\n\n{dialogo.FileName}");
+        var destino = dialogo.FileName;
+        OperacaoEmSegundoPlano.ComEspera("Salvando a cópia…",
+            () =>
+            {
+                _contexto.GerarArquivoBackup(destino);
+                return destino;
+            },
+            salvo => MostrarInformacao("Cópia salva", $"Banco de dados e documentos salvos em um único arquivo{(protegido ? ", criptografado com a senha dos backups" : " (sem senha)")}:\n\n{salvo}"));
     }
 
     private void RestaurarDeArquivo()
@@ -399,16 +508,18 @@ internal sealed class ModuloBackup : IModulo
             return;
         }
 
-        var resultado = _contexto.RestaurarBackup().Executar(origem, senha);
-        _contexto.NotificarAlteracao();
+        OperacaoEmSegundoPlano.ComEspera("Restaurando o backup…", () => _contexto.RestaurarBackup().Executar(origem, senha), resultado =>
+        {
+            _contexto.NotificarAlteracao();
 
-        var avisoDocumentos = resultado.DocumentosSemArquivo == 0
-            ? string.Empty
-            : $"\n\nAtenção: {resultado.DocumentosSemArquivo} documento(s) do backup não têm o arquivo correspondente — aparecem na lista, mas não abrem.";
-        MostrarInformacao("Backup restaurado",
-            $"Dados restaurados com sucesso.\n\nO estado anterior foi guardado em:\n{resultado.CaminhoCopiaSeguranca}" +
-            (resultado.DocumentosRelocalizados > 0 ? $"\n\n{resultado.DocumentosRelocalizados} documento(s) tiveram o caminho ajustado para a pasta atual." : string.Empty) +
-            avisoDocumentos);
+            var avisoDocumentos = resultado.DocumentosSemArquivo == 0
+                ? string.Empty
+                : $"\n\nAtenção: {resultado.DocumentosSemArquivo} documento(s) do backup não têm o arquivo correspondente — aparecem na lista, mas não abrem.";
+            MostrarInformacao("Backup restaurado",
+                $"Dados restaurados com sucesso.\n\nO estado anterior foi guardado em:\n{resultado.CaminhoCopiaSeguranca}" +
+                (resultado.DocumentosRelocalizados > 0 ? $"\n\n{resultado.DocumentosRelocalizados} documento(s) tiveram o caminho ajustado para a pasta atual." : string.Empty) +
+                avisoDocumentos);
+        });
     }
 
     private static TextBlock Nota(string texto) =>
@@ -416,10 +527,12 @@ internal sealed class ModuloBackup : IModulo
 
     private void FazerBackupAgora()
     {
-        var caminho = _contexto.ExecutarBackupAgora().Executar();
-        _falhaAutomatica = null;
-        _atualizarTela();
-        MostrarInformacao("Backup concluído", $"Banco de dados e documentos copiados para:\n\n{caminho}");
+        OperacaoEmSegundoPlano.ComEspera("Fazendo o backup…", () => _contexto.ExecutarBackupAgora().Executar(), caminho =>
+        {
+            _falhaAutomatica = null;
+            _atualizarTela();
+            MostrarInformacao("Backup concluído", $"Banco de dados e documentos copiados para:\n\n{caminho}");
+        });
     }
 
     private void AlternarAutoBackup(ComboBox frequenciaCombo)

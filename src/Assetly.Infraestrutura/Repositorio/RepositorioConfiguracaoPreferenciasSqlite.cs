@@ -1,29 +1,16 @@
 using Assetly.Aplicacao.Repositorio;
 using Assetly.Dominio.Preferencias;
 using Assetly.Infraestrutura.Banco;
-using Microsoft.Data.Sqlite;
 
 namespace Assetly.Infraestrutura.Repositorio;
 
 public sealed class RepositorioConfiguracaoPreferenciasSqlite(FabricaConexaoSqlite fabricaConexao) : IRepositorioConfiguracaoPreferencias
 {
-    private readonly FabricaConexaoSqlite _fabricaConexao = fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória");
+    private readonly ExecutorSqlite _executor = new(fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória"));
 
-    public ConfiguracaoPreferencias Obter()
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM configuracao_preferencias WHERE id = 1";
-            using var resultado = comando.ExecuteReader();
-            return resultado.Read() ? MapeadorConfiguracaoPreferencias.Mapear(resultado) : ConfiguracaoPreferencias.Padrao();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível obter as preferências", excecao);
-        }
-    }
+    public ConfiguracaoPreferencias Obter() =>
+        _executor.Consultar("SELECT * FROM configuracao_preferencias WHERE id = 1", MapeadorConfiguracaoPreferencias.Mapear,
+            "Não foi possível obter as preferências").FirstOrDefault() ?? ConfiguracaoPreferencias.Padrao();
 
     public void Salvar(ConfiguracaoPreferencias configuracao)
     {
@@ -40,24 +27,14 @@ public sealed class RepositorioConfiguracaoPreferenciasSqlite(FabricaConexaoSqli
                 modulo_inicial = excluded.modulo_inicial,
                 atualizar_automaticamente = excluded.atualizar_automaticamente
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            comando.Parameters.AddWithValue("$tema", ConversorSqlite.EnumParaTexto(configuracao.Tema));
-            comando.Parameters.AddWithValue("$corDestaque", ConversorSqlite.EnumParaTexto(configuracao.CorDestaque));
-            comando.Parameters.AddWithValue("$densidadeTabela", ConversorSqlite.EnumParaTexto(configuracao.DensidadeTabela));
-            comando.Parameters.AddWithValue("$intervaloAtualizacao", ConversorSqlite.EnumParaTexto(configuracao.IntervaloAtualizacao));
-            comando.Parameters.AddWithValue("$ordemModulos", ConversorSqlite.ListaParaTexto(configuracao.OrdemModulos));
-            comando.Parameters.AddWithValue("$modulosOcultos", ConversorSqlite.ListaParaTexto(configuracao.ModulosOcultos));
-            comando.Parameters.AddWithValue("$moduloInicial", (object?)configuracao.ModuloInicial ?? DBNull.Value);
-            comando.Parameters.AddWithValue("$atualizarAutomaticamente", configuracao.AtualizarAutomaticamente ? 1 : 0);
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar as preferências", excecao);
-        }
+        _executor.Executar(sql, "Não foi possível salvar as preferências",
+            ("$tema", ConversorSqlite.EnumParaTexto(configuracao.Tema)),
+            ("$corDestaque", ConversorSqlite.EnumParaTexto(configuracao.CorDestaque)),
+            ("$densidadeTabela", ConversorSqlite.EnumParaTexto(configuracao.DensidadeTabela)),
+            ("$intervaloAtualizacao", ConversorSqlite.EnumParaTexto(configuracao.IntervaloAtualizacao)),
+            ("$ordemModulos", ConversorSqlite.ListaParaTexto(configuracao.OrdemModulos)),
+            ("$modulosOcultos", ConversorSqlite.ListaParaTexto(configuracao.ModulosOcultos)),
+            ("$moduloInicial", ConversorSqlite.Nulo(configuracao.ModuloInicial)),
+            ("$atualizarAutomaticamente", configuracao.AtualizarAutomaticamente ? 1 : 0));
     }
 }

@@ -2,36 +2,24 @@ using Assetly.Aplicacao.Repositorio;
 using Assetly.Dominio.Bem;
 using Assetly.Dominio.Saude;
 using Assetly.Infraestrutura.Banco;
-using Microsoft.Data.Sqlite;
 
 namespace Assetly.Infraestrutura.Repositorio;
 
 public sealed class RepositorioGastoSaudeSqlite(FabricaConexaoSqlite fabricaConexao) : IRepositorioGastoSaude
 {
-    private readonly FabricaConexaoSqlite _fabricaConexao = fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória");
+    private const string Ordem = "ORDER BY data DESC, descricao";
+    private readonly ExecutorSqlite _executor = new(fabricaConexao ?? throw new ArgumentNullException(nameof(fabricaConexao), "fábrica de conexão é obrigatória"));
 
-    public GastoSaude? BuscarPorId(GastoSaudeId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT * FROM gastos_saude WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            using var resultado = comando.ExecuteReader();
-            return resultado.Read() ? MapeadorGastoSaude.Mapear(resultado) : null;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível buscar gasto de saúde", excecao);
-        }
-    }
+    public GastoSaude? BuscarPorId(GastoSaudeId id) =>
+        _executor.Consultar("SELECT * FROM gastos_saude WHERE id = $id", MapeadorGastoSaude.Mapear, "Não foi possível buscar gasto de saúde",
+            ("$id", id.Valor.ToString())).FirstOrDefault();
 
     public IReadOnlyList<GastoSaude> Listar() =>
-        Consultar("SELECT * FROM gastos_saude ORDER BY data DESC, descricao", null);
+        _executor.Consultar($"SELECT * FROM gastos_saude {Ordem}", MapeadorGastoSaude.Mapear, "Não foi possível listar gastos de saúde");
 
     public IReadOnlyList<GastoSaude> ListarPorBem(BemId bemId) =>
-        Consultar("SELECT * FROM gastos_saude WHERE bem_id = $bemId ORDER BY data DESC, descricao", bemId);
+        _executor.Consultar($"SELECT * FROM gastos_saude WHERE bem_id = $bemId {Ordem}", MapeadorGastoSaude.Mapear, "Não foi possível listar gastos de saúde",
+            ("$bemId", bemId.Valor.ToString()));
 
     public void Salvar(GastoSaude gastoSaude)
     {
@@ -46,66 +34,16 @@ public sealed class RepositorioGastoSaudeSqlite(FabricaConexaoSqlite fabricaCone
                 valor = excluded.valor,
                 moeda = excluded.moeda
             """;
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            comando.Parameters.AddWithValue("$id", gastoSaude.Id.Valor.ToString());
-            comando.Parameters.AddWithValue("$bemId", gastoSaude.BemId.Valor.ToString());
-            comando.Parameters.AddWithValue("$tipo", ConversorSqlite.EnumParaTexto(gastoSaude.Tipo));
-            comando.Parameters.AddWithValue("$descricao", gastoSaude.Descricao);
-            comando.Parameters.AddWithValue("$data", ConversorSqlite.Texto(gastoSaude.Data)!);
-            comando.Parameters.AddWithValue("$valor", ConversorSqlite.Valor(gastoSaude.Valor)!);
-            comando.Parameters.AddWithValue("$moeda", ConversorSqlite.Moeda(gastoSaude.Valor)!);
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível salvar gasto de saúde", excecao);
-        }
+        _executor.Executar(sql, "Não foi possível salvar gasto de saúde",
+            ("$id", gastoSaude.Id.Valor.ToString()),
+            ("$bemId", gastoSaude.BemId.Valor.ToString()),
+            ("$tipo", ConversorSqlite.EnumParaTexto(gastoSaude.Tipo)),
+            ("$descricao", gastoSaude.Descricao),
+            ("$data", ConversorSqlite.Texto(gastoSaude.Data)!),
+            ("$valor", ConversorSqlite.Valor(gastoSaude.Valor)!),
+            ("$moeda", ConversorSqlite.Moeda(gastoSaude.Valor)!));
     }
 
-    private List<GastoSaude> Consultar(string sql, BemId? bemId)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = sql;
-            if (bemId is not null)
-            {
-                comando.Parameters.AddWithValue("$bemId", bemId.Value.Valor.ToString());
-            }
-
-            using var resultado = comando.ExecuteReader();
-            var registros = new List<GastoSaude>();
-            while (resultado.Read())
-            {
-                registros.Add(MapeadorGastoSaude.Mapear(resultado));
-            }
-
-            return registros;
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível listar gastos de saúde", excecao);
-        }
-    }
-
-    public void Excluir(GastoSaudeId id)
-    {
-        try
-        {
-            using var conexao = _fabricaConexao.Abrir();
-            using var comando = conexao.CreateCommand();
-            comando.CommandText = "DELETE FROM gastos_saude WHERE id = $id";
-            comando.Parameters.AddWithValue("$id", id.Valor.ToString());
-            comando.ExecuteNonQuery();
-        }
-        catch (SqliteException excecao)
-        {
-            throw new ExcecaoBancoDados("Não foi possível excluir gasto de saúde", excecao);
-        }
-    }
+    public void Excluir(GastoSaudeId id) =>
+        _executor.Executar("DELETE FROM gastos_saude WHERE id = $id", "Não foi possível excluir gasto de saúde", ("$id", id.Valor.ToString()));
 }
