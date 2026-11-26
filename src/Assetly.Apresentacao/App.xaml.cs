@@ -22,9 +22,7 @@ public partial class App : Application
     private Mutex? _travaInstalador;
     private GerenciadorAtualizacoes? _atualizacoes;
     private System.Windows.Controls.Button? _botaoAtualizacao;
-    private bool _finalizando;
-    private bool _podeFechar;
-    private bool _sairDeVerdade;
+    private FechamentoJanela? _fechamento;
     private bool _avisoBandejaMostrado;
     private BandejaSistema? _bandeja;
     private EventWaitHandle? _pedidoMostrar;
@@ -113,8 +111,9 @@ public partial class App : Application
             MontarTelaPrincipal(titulo, selecaoForcada: null);
 
             MainWindow = _janela;
-            SessionEnding += (_, _) => _sairDeVerdade = true;
-            _janela.Closing += AoFecharJanela;
+            _fechamento = new FechamentoJanela(_janela, () => _bandeja is not null,
+                continuar => _telaPrincipal.FinalizarAntesDeFechar(continuar), AvisarQueContinuaNaBandeja);
+            SessionEnding += (_, _) => _fechamento.SairDeVerdade = true;
             if (!_contexto.AmbienteTeste)
             {
                 InicioComWindows.CorrigirCaminho();
@@ -150,55 +149,34 @@ public partial class App : Application
         }
     }
 
-    /// <summary>O primeiro pedido de fechar é adiado: a operação em andamento (um backup automático, por exemplo)
-    /// termina e as alterações são enviadas para a pasta sincronizada — com o painel de espera, fora da thread da
-    /// interface — e então a janela fecha de verdade. Um segundo pedido enquanto isso é ignorado.</summary>
-    private void AoFecharJanela(object? remetente, System.ComponentModel.CancelEventArgs evento)
+    /// <summary>Na bandeja, fechar a janela só a esconde: na primeira vez, avisa que o programa continua avisando os alertas.</summary>
+    private void AvisarQueContinuaNaBandeja()
     {
-        if (_podeFechar)
+        if (_avisoBandejaMostrado || _bandeja is null)
         {
             return;
         }
 
-        evento.Cancel = true;
-        if (_bandeja is not null && !_sairDeVerdade)
-        {
-            // Na bandeja, fechar a janela só a esconde: o programa continua avisando os alertas.
-            _janela.Hide();
-            if (!_avisoBandejaMostrado)
-            {
-                _avisoBandejaMostrado = true;
-                _bandeja.Notificar("O Assetly continua aberto na bandeja",
-                    "Ele avisa garantias, contas e documentos vencendo. Para fechar de vez: botão direito no ícone → Sair.", critico: false);
-            }
-
-            return;
-        }
-
-        if (_finalizando)
-        {
-            return;
-        }
-
-        _finalizando = true;
-        _telaPrincipal.FinalizarAntesDeFechar(() =>
-        {
-            _podeFechar = true;
-            _janela.Close();
-        });
+        _avisoBandejaMostrado = true;
+        _bandeja.Notificar("O Assetly continua aberto na bandeja",
+            "Ele avisa garantias, contas e documentos vencendo. Para fechar de vez: botão direito no ícone → Sair.", critico: false);
     }
 
     /// <summary>Fecha o programa de verdade (mesmo com a bandeja ligada): sincroniza e termina o que estiver em andamento antes.</summary>
     internal void Sair()
     {
-        _sairDeVerdade = true;
+        if (_fechamento is not null)
+        {
+            _fechamento.SairDeVerdade = true;
+        }
+
         _janela.Close();
     }
 
     /// <summary>Traz a janela de volta (da bandeja ou minimizada), pedindo o PIN se ela estava escondida.</summary>
     internal void MostrarJanela()
     {
-        if (_janela is null || _finalizando)
+        if (_janela is null || _fechamento?.Finalizando == true)
         {
             return;
         }

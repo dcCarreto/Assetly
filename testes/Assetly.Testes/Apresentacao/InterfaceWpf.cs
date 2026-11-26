@@ -6,7 +6,7 @@ using Assetly.Apresentacao;
 namespace Assetly.Testes.Apresentacao;
 
 /// <summary>Uma thread STA com a aplicação do Assetly carregada (tema e estilos de App.xaml), sem janela — os testes da
-/// camada de interface rodam nela, como o autoteste do programa.</summary>
+/// camada de interface rodam nela, como o autoteste do programa. Diálogos são bloqueados: nada aparece na tela.</summary>
 internal static class InterfaceWpf
 {
     private static readonly Lazy<Dispatcher> Despachante = new(Iniciar);
@@ -36,6 +36,9 @@ internal static class InterfaceWpf
         {
             var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             app.InitializeComponent();
+            // Teste nunca abre janela na área de trabalho de quem roda: um diálogo (erro, confirmação...) falha o teste.
+            Assetly.Apresentacao.Visao.DialogoApoio.InterceptarDialogo = janela =>
+                throw new InvalidOperationException($"o teste tentou abrir o diálogo \"{janela.Title}\" na tela");
             despachante = Dispatcher.CurrentDispatcher;
             pronto.Set();
             Dispatcher.Run();

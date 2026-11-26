@@ -114,4 +114,51 @@ public class CamadaInterfaceTests
             File.Delete(arquivo);
         }
     });
+
+    [Fact]
+    public void FecharSemNadaParaTerminarFechaAJanelaSemErro() => InterfaceWpf.Executar(() =>
+    {
+        // Janela com identificador do Windows, mas nunca exibida: o fechamento roda de verdade, sem nada na tela.
+        var janela = new System.Windows.Window();
+        new System.Windows.Interop.WindowInteropHelper(janela).EnsureHandle();
+        var fechada = false;
+        janela.Closed += (_, _) => fechada = true;
+        _ = new FechamentoJanela(janela, () => false, continuar => continuar(), () => { });
+
+        // Antes, a continuação fechava a janela de dentro do próprio Closing e o WPF lançava InvalidOperationException.
+        Should.NotThrow(janela.Close);
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+        fechada.ShouldBeTrue();
+    });
+
+    [Fact]
+    public void ComABandejaFecharSoEscondeAJanela() => InterfaceWpf.Executar(() =>
+    {
+        var janela = new System.Windows.Window();
+        new System.Windows.Interop.WindowInteropHelper(janela).EnsureHandle();
+        var fechada = false;
+        var escondida = false;
+        janela.Closed += (_, _) => fechada = true;
+        var finalizou = false;
+        var fechamento = new FechamentoJanela(janela, () => true, continuar =>
+        {
+            finalizou = true;
+            continuar();
+        }, () => escondida = true);
+
+        Should.NotThrow(janela.Close);
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+        escondida.ShouldBeTrue();
+        fechada.ShouldBeFalse();
+        finalizou.ShouldBeFalse();
+
+        // "Sair" na bandeja: aí sim termina o que estiver em andamento e fecha.
+        fechamento.SairDeVerdade = true;
+        janela.Close();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+        finalizou.ShouldBeTrue();
+        fechada.ShouldBeTrue();
+    });
 }
