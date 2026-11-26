@@ -37,7 +37,7 @@ internal sealed class ModuloGarantias : IModulo
             new("Vencidas", l => l.StatusClasse == "etiqueta-vencida"),
             new("Próximas", l => l.StatusClasse == "etiqueta-perto-do-vencimento"),
             new("Ativas", l => l.StatusClasse == "etiqueta-ativa")
-        ]);
+        ]) { TextoSemRegistros = "Nenhuma garantia. Cadastre a primeira com os dados da nota fiscal ou do certificado — o Assetly avisa antes de vencer." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

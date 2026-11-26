@@ -67,10 +67,14 @@ internal static class LayoutApoio
         corpoGrade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         corpoGrade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         corpoGrade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var avisoVazio = TabelaApoio.CriarAvisoVazio(tabela);
+        TabelaApoio.ColunasConfiguraveis(tabela, titulo);
         Grid.SetRow(tabela, 0);
+        Grid.SetRow(avisoVazio, 0);
         Grid.SetRow(barraContextual, 1);
         Grid.SetRow(barraResumo, 2);
         corpoGrade.Children.Add(tabela);
+        corpoGrade.Children.Add(avisoVazio);
         corpoGrade.Children.Add(barraContextual);
         corpoGrade.Children.Add(barraResumo);
 

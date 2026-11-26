@@ -41,7 +41,7 @@ internal sealed class PaginaImoveis : IPagina
             new("Moradia", l => l.Origem.Situacao == SituacaoImovel.MoradiaPropria),
             new("Alugados", l => l.Origem.Alugado),
             new("Outros", l => l.Origem.Situacao is not (SituacaoImovel.MoradiaPropria or SituacaoImovel.AlugadoParaTerceiros))
-        ]);
+        ]) { TextoSemRegistros = "Nenhum imóvel. Cadastre a ficha para acompanhar seguro, condomínio, IPTU e aluguel." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

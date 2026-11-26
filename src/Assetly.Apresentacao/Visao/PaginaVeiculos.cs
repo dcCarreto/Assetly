@@ -43,7 +43,7 @@ internal sealed class PaginaVeiculos : IPagina
             new("Com pendência", l => l.SituacaoClasse == "etiqueta-pendencia"),
             new("Atenção", l => l.SituacaoClasse == "etiqueta-atencao"),
             new("Em dia", l => l.SituacaoClasse == "etiqueta-em-dia")
-        ]);
+        ]) { TextoSemRegistros = "Nenhum veículo. Cadastre a ficha para acompanhar licenciamento, seguro, revisões e consumo." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

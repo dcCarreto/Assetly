@@ -53,7 +53,7 @@ internal sealed class PaginaDespesas : IPagina
             new("Pagas", l => l.Origem.PagaEm is not null),
             new("Este ano", l => l.Origem.Vencimento.Year == Hoje().Year),
             new("Todas", _ => true)
-        ]);
+        ]) { TextoSemRegistros = "Nenhuma conta lançada. Lance IPVA, IPTU, condomínio, energia... com o vencimento para ser avisado antes." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -8,6 +9,146 @@ namespace Assetly.Apresentacao.Visao;
 
 internal static class TabelaApoio
 {
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGrid, TextBlock> AvisosVazio = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridColumn, object> OcultasPeloUsuario = new();
+
+    /// <summary>Botão direito no cabeçalho: mostrar ou esconder colunas; arrastar a borda do cabeçalho muda a largura. As duas
+    /// escolhas ficam guardadas neste computador (<see cref="PreferenciasTabelas"/>) e "Restaurar colunas" volta ao padrão.</summary>
+    internal static void ColunasConfiguraveis(DataGrid tabela, string chave)
+    {
+        var colunas = tabela.Columns.Where(c => c.Header is string).ToList();
+        var larguraPadrao = colunas.ToDictionary(c => c, c => c.Width);
+
+        foreach (var coluna in colunas.Skip(1))
+        {
+            if (PreferenciasTabelas.Obter(chave, (string)coluna.Header) is { } salva)
+            {
+                if (!salva.Visivel)
+                {
+                    coluna.Visibility = Visibility.Collapsed;
+                    OcultasPeloUsuario.AddOrUpdate(coluna, true);
+                }
+
+                if (salva.Largura is { } largura)
+                {
+                    coluna.Width = new DataGridLength(largura);
+                }
+            }
+        }
+
+        if (colunas.FirstOrDefault() is { } primeira && PreferenciasTabelas.Obter(chave, (string)primeira.Header)?.Largura is { } larguraPrimeira)
+        {
+            primeira.Width = new DataGridLength(larguraPrimeira);
+        }
+
+        var menu = new ContextMenu();
+        void Montar()
+        {
+            menu.Items.Clear();
+            menu.Items.Add(new MenuItem { Header = "Colunas visíveis", IsEnabled = false });
+            foreach (var coluna in colunas.Skip(1))
+            {
+                var item = new MenuItem
+                {
+                    Header = ((string)coluna.Header).Length > 0 ? coluna.Header : "(sem título)",
+                    IsCheckable = true,
+                    StaysOpenOnClick = true,
+                    IsChecked = !OcultasPeloUsuario.TryGetValue(coluna, out _)
+                };
+                item.Click += (_, _) =>
+                {
+                    var visivel = item.IsChecked;
+                    coluna.Visibility = visivel ? Visibility.Visible : Visibility.Collapsed;
+                    if (visivel)
+                    {
+                        OcultasPeloUsuario.Remove(coluna);
+                    }
+                    else
+                    {
+                        OcultasPeloUsuario.AddOrUpdate(coluna, true);
+                    }
+
+                    PreferenciasTabelas.Definir(chave, (string)coluna.Header, salva => salva with { Visivel = visivel });
+                };
+                menu.Items.Add(item);
+            }
+
+            menu.Items.Add(new Separator());
+            var restaurar = new MenuItem { Header = "Restaurar colunas e larguras" };
+            restaurar.Click += (_, _) =>
+            {
+                PreferenciasTabelas.Limpar(chave);
+                foreach (var coluna in colunas)
+                {
+                    OcultasPeloUsuario.Remove(coluna);
+                    coluna.Visibility = Visibility.Visible;
+                    coluna.Width = larguraPadrao[coluna];
+                }
+            };
+            menu.Items.Add(restaurar);
+        }
+
+        var estilo = new Style(typeof(DataGridColumnHeader), tabela.ColumnHeaderStyle);
+        estilo.Setters.Add(new EventSetter(UIElement.PreviewMouseRightButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler((remetente, evento) =>
+        {
+            Montar();
+            menu.PlacementTarget = (UIElement)remetente;
+            menu.IsOpen = true;
+            evento.Handled = true;
+        })));
+        estilo.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, "Botão direito: escolher colunas · arraste a borda para mudar a largura"));
+        tabela.ColumnHeaderStyle = estilo;
+
+        // Largura ajustada pelo usuário: a pegadeira esquerda de um cabeçalho redimensiona a coluna anterior.
+        tabela.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, evento) =>
+        {
+            if (evento.OriginalSource is not Thumb { TemplatedParent: DataGridColumnHeader { Column: { } coluna } } pegadeira)
+            {
+                return;
+            }
+
+            if (pegadeira.Name == "PART_LeftHeaderGripper")
+            {
+                coluna = tabela.Columns.Where(c => c.Visibility == Visibility.Visible && c.DisplayIndex < coluna.DisplayIndex)
+                    .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? coluna;
+            }
+
+            if (coluna.Header is string titulo)
+            {
+                PreferenciasTabelas.Definir(chave, titulo, salva => salva with { Largura = Math.Round(coluna.ActualWidth) });
+            }
+        }), handledEventsToo: true);
+    }
+
+    /// <summary>Texto por cima da tabela vazia, dizendo o que vai ali e como começar (ver FiltroTabela.TextoSemRegistros).</summary>
+    internal static TextBlock CriarAvisoVazio(DataGrid tabela)
+    {
+        var aviso = new TextBlock
+        {
+            FontSize = 13,
+            Foreground = (System.Windows.Media.Brush)Application.Current.Resources["TextSecondary"],
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            MaxWidth = 460,
+            Margin = new Thickness(24, 90, 24, 24),
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed
+        };
+        AvisosVazio.AddOrUpdate(tabela, aviso);
+        return aviso;
+    }
+
+    internal static void MostrarAvisoVazio(DataGrid tabela, string? texto)
+    {
+        if (AvisosVazio.TryGetValue(tabela, out var aviso))
+        {
+            aviso.Text = texto ?? string.Empty;
+            aviso.Visibility = texto is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+    }
+
     internal static void AplicarEstiloBase(DataGrid grade)
     {
         grade.Style = (Style)Application.Current.Resources["TabelaStyle"];
@@ -112,12 +253,14 @@ internal static class TabelaApoio
         void Ajustar()
         {
             var disponivel = grade.ActualWidth - 12;
-            foreach (var coluna in menosImportantesPrimeiro)
+            // Colunas que o usuário escondeu continuam escondidas (ver ColunasConfiguraveis).
+            var opcionais = menosImportantesPrimeiro.Where(c => !OcultasPeloUsuario.TryGetValue(c, out _)).ToList();
+            foreach (var coluna in opcionais)
             {
                 coluna.Visibility = Visibility.Visible;
             }
 
-            foreach (var coluna in menosImportantesPrimeiro)
+            foreach (var coluna in opcionais)
             {
                 if (grade.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(Minima) <= disponivel)
                 {

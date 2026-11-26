@@ -47,7 +47,7 @@ internal sealed class ModuloBens : IModulo
             new("Arquivados", l => !EhPessoa(l) && l.Origem.Status == StatusBem.Arquivado),
             new("Descartados", l => !EhPessoa(l) && l.Origem.Status == StatusBem.Descartado),
             new("Pessoas", EhPessoa)
-        ]);
+        ]) { TextoSemRegistros = "Nenhum bem cadastrado. Clique em \"Novo bem\" ou use \"Importar planilha…\" para trazer vários de uma vez." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

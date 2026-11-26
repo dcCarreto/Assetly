@@ -41,7 +41,7 @@ internal sealed class ModuloDocumentos : IModulo
             new("Disponíveis", l => l.Origem.Status == StatusDocumento.Disponivel),
             new("Ausentes", l => l.StatusClasse == "etiqueta-ausente"),
             new("Arquivados", l => l.StatusClasse == "etiqueta-arquivado")
-        ]);
+        ]) { TextoSemRegistros = "Nenhum documento. Anexe notas fiscais, manuais e comprovantes aos seus bens — eles entram no backup." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

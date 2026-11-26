@@ -29,6 +29,9 @@ internal sealed class FiltroTabela<T> where T : class
 
     internal FrameworkElement Barra { get; }
 
+    /// <summary>O que a tabela mostra quando ainda não há nenhum registro: o que vai ali e como começar.</summary>
+    internal string TextoSemRegistros { get; init; } = "Nenhum registro ainda. Use o botão de criar, no topo da tela.";
+
     /// <summary>Depois de cada filtragem, com as linhas que ficaram visíveis.</summary>
     internal event Action<IReadOnlyList<T>>? Aplicado;
 
@@ -162,6 +165,8 @@ internal sealed class FiltroTabela<T> where T : class
         var lista = filtrados.ToList();
         TabelaApoio.RecarregarTabela(_tabela, lista, _chave);
         _contagem.Text = $"{lista.Count} de {_mestre.Count} registros";
+        TabelaApoio.MostrarAvisoVazio(_tabela, _mestre.Count == 0 ? TextoSemRegistros
+            : lista.Count == 0 ? "Nada encontrado com este filtro ou busca. Volte ao primeiro filtro ou limpe a busca." : null);
         Aplicado?.Invoke(lista);
     }
 }

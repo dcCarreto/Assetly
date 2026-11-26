@@ -84,4 +84,34 @@ public class CamadaInterfaceTests
         curta.Length.ShouldBeLessThanOrEqualTo(40);
         curta.ShouldBe("Buscar por nome, tipo, marca, nº de…");
     }
+
+    [Fact]
+    public void ColunasEscondidasELargurasVoltamAoReabrirATabela() => InterfaceWpf.Executar(() =>
+    {
+        var arquivo = Path.Combine(Path.GetTempPath(), $"assetly-interface-{Guid.NewGuid()}.json");
+        try
+        {
+            PreferenciasTabelas.Arquivo = arquivo;
+            PreferenciasTabelas.Definir("Bens", "Observações", c => c with { Visivel = false });
+            PreferenciasTabelas.Definir("Bens", "Valor", c => c with { Largura = 180 });
+            PreferenciasTabelas.Arquivo = arquivo; // relê do disco, como ao abrir o programa de novo
+
+            var tabela = new DataGrid();
+            foreach (var titulo in new[] { "Nome", "Valor", "Observações" })
+            {
+                tabela.Columns.Add(new DataGridTextColumn { Header = titulo, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+            }
+
+            TabelaApoio.ColunasConfiguraveis(tabela, "Bens");
+
+            tabela.Columns[2].Visibility.ShouldBe(System.Windows.Visibility.Collapsed);
+            tabela.Columns[1].Width.Value.ShouldBe(180);
+            tabela.Columns[0].Visibility.ShouldBe(System.Windows.Visibility.Visible);
+        }
+        finally
+        {
+            PreferenciasTabelas.Arquivo = null;
+            File.Delete(arquivo);
+        }
+    });
 }

@@ -31,6 +31,7 @@ internal sealed class ModuloPainel : IModulo
     private readonly TextBlock _contadorAcoes = new();
     private readonly TextBlock _horarioVerificacao = new();
     private readonly FaixaAviso _avisoBackup;
+    private readonly ContentControl _primeirosPassos = new() { Focusable = false };
 
     public string Titulo => "Painel";
     public string Descricao => "Resumo operacional";
@@ -77,12 +78,13 @@ internal sealed class ModuloPainel : IModulo
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(cabecalho, 0);
-        Grid.SetRow(_avisoBackup.Raiz, 1);
+        var topo = UiApoio.Coluna(0, _avisoBackup.Raiz, _primeirosPassos);
+        Grid.SetRow(topo, 1);
         Grid.SetRow(_painelOperacao, 2);
         Grid.SetRow(_faixaIndicadoresSlot, 3);
         Grid.SetRow(painelInferior, 4);
         raiz.Children.Add(cabecalho);
-        raiz.Children.Add(_avisoBackup.Raiz);
+        raiz.Children.Add(topo);
         raiz.Children.Add(_painelOperacao);
         raiz.Children.Add(_faixaIndicadoresSlot);
         raiz.Children.Add(painelInferior);
@@ -129,6 +131,7 @@ internal sealed class ModuloPainel : IModulo
         var vencidas = acoes.Count(a => GrupoPrazo(a.Prazo, hoje) == 0);
 
         _horarioVerificacao.Text = $"verificado {Formatador.DataHora(DateTime.Now)}";
+        AtualizarPrimeirosPassos(bens);
         AtualizarAvisoBackup(bens.Count > 0 || documentos.Count > 0);
 
         var bensSemPessoas = bens.Where(b => b.Tipo != TipoBem.Pessoa).ToList();
@@ -164,6 +167,62 @@ internal sealed class ModuloPainel : IModulo
         {
             _painelAcoes.Children.Add(TextoVazio("Nada pendente. Garantias, contas, manutenções e documentos estão em dia."));
         }
+    }
+
+    /// <summary>Primeiro uso: enquanto nenhum bem foi cadastrado, o painel mostra os três passos que deixam o Assetly útil e
+    /// seguro, com o que já foi feito marcado. Some sozinho depois do primeiro bem.</summary>
+    private void AtualizarPrimeirosPassos(IReadOnlyList<Bem> bens)
+    {
+        if (bens.Any(b => b.Tipo != TipoBem.Pessoa))
+        {
+            _primeirosPassos.Content = null;
+            return;
+        }
+
+        var recursos = Application.Current.Resources;
+        var temDestino = _contexto.ObterConfiguracaoBackup().Executar().CaminhoDestino is not null;
+        var temPessoas = bens.Any(b => b.Tipo == TipoBem.Pessoa);
+
+        UIElement Passo(int numero, bool feito, string texto, string detalhe, string botao, string modulo)
+        {
+            var marca = UiApoio.Texto(feito ? "✓" : numero.ToString(), 13, FontWeights.SemiBold,
+                (Brush)recursos[feito ? "StatusOkText" : "AccentPrimary"]);
+            marca.Width = 22;
+            marca.VerticalAlignment = VerticalAlignment.Center;
+            var titulo = UiApoio.Texto(texto, 13, FontWeights.SemiBold, (Brush)recursos[feito ? "TextSecondary" : "TextTitle"]);
+            var ajuda = UiApoio.Texto(detalhe, 11.5, FontWeights.Normal, (Brush)recursos["TextMuted"]);
+            ajuda.TextWrapping = TextWrapping.Wrap;
+            var textos = UiApoio.Coluna(2, titulo, ajuda);
+            textos.VerticalAlignment = VerticalAlignment.Center;
+            var acao = AcoesApoio.BotaoSecundario(botao, () => _irParaModulo(modulo));
+            acao.IsEnabled = !feito;
+            acao.Margin = new Thickness(12, 0, 0, 0);
+            var linha = new Grid();
+            linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            linha.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            linha.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(textos, 1);
+            Grid.SetColumn(acao, 2);
+            linha.Children.Add(marca);
+            linha.Children.Add(textos);
+            linha.Children.Add(acao);
+            return linha;
+        }
+
+        var titulo = new TextBlock { Text = "Primeiros passos", Style = (Style)recursos["PanelTituloStyle"] };
+        _primeirosPassos.Content = new Border
+        {
+            Style = (Style)recursos["CardPanelStyle"],
+            Padding = new Thickness(18, 14, 18, 16),
+            Margin = new Thickness(0, 0, 0, 14),
+            Child = UiApoio.Coluna(12, titulo,
+                Passo(1, temDestino, "Escolha onde guardar os backups",
+                    "Um pendrive, HD externo ou pasta do OneDrive/Google Drive. Sem isso, um defeito no computador leva todos os dados.", "Ir para Backup", "Backup"),
+                Passo(2, temPessoas, "Cadastre as pessoas da família (opcional)",
+                    "Em Bens, com o tipo \"Pessoa (titular)\": cada bem pode ter um responsável, e convênios e gastos de saúde são de uma pessoa.", "Ir para Bens", "Bens"),
+                Passo(3, false, "Cadastre o primeiro bem",
+                    "Comece pelos de maior valor ou com garantia. Uma planilha com vários bens também pode ser importada.", "Ir para Bens", "Bens"))
+        };
     }
 
     private static readonly string[] NomesGrupos = ["Vencido", "Próximos 7 dias", "Próximos 30 dias", "Mais adiante", "Sem prazo"];

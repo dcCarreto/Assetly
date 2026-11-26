@@ -86,6 +86,7 @@ internal sealed class TelaPrincipal
         };
 
         OperacaoEmSegundoPlano.AlternarEspera = AlternarEspera;
+        PreferenciasTabelas.Arquivo = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_contexto.Bloqueio.Arquivo)!, "interface.json");
 
         _modulos.Add(new ModuloPainel(_contexto, IrParaModulo));
         _modulos.Add(new ModuloBens(_contexto));

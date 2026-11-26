@@ -38,7 +38,7 @@ internal sealed class ModuloSaude : IModulo
             new("Próximos", l => l.StatusClasse == "etiqueta-perto-do-vencimento"),
             new("Ativos", l => l.StatusClasse == "etiqueta-ativa"),
             new("Cancelados", l => l.StatusClasse == "etiqueta-cancelada")
-        ]);
+        ]) { TextoSemRegistros = "Nenhum convênio. Cadastre planos de saúde e odontológicos para ser avisado do vencimento." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

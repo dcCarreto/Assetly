@@ -39,7 +39,7 @@ internal sealed class ModuloManutencoes : IModulo
             new("Agendadas", l => l.StatusClasse == "etiqueta-agendada"),
             new("Concluídas", l => l.StatusClasse == "etiqueta-concluida"),
             new("Canceladas", l => l.StatusClasse == "etiqueta-cancelada")
-        ]);
+        ]) { TextoSemRegistros = "Nenhuma manutenção. Agende revisões, limpezas e inspeções para ser avisado antes do prazo." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

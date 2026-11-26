@@ -139,6 +139,8 @@ internal static class AcoesApoio
 
         void Atualizar()
         {
+            // Tabela vazia: nada a selecionar, a barra some (o aviso de tabela vazia já orienta).
+            barra.Visibility = tabela.Items.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
             var selecionado = tabela.SelectedItem is not null;
             painelEsquerda.Visibility = painelDireita.Visibility = selecionado ? Visibility.Visible : Visibility.Collapsed;
             dica.Visibility = selecionado ? Visibility.Collapsed : Visibility.Visible;
@@ -146,6 +148,7 @@ internal static class AcoesApoio
         }
 
         tabela.SelectionChanged += (_, _) => Atualizar();
+        ((System.Collections.Specialized.INotifyCollectionChanged)tabela.Items).CollectionChanged += (_, _) => Atualizar();
         Atualizar();
         return barra;
     }

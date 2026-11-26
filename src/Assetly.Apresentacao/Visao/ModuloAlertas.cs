@@ -41,7 +41,7 @@ internal sealed class ModuloAlertas : IModulo
             new("Ciente", l => l.Origem.Status == StatusAlerta.Ciente),
             new("Resolvidos", l => l.Origem.Status == StatusAlerta.Resolvido),
             new("Todos", _ => true)
-        ]);
+        ]) { TextoSemRegistros = "Nenhum alerta. Os automáticos aparecem sozinhos quando uma garantia, conta ou documento pede atenção." };
         _filtro.ConectarBusca(busca);
         // "Status" só aparece quando as linhas visíveis misturam status (em "Pendentes" eram todas "Aberto").
         _filtro.Aplicado += linhas => _colunaStatus.Visibility = linhas.Select(l => l.Origem.Status).Distinct().Count() > 1 ? Visibility.Visible : Visibility.Collapsed;

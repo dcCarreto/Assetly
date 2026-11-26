@@ -38,7 +38,7 @@ internal sealed class PaginaAbastecimentos : IPagina
             new("Últimos 30 dias", l => l.Origem.Data >= Hoje().AddDays(-30)),
             new("Este ano", l => l.Origem.Data.Year == Hoje().Year),
             new("Tanque cheio", l => l.Origem.TanqueCheio)
-        ]);
+        ]) { TextoSemRegistros = "Nenhum abastecimento. Registre a cada vez que encher o tanque para o Assetly calcular o consumo." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,

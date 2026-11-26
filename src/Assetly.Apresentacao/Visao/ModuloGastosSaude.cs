@@ -40,7 +40,7 @@ internal sealed class ModuloGastosSaude : IModulo
             new("Consultas", l => l.Origem.Tipo == TipoGastoSaude.Consulta),
             new("Exames", l => l.Origem.Tipo == TipoGastoSaude.Exame),
             new("Procedimentos", l => l.Origem.Tipo == TipoGastoSaude.Procedimento)
-        ]);
+        ]) { TextoSemRegistros = "Nenhum gasto de saúde. Registre consultas e exames com o CPF/CNPJ do prestador — eles entram no relatório para o Imposto de Renda." };
         _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
