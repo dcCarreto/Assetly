@@ -243,7 +243,7 @@ public sealed class ServicoBackupLocal : IServicoBackup
                     foreach (var arquivo in Directory.EnumerateFiles(diretorioDocumentos, "*", SearchOption.AllDirectories))
                     {
                         var nome = Path.GetRelativePath(diretorioDocumentos, arquivo).Replace(Path.DirectorySeparatorChar, '/');
-                        zip.CreateEntryFromFile(arquivo, $"{PastaDocumentos}/{nome}", CompressionLevel.Optimal);
+                        zip.CreateEntryFromFile(arquivo, $"{PastaDocumentos}/{nome}", NivelCompressao(arquivo));
                     }
                 }
             }
@@ -264,6 +264,17 @@ public sealed class ServicoBackupLocal : IServicoBackup
             ApagarPastaSilenciosamente(preparacao);
         }
     }
+
+    /// <summary>Fotos, PDFs e documentos do Office já vêm compactados: comprimir de novo gasta CPU (a maior parte do
+    /// tempo de gerar o arquivo, no autoteste de volume) e não diminui nada. Esses entram guardados como estão.</summary>
+    private static readonly HashSet<string> JaCompactados = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".mp4", ".mov", ".zip", ".7z", ".rar",
+        ".docx", ".xlsx", ".pptx", ".odt", ".ods"
+    };
+
+    private static CompressionLevel NivelCompressao(string arquivo) =>
+        JaCompactados.Contains(Path.GetExtension(arquivo)) ? CompressionLevel.NoCompression : CompressionLevel.Optimal;
 
     /// <summary>Banco primeiro (a API de backup do SQLite troca o conteúdo numa transação: ou tudo, ou nada),
     /// depois os documentos já preparados no mesmo disco, movidos para o lugar. Falhar aqui deixa os dados pela
