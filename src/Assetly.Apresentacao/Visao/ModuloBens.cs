@@ -47,7 +47,7 @@ internal sealed class ModuloBens : IModulo
             new("Descartados", l => l.Origem.Status == StatusBem.Descartado),
             new("Pessoas", l => l.Origem.Tipo == TipoBem.Pessoa)
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -69,6 +69,8 @@ internal sealed class ModuloBens : IModulo
             () => AbrirDialogoBem(SelecionadoAtual().Origem),
             () => ExcluirBem(SelecionadoAtual().Origem));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

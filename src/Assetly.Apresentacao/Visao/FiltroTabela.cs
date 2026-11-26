@@ -25,6 +25,7 @@ internal sealed class FiltroTabela<T> where T : class
     private IReadOnlyList<T> _mestre = [];
     private int _filtroSelecionado;
     private string _busca = string.Empty;
+    private TextBox? _caixaBusca;
 
     internal FrameworkElement Barra { get; }
 
@@ -86,6 +87,48 @@ internal sealed class FiltroTabela<T> where T : class
         grade.Children.Add(chipsPainel);
         grade.Children.Add(_contagem);
         Barra = grade;
+    }
+
+    /// <summary>Liga a caixa de busca da tela ao filtro (e permite que <see cref="Localizar"/> a limpe).</summary>
+    internal void ConectarBusca(TextBox busca)
+    {
+        _caixaBusca = busca;
+        busca.TextChanged += (_, _) => DefinirBusca(busca.Text);
+    }
+
+    /// <summary>Mostra e seleciona o registro com esta chave (vindo da busca geral): escolhe um filtro que o mostre e limpa a busca,
+    /// para ele não ficar escondido. Falso se o registro não está nesta tabela.</summary>
+    internal bool Localizar(object chave)
+    {
+        var item = _mestre.FirstOrDefault(linha => Equals(_chave(linha), chave));
+        if (item is null)
+        {
+            return false;
+        }
+
+        // O primeiro filtro que mostra o registro (normalmente "Todos"; em Alertas, o primeiro pode esconder os resolvidos).
+        var filtro = Math.Max(0, _opcoes.ToList().FindIndex(opcao => opcao.Incluir(item)));
+        for (var i = 0; i < _chips.Count; i++)
+        {
+            _chips[i].IsChecked = i == filtro;
+        }
+
+        _filtroSelecionado = filtro;
+        if (_caixaBusca is not null)
+        {
+            _caixaBusca.Text = string.Empty;
+        }
+
+        _busca = string.Empty;
+        Aplicar();
+        var visivel = _tabela.Items.Cast<object>().FirstOrDefault(linha => linha is T t && Equals(_chave(t), chave));
+        _tabela.SelectedItem = visivel;
+        if (visivel is not null)
+        {
+            _tabela.ScrollIntoView(visivel);
+        }
+
+        return true;
     }
 
     internal void DefinirBusca(string texto)

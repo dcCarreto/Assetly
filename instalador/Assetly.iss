@@ -86,6 +86,10 @@ Name: "{autoprograms}\{#NomeApp}"; Filename: "{app}\{#ExeApp}"; Comment: "Seu pa
 Name: "{autoprograms}\{#NomeApp} (ambiente de teste)"; Filename: "{app}\{#ExeApp}"; Parameters: "--teste"; Comment: "Abre o Assetly com dados fictícios, separados dos seus dados reais."
 Name: "{autodesktop}\{#NomeApp}"; Filename: "{app}\{#ExeApp}"; Tasks: atalhodesktop
 
+[Registry]
+; "Abrir com o Windows" (Configurações → Segundo plano) grava este valor; a instalação não cria nada, a desinstalação o remove.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Assetly"; Flags: uninsdeletevalue dontcreatekey
+
 [Run]
 ; Instalação normal: oferece abrir o programa no fim.
 Filename: "{app}\{#ExeApp}"; Description: "{cm:AbrirAssetly}"; Flags: nowait postinstall skipifsilent

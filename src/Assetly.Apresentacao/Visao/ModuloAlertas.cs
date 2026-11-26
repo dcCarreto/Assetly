@@ -41,7 +41,7 @@ internal sealed class ModuloAlertas : IModulo
             new("Resolvidos", l => l.Origem.Status == StatusAlerta.Resolvido),
             new("Todos", _ => true)
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -59,6 +59,8 @@ internal sealed class ModuloAlertas : IModulo
 
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, AbrirDialogoAlerta, null, () => ExcluirAlerta(SelecionadoAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

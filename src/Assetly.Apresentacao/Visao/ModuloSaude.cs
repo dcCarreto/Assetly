@@ -39,7 +39,7 @@ internal sealed class ModuloSaude : IModulo
             new("Ativos", l => l.StatusClasse == "etiqueta-ativa"),
             new("Cancelados", l => l.StatusClasse == "etiqueta-cancelada")
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -57,6 +57,8 @@ internal sealed class ModuloSaude : IModulo
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoSaude(null),
             () => AbrirDialogoSaude(SelecionadoAtual().Origem), () => ExcluirSaude(SelecionadoAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

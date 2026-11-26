@@ -3,6 +3,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Assetly.Aplicacao.CasoDeUso;
 using Assetly.Aplicacao.Servico;
 using Assetly.Apresentacao.Visao;
 using Assetly.Infraestrutura.Atualizacao;
@@ -23,6 +24,11 @@ public partial class App : Application
     private System.Windows.Controls.Button? _botaoAtualizacao;
     private bool _finalizando;
     private bool _podeFechar;
+    private bool _sairDeVerdade;
+    private bool _avisoBandejaMostrado;
+    private BandejaSistema? _bandeja;
+    private EventWaitHandle? _pedidoMostrar;
+    private readonly HashSet<Dominio.Alerta.AlertaId> _alertasAvisados = [];
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -54,8 +60,22 @@ public partial class App : Application
             RegistroErros.DiretorioLogs = Infraestrutura.Armazenamento.CaminhosArmazenamentoLocal.DiretorioLogsTeste();
         }
 
+        var iniciarNaBandeja = e.Args.Contains(InicioComWindows.ArgumentoBandeja);
         if (!ObterInstanciaUnica(ambienteTeste))
         {
+            // Já aberto (talvez escondido na bandeja): pede para a outra instância mostrar a janela e sai.
+            if (EventWaitHandle.TryOpenExisting(NomeInstancia(ambienteTeste) + "-Mostrar", out var outraInstancia))
+            {
+                if (!iniciarNaBandeja)
+                {
+                    outraInstancia.Set();
+                }
+
+                outraInstancia.Dispose();
+                Shutdown();
+                return;
+            }
+
             MessageBox.Show(
                 "O Assetly já está aberto neste ambiente. Use a janela que já está aberta (verifique a barra de tarefas).",
                 "Assetly", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -93,9 +113,33 @@ public partial class App : Application
             MontarTelaPrincipal(titulo, selecaoForcada: null);
 
             MainWindow = _janela;
-            _janela.Show();
-            _atualizacoes.Iniciar();
+            SessionEnding += (_, _) => _sairDeVerdade = true;
             _janela.Closing += AoFecharJanela;
+            if (!_contexto.AmbienteTeste)
+            {
+                InicioComWindows.CorrigirCaminho();
+            }
+
+            AplicarBandeja();
+            if (iniciarNaBandeja && _bandeja is not null)
+            {
+                // Aberto pelo Windows: fica na bandeja. Os alertas que já existem viram uma notificação.
+                NotificarAlertas();
+            }
+            else
+            {
+                if (!DesbloqueioDialogo.Pedir(_contexto.Bloqueio))
+                {
+                    Shutdown();
+                    return;
+                }
+
+                _janela.Show();
+                // Com a janela à vista, os alertas atuais não viram notificação — só os que surgirem depois.
+                NotificacaoAlertas.Novos(_contexto.ListarAlertas().Executar(), _alertasAvisados, _ => string.Empty);
+            }
+
+            _atualizacoes.Iniciar();
             Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _telaPrincipal.SincronizarAoAbrir());
         }
         catch (Exception excecao) when (excecao is not OutOfMemoryException)
@@ -117,6 +161,20 @@ public partial class App : Application
         }
 
         evento.Cancel = true;
+        if (_bandeja is not null && !_sairDeVerdade)
+        {
+            // Na bandeja, fechar a janela só a esconde: o programa continua avisando os alertas.
+            _janela.Hide();
+            if (!_avisoBandejaMostrado)
+            {
+                _avisoBandejaMostrado = true;
+                _bandeja.Notificar("O Assetly continua aberto na bandeja",
+                    "Ele avisa garantias, contas e documentos vencendo. Para fechar de vez: botão direito no ícone → Sair.", critico: false);
+            }
+
+            return;
+        }
+
         if (_finalizando)
         {
             return;
@@ -128,6 +186,74 @@ public partial class App : Application
             _podeFechar = true;
             _janela.Close();
         });
+    }
+
+    /// <summary>Fecha o programa de verdade (mesmo com a bandeja ligada): sincroniza e termina o que estiver em andamento antes.</summary>
+    internal void Sair()
+    {
+        _sairDeVerdade = true;
+        _janela.Close();
+    }
+
+    /// <summary>Traz a janela de volta (da bandeja ou minimizada), pedindo o PIN se ela estava escondida.</summary>
+    internal void MostrarJanela()
+    {
+        if (_janela is null || _finalizando)
+        {
+            return;
+        }
+
+        if (!_janela.IsVisible)
+        {
+            if (!DesbloqueioDialogo.Pedir(_contexto.Bloqueio))
+            {
+                return;
+            }
+
+            _janela.Show();
+        }
+
+        if (_janela.WindowState == WindowState.Minimized)
+        {
+            _janela.WindowState = WindowState.Normal;
+        }
+
+        _janela.Activate();
+    }
+
+    /// <summary>Liga ou desliga o ícone da bandeja conforme a opção "manter na bandeja e iniciar com o Windows".</summary>
+    internal void AplicarBandeja()
+    {
+        var usar = !_contexto.AmbienteTeste && InicioComWindows.Ativo;
+        if (usar && _bandeja is null)
+        {
+            _bandeja = new BandejaSistema(_janela.Title);
+            _bandeja.AbrirSolicitado += () => AcoesApoio.ExecutarComTratamento(MostrarJanela);
+            _bandeja.AlertasSolicitados += () => AcoesApoio.ExecutarComTratamento(() =>
+            {
+                MostrarJanela();
+                if (_janela.IsVisible)
+                {
+                    _telaPrincipal.IrPara("Alertas");
+                }
+            });
+            _bandeja.SairSolicitado += () => AcoesApoio.ExecutarComTratamento(Sair);
+        }
+        else if (!usar && _bandeja is not null)
+        {
+            _bandeja.Dispose();
+            _bandeja = null;
+        }
+    }
+
+    /// <summary>Alertas novos viram notificação do Windows quando o Assetly está na bandeja ou em segundo plano.</summary>
+    private void NotificarAlertas()
+    {
+        var aviso = NotificacaoAlertas.Novos(_contexto.ListarAlertas().Executar(), _alertasAvisados, ContextoApoio.NomesBens(_contexto));
+        if (aviso is not null && _bandeja is not null && !(_janela.IsVisible && _janela.IsActive))
+        {
+            _bandeja.Notificar(aviso.Titulo, aviso.Texto, aviso.Critico);
+        }
     }
 
     private static IServicoAtualizacao CriarServicoAtualizacao()
@@ -206,6 +332,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _atualizacoes?.AplicarAoFecharSePronta();
+        _bandeja?.Dispose();
+        _pedidoMostrar?.Dispose();
         _instanciaUnica?.Dispose();
         _travaInstalador?.Dispose();
         base.OnExit(e);
@@ -214,6 +342,7 @@ public partial class App : Application
     private void MontarTelaPrincipal(string titulo, string? selecaoForcada)
     {
         _telaPrincipal = new TelaPrincipal(_contexto, ReconstruirAparencia, selecaoForcada, _atualizacoes);
+        _telaPrincipal.AlertasAtualizados += () => AcoesApoio.ExecutarComTratamento(NotificarAlertas);
         JanelaEscura.Decorar(_janela, titulo, _telaPrincipal.Raiz, ExtraBarraTitulo(_telaPrincipal.SeloAmbiente));
     }
 
@@ -246,16 +375,23 @@ public partial class App : Application
     /// backups automáticos em dobro. Produção e teste podem ficar abertos lado a lado.</summary>
     private bool ObterInstanciaUnica(bool ambienteTeste)
     {
-        var nome = ambienteTeste ? @"Local\Assetly-Teste" : @"Local\Assetly-Producao";
+        var nome = NomeInstancia(ambienteTeste);
         _instanciaUnica = new Mutex(initiallyOwned: true, nome, out var criadaAgora);
         if (!criadaAgora)
         {
             _instanciaUnica.Dispose();
             _instanciaUnica = null;
+            return false;
         }
 
-        return criadaAgora;
+        // Abrir o Assetly de novo (atalho, menu Iniciar) só traz esta janela para a frente — inclusive da bandeja.
+        _pedidoMostrar = new EventWaitHandle(false, EventResetMode.AutoReset, nome + "-Mostrar");
+        ThreadPool.RegisterWaitForSingleObject(_pedidoMostrar,
+            (_, _) => Dispatcher.BeginInvoke(() => AcoesApoio.ExecutarComTratamento(MostrarJanela)), null, Timeout.Infinite, executeOnlyOnce: false);
+        return true;
     }
+
+    private static string NomeInstancia(bool ambienteTeste) => ambienteTeste ? @"Local\Assetly-Teste" : @"Local\Assetly-Producao";
 
     /// <summary>Último recurso para exceções que escapam de um tratamento local: registra no log e
     /// mostra uma mensagem em vez de fechar o programa sem explicação.</summary>

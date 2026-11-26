@@ -41,7 +41,7 @@ internal static class LixeiraDialogo
             Title = "Lixeira",
             Width = 640,
             SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowStartupLocation = DialogoApoio.Posicao(),
             Owner = DialogoApoio.DonoDialogo(),
             ResizeMode = ResizeMode.NoResize
         };

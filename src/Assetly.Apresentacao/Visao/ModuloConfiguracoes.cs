@@ -84,7 +84,7 @@ internal sealed class ModuloConfiguracoes : IModulo
         var cabecalho = CabecalhoTela("Configurações", "Personalize aparência, navegação e comportamento do Assetly.", null);
         cabecalho.Margin = new Thickness(0, 0, 0, 14);
 
-        var cartoes = UiApoio.Coluna(14, CardVersao(preferenciasIniciais.AtualizarAutomaticamente), cardAparencia, cardModulos, cardAtualizacao, CardDadosLocais());
+        var cartoes = UiApoio.Coluna(14, CardVersao(preferenciasIniciais.AtualizarAutomaticamente), cardAparencia, cardModulos, cardAtualizacao, CardSegundoPlanoPrivacidade(), CardDadosLocais());
 
         var rolagem = new ScrollViewer { Content = cartoes, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18) };
@@ -180,6 +180,61 @@ internal sealed class ModuloConfiguracoes : IModulo
         }
 
         return CardConfiguracao("Versão e atualizações", UiApoio.Coluna(10, versao, estado, automatica, botoes));
+    }
+
+    /// <summary>Bandeja + iniciar com o Windows (para as notificações funcionarem com a janela fechada) e PIN de abertura.</summary>
+    private Border CardSegundoPlanoPrivacidade()
+    {
+        var recursos = Application.Current.Resources;
+        var bandeja = CaixaMarcacao("Manter o Assetly na bandeja e abrir com o Windows — avisa garantias, contas, licenciamento e documentos " +
+            "vencendo mesmo com a janela fechada", !_contexto.AmbienteTeste && InicioComWindows.Ativo);
+        bandeja.IsEnabled = !_contexto.AmbienteTeste;
+        bandeja.ToolTip = _contexto.AmbienteTeste ? "Disponível só no ambiente de produção." : "Fechar a janela passa a escondê-la na bandeja; para sair de vez, use o ícone da bandeja → Sair.";
+        bandeja.Click += (_, _) => ExecutarComTratamento(() =>
+        {
+            InicioComWindows.Definir(bandeja.IsChecked == true);
+            (Application.Current as App)?.AplicarBandeja();
+        });
+
+        var estadoPin = UiApoio.Texto(string.Empty, 12, FontWeights.Normal, (Brush)recursos["TextSecondary"]);
+        estadoPin.TextWrapping = TextWrapping.Wrap;
+        var definir = BotaoSecundario("Definir PIN…", () => { });
+        var remover = BotaoSecundario("Remover PIN…", () => { });
+        void Atualizar()
+        {
+            var ativo = _contexto.Bloqueio.Ativo;
+            definir.Content = ativo ? "Trocar PIN…" : "Definir PIN…";
+            remover.Visibility = ativo ? Visibility.Visible : Visibility.Collapsed;
+            estadoPin.Text = ativo
+                ? "PIN ativo: pedido ao abrir o Assetly e ao trazê-lo da bandeja."
+                : "Sem PIN: qualquer pessoa com acesso a esta conta do Windows abre o Assetly.";
+        }
+
+        definir.Click += (_, _) => ExecutarComTratamento(() =>
+        {
+            if (DesbloqueioDialogo.Pedir(_contexto.Bloqueio, "Confirme o PIN atual") && DesbloqueioDialogo.Definir(_contexto.Bloqueio))
+            {
+                Atualizar();
+            }
+        });
+        remover.Click += (_, _) => ExecutarComTratamento(() =>
+        {
+            if (DesbloqueioDialogo.Pedir(_contexto.Bloqueio, "Confirme o PIN atual"))
+            {
+                _contexto.Bloqueio.Remover();
+                Atualizar();
+            }
+        });
+        Atualizar();
+
+        var nota = UiApoio.Texto("O PIN protege a abertura do programa, não os arquivos: o banco e os documentos continuam legíveis na pasta de dados " +
+            "(para protegê-los, use a senha dos backups e a criptografia de disco do Windows). Esqueceu o PIN? Com o Assetly fechado, apague o arquivo " +
+            $"{Path.GetFileName(_contexto.Bloqueio.Arquivo)} em {Path.GetDirectoryName(_contexto.Bloqueio.Arquivo)}.",
+            11.5, FontWeights.Normal, (Brush)recursos["TextMuted"]);
+        nota.TextWrapping = TextWrapping.Wrap;
+        var botoes = UiApoio.Linha(8, definir, remover);
+        botoes.HorizontalAlignment = HorizontalAlignment.Left;
+        return CardConfiguracao("Segundo plano e privacidade", UiApoio.Coluna(10, bandeja, estadoPin, botoes, nota));
     }
 
     /// <summary>Onde os dados deste ambiente ficam no disco — para o usuário saber o que proteger,

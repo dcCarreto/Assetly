@@ -16,6 +16,8 @@ internal interface IPagina
     UIElement Conteudo { get; }
 
     void Atualizar();
+
+    bool Localizar(object chave) => false;
 }
 
 /// <summary>
@@ -85,6 +87,20 @@ internal sealed class ModuloComAbas : IModulo
         {
             pagina.Atualizar();
         }
+    }
+
+    public bool Localizar(object chave)
+    {
+        for (var i = 0; i < _paginas.Count; i++)
+        {
+            if (_paginas[i].Localizar(chave))
+            {
+                Selecionar(i);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal void MostrarPagina(IPagina pagina)

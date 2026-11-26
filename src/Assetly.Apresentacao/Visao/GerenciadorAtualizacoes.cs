@@ -145,7 +145,14 @@ internal sealed class GerenciadorAtualizacoes
         // Fecha a janela como o usuário faria (o envio da sincronização e um backup em andamento terminam antes);
         // o instalador é iniciado ao sair, em AplicarAoFecharSePronta, e reabre o programa depois.
         _reabrirDepois = true;
-        Application.Current.MainWindow?.Close();
+        if (Application.Current is App app)
+        {
+            app.Sair();
+        }
+        else
+        {
+            Application.Current.MainWindow?.Close();
+        }
     }
 
     /// <summary>Chamado ao fechar o programa: se há versão baixada, instala logo após o fechamento.</summary>

@@ -39,7 +39,7 @@ internal sealed class PaginaAbastecimentos : IPagina
             new("Este ano", l => l.Origem.Data.Year == Hoje().Year),
             new("Tanque cheio", l => l.Origem.TanqueCheio)
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -55,6 +55,8 @@ internal sealed class PaginaAbastecimentos : IPagina
             _filtro.Barra, _tabela, contextual, BarraResumoTabela(_resumoEsquerda, _resumoDireita));
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogo(null, null), () => AbrirDialogo(Selecionado().Origem, null), () => Excluir(Selecionado()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar() => _filtro.AtualizarDados(ConstruirLinhas(_contexto.ListarAbastecimentos().Executar()));
 

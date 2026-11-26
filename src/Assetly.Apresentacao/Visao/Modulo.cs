@@ -29,4 +29,7 @@ internal interface IModulo
     /// <summary>Recarrega os dados da tela: após qualquer alteração de dados e, enquanto o módulo está visível, a
     /// cada ciclo de atualização. Deve ser rápido — trabalho pesado vai para <see cref="OperacaoEmSegundoPlano"/>.</summary>
     void Atualizar();
+
+    /// <summary>Mostra e seleciona o registro com esta chave (busca geral, Ctrl+K). Falso se não é deste módulo.</summary>
+    bool Localizar(object chave) => false;
 }

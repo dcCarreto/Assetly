@@ -42,7 +42,7 @@ internal sealed class PaginaImoveis : IPagina
             new("Alugados", l => l.Origem.Alugado),
             new("Outros", l => l.Origem.Situacao is not (SituacaoImovel.MoradiaPropria or SituacaoImovel.AlugadoParaTerceiros))
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -58,6 +58,8 @@ internal sealed class PaginaImoveis : IPagina
             _filtro.Barra, _tabela, contextual, BarraResumoTabela(_resumoEsquerda, _resumoDireita));
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogo(null), () => AbrirDialogo(Selecionado().Origem), () => Excluir(Selecionado()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

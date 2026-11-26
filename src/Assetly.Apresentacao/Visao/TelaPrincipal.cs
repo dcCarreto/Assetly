@@ -41,6 +41,9 @@ internal sealed class TelaPrincipal
 
     internal IReadOnlyList<IModulo> Modulos => _modulos;
 
+    /// <summary>Depois de cada recálculo dos alertas (abertura, alteração de dados, virada do dia) — para as notificações.</summary>
+    internal event Action? AlertasAtualizados;
+
     private ModuloBackup? Backup => _modulos.OfType<ModuloBackup>().FirstOrDefault();
 
     /// <summary>Sincronização opcional entre computadores (ver ModuloBackup): ao abrir pode receber.</summary>
@@ -102,6 +105,14 @@ internal sealed class TelaPrincipal
         _modulos.Add(new ModuloConfiguracoes(_contexto, aplicarAparenciaEReconstruir, AtualizarIntervaloAtualizacao, atualizacoes));
 
         ConfigurarRaiz(preferencias, selecaoForcada);
+        _raizComScrim.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.K && System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control && _dialogosAbertos == 0 && !_emEspera)
+            {
+                e.Handled = true;
+                AcoesApoio.ExecutarComTratamento(AbrirBuscaGeral);
+            }
+        };
         AtualizarTudo();
         IniciarAtualizacaoTempoReal(preferencias.IntervaloComoTimeSpan());
         _contexto.DadosAlterados += AoAlterarDados;
@@ -134,9 +145,36 @@ internal sealed class TelaPrincipal
         {
             _atualizando = false;
         }
+
+        AlertasAtualizados?.Invoke();
     }
 
     private void AoAlterarDados() => AcoesApoio.ExecutarComTratamento(AtualizarTudo);
+
+    /// <summary>Ctrl+K: busca em todos os módulos e leva ao registro escolhido, já selecionado na tabela da tela dele.</summary>
+    internal void AbrirBuscaGeral()
+    {
+        if (BuscaGeralDialogo.Escolher(_contexto) is not { } resultado)
+        {
+            return;
+        }
+
+        var titulo = resultado.Area switch
+        {
+            Aplicacao.CasoDeUso.AreaBusca.Bem => "Bens",
+            Aplicacao.CasoDeUso.AreaBusca.Garantia => "Garantias",
+            Aplicacao.CasoDeUso.AreaBusca.Manutencao => "Manutenções",
+            Aplicacao.CasoDeUso.AreaBusca.Documento => "Documentos",
+            Aplicacao.CasoDeUso.AreaBusca.Alerta => "Alertas",
+            Aplicacao.CasoDeUso.AreaBusca.Convenio => "Convênios",
+            Aplicacao.CasoDeUso.AreaBusca.GastoSaude => "Gastos de saúde",
+            Aplicacao.CasoDeUso.AreaBusca.Imovel => ModulosVeiculoImovel.TituloImoveis,
+            Aplicacao.CasoDeUso.AreaBusca.Despesa when _contexto.RepositorioVeiculo.BuscarPorBem(resultado.BemId) is null => ModulosVeiculoImovel.TituloImoveis,
+            _ => ModulosVeiculoImovel.TituloAutomoveis
+        };
+        IrPara(titulo);
+        _modulos.First(m => m.Titulo == titulo).Localizar(resultado.Chave);
+    }
 
     /// <summary>Para o timer de atualização antes desta instância ser descartada — chamado pelo App
     /// ao reconstruir a janela após uma troca de aparência, para não deixar dois timers rodando.</summary>
@@ -302,6 +340,12 @@ internal sealed class TelaPrincipal
         };
 
         var topo = new StackPanel();
+        var buscar = AcoesApoio.BotaoSecundario("Buscar em tudo   Ctrl+K", () => AbrirBuscaGeral());
+        buscar.HorizontalAlignment = HorizontalAlignment.Stretch;
+        buscar.HorizontalContentAlignment = HorizontalAlignment.Left;
+        buscar.Margin = new Thickness(0, 0, 0, 12);
+        buscar.ToolTip = "Busca em bens, garantias, manutenções, documentos, alertas, saúde, veículos, imóveis e contas (Ctrl+K)";
+        topo.Children.Add(buscar);
         topo.Children.Add(titulo);
 
         var modulosPorTitulo = _modulos.ToDictionary(modulo => modulo.Titulo);

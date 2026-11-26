@@ -42,7 +42,7 @@ internal sealed class ModuloDocumentos : IModulo
             new("Ausentes", l => l.StatusClasse == "etiqueta-ausente"),
             new("Arquivados", l => l.StatusClasse == "etiqueta-arquivado")
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -63,6 +63,8 @@ internal sealed class ModuloDocumentos : IModulo
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoDocumento(null),
             () => AbrirDialogoDocumento(SelecionadoAtual().Origem), () => ExcluirDocumento(SelecionadoAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

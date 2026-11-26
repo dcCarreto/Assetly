@@ -40,22 +40,30 @@ O foco do projeto é simples:
 
 ## O Que Já Funciona
 
-- Cadastro, edição, exclusão, listagem e mudança de status de bens (arquivar, desarquivar, descartar).
+- Cadastro, edição, exclusão, listagem e mudança de status de bens (arquivar, desarquivar, descartar), com **marca, modelo, número de série, loja e localização** — o que o seguro, o boletim de ocorrência e a garantia pedem.
+- **Lixeira**: bem excluído (com garantias, manutenções, documentos e arquivos, fichas e contas) pode ser restaurado por 30 dias.
+- **Importação**: planilha CSV de bens (cadastro em massa) e de volta o JSON exportado pelo próprio Assetly.
+- **Busca em tudo** (`Ctrl+K`): acha qualquer registro em todos os módulos e leva direto a ele.
 - Registro de garantias com período, tipo, fornecedor e contato de suporte.
 - Registro de manutenções preventivas, corretivas, inspeções e limpezas, com conclusão, custo e cancelamento.
 - Cadastro de documentos vinculados aos bens, com cópia do arquivo para uma pasta local privada.
 - Notas fiscais eletrônicas: leitura do **QR Code da NFC-e** e do texto da nota por **OCR do Windows** (sem internet) a partir de uma foto ou imagem escaneada; chave de acesso validada, link de consulta e `Consultar nota` na Sefaz. No cadastro do bem, `Preencher pela nota (foto)…` preenche data e valor e anexa a imagem como nota fiscal.
 - Controle de convênios de saúde (plano, ortodontia, farmácia, emergência), com vigência e cancelamento.
-- Registro de gastos de saúde (farmácia, consultas, exames, procedimentos), com totais do ano.
+- Registro de gastos de saúde (farmácia, consultas, exames, procedimentos), com totais do ano, prestador e CPF/CNPJ.
+- **Relatório para o Imposto de Renda**: gastos de saúde dedutíveis por prestador e paciente e a lista de "Bens e Direitos" com o valor de aquisição.
+- **Comprovantes** anexados a manutenções, contas e abastecimentos.
 - Automóveis: ficha completa do veículo (placa, RENAVAM, chassi, licenciamento, seguro, revisões), abastecimentos com consumo km/l e custo por km, e despesas (IPVA, multas, seguro...) com vencimento e parcelas.
-- Imóveis: ficha completa (endereço, área, matrícula, IPTU, condomínio, seguro, locação) e contas (IPTU, condomínio, água, energia...) com vencimento e repetição mensal.
+- Imóveis: ficha completa (endereço, área, matrícula, IPTU, condomínio, seguro, locação) e contas (IPTU, condomínio, água, energia...) com vencimento.
+- **Contas recorrentes**: condomínio, energia, internet... geram a do mês seguinte quando são pagas (parcelas finitas, como IPVA e financiamento, continuam sendo criadas de uma vez).
 - Alertas automáticos que **se resolvem sozinhos** quando a pendência é corrigida (garantia renovada, manutenção concluída, nota fiscal anexada...).
-- Painel com indicadores, alertas pendentes e prioridades clicáveis.
-- **Patrimônio**: valor de compra x valor estimado hoje (depreciação linear por tipo de bem), distribuição por tipo e por responsável, evolução ano a ano e bens de maior valor.
+- Painel com indicadores, alertas pendentes, prioridades clicáveis e **lembrete de backup** (nunca feito, antigo ou falhando).
+- **Notificações do Windows** com o Assetly na bandeja, aberto junto com o Windows (opcional).
+- **PIN de abertura** opcional.
+- **Patrimônio**: valor de compra x valor estimado hoje (depreciação linear por tipo de bem, taxa própria por bem ou **valor atual informado** — avaliação, tabela FIPE), **patrimônio líquido** descontando financiamentos em aberto, distribuição por tipo e por responsável, evolução ano a ano e bens de maior valor.
 - **Modo família**: cada bem pode ter um responsável (uma pessoa cadastrada), com coluna, busca e totais por pessoa no Patrimônio.
-- Backup manual e automático (diário, semanal ou mensal), **protegido por senha** (AES-256, arquivo único `.assetly`) se você quiser, e restauração com cópia de segurança do estado anterior.
+- Backup manual e automático (diário, semanal ou mensal), **protegido por senha** (AES-256, arquivo único `.assetly`) se você quiser, **teste do backup sem restaurar** e restauração com cópia de segurança do estado anterior.
 - **Sincronização opcional entre computadores** por uma pasta do OneDrive, Google Drive ou Dropbox — sem servidor do Assetly, com escolha de qual versão manter quando os dois lados mudam.
-- **Exportação**: qualquer tabela para CSV (abre direto no Excel) e todos os dados para JSON.
+- **Exportação**: qualquer tabela para CSV (abre direto no Excel) e todos os dados para JSON (que também pode ser importado de volta).
 - Tabelas com busca, filtros, ordenação por coluna e atalhos de teclado.
 - Tema escuro ou claro, quatro cores de destaque, densidade das tabelas e módulos reordenáveis/ocultáveis.
 - Valores em formato brasileiro (`1.234,56`) e totais separados por moeda.
@@ -245,8 +253,10 @@ Preencha:
 
 - nome do bem;
 - tipo;
-- data de compra, se souber;
-- preço de compra, se quiser acompanhar (aceita `1234,56`, `1.234,56` ou `R$ 1.234,56`);
+- marca, modelo, número de série e localização (cômodo, endereço, garagem) — opcionais, mas são o que o seguro e o boletim de ocorrência pedem;
+- data de compra, loja e preço de compra, se quiser acompanhar (aceita `1234,56`, `1.234,56` ou `R$ 1.234,56`);
+- valor atual informado (avaliação, tabela FIPE, imóvel valorizado) e a data da avaliação, se quiser substituir a estimativa por depreciação a partir dessa data;
+- depreciação própria em % ao ano, se a padrão do tipo não servir para este bem;
 - observações.
 
 Data e preço são independentes: dá para informar só um deles. Em `Responsável (modo família)` escolha a pessoa da casa a quem o bem pertence (cadastre as pessoas como bens do tipo **Pessoa (titular)**); o filtro `Pessoas` lista só elas.
@@ -259,7 +269,9 @@ Depois de salvo, o bem aparece na tabela. Selecione uma linha (ou clique com o b
 - `Ativar` (também desarquiva um bem arquivado) e `Manutenção`;
 - `Arquivar`: tira o bem de uso e para de gerar alertas, mas pode ser desfeito;
 - `Descartar`: marca o bem como descartado de forma definitiva, mantendo o histórico;
-- `Excluir`: apaga o bem e tudo o que está ligado a ele (garantias, manutenções, documentos e as cópias dos arquivos, convênios, gastos e alertas). A confirmação mostra quantos registros serão apagados. Use só para cadastros feitos por engano.
+- `Excluir`: tira o bem e tudo o que está ligado a ele (garantias, manutenções, documentos e as cópias dos arquivos, convênios, gastos, fichas, contas e alertas). A confirmação mostra quantos registros vão junto. Tudo vai para a `Lixeira` (botão no topo da tela): por 30 dias dá para `Restaurar` o bem inteiro ou `Excluir de vez`; depois disso ele é apagado sozinho.
+
+Tem uma planilha com seus bens? `Importar planilha…` cadastra todos de uma vez a partir de um CSV com uma linha de títulos — só a coluna `Nome` é obrigatória; `Tipo`, `Status`, `Data de compra`, `Preço`, `Moeda`, `Marca`, `Modelo`, `Número de série`, `Loja`, `Localização`, `Valor atual`, `Responsável` e `Observações` são reconhecidas pelo nome (o CSV exportado pela própria tabela de Bens também serve). Se alguma linha tiver erro, nada é importado e a lista de problemas aparece; linhas iguais a bens já cadastrados são puladas.
 
 ### 3. Registrar Garantias
 
@@ -367,7 +379,7 @@ Entre em `Automóveis`. O módulo tem três abas:
 
 - **Veículos** — clique em `Novo veículo` e preencha a ficha: marca, modelo, anos de fabricação e modelo, cor, combustível, placa (padrão antigo `ABC-1234` ou Mercosul `ABC1D23`), quilometragem, RENAVAM, chassi, vencimento do licenciamento, próxima revisão (por km e/ou por data) e seguro (seguradora, apólice e vencimento). O bem é criado junto (com data e valor de compra), ou você pode vincular a ficha a um bem do tipo Veículo já cadastrado. A coluna `Situação` mostra **Em dia**, **Atenção** (algo vence em breve) ou **Pendência** (algo venceu). `Ficha` reúne tudo: consumo médio, gasto com combustível nos últimos 12 meses, custo de combustível por km, despesas pagas e em aberto, manutenções e dados de compra.
 - **Abastecimentos** — data, hodômetro, litros (ou kWh), valor, combustível, posto e se completou o tanque. O consumo (km/l) é calculado pelo método tanque cheio a tanque cheio, e a quilometragem do veículo é atualizada sozinha quando o hodômetro informado é maior.
-- **Despesas** — IPVA, licenciamento, seguro, multas, pedágio, estacionamento, lavagem, financiamento... com vencimento, valor e pagamento. `Repetir por (meses)` cria parcelas mensais de uma vez (ex.: IPVA em 3 vezes). Use `Pagar` / `Desfazer pagamento`.
+- **Despesas** — IPVA, licenciamento, seguro, multas, pedágio, estacionamento, lavagem, financiamento... com vencimento, valor e pagamento. `Parcelas (meses)` cria parcelas mensais de uma vez (ex.: IPVA em 3 vezes); `Conta mensal sem fim` gera a do mês seguinte a cada pagamento. Use `Pagar` / `Desfazer pagamento`. `Anexar comprovante` guarda o recibo ou a nota junto da despesa (e no módulo Documentos); `Ver comprovante` abre. Abastecimentos e manutenções têm as mesmas duas ações, e o 📎 na linha mostra quem já tem comprovante.
 
 Alertas automáticos: licenciamento e seguro vencendo (30 dias) ou vencidos, revisão próxima (faltando 1.000 km ou 15 dias) ou atrasada, e contas a vencer (7 dias) ou vencidas.
 
@@ -376,7 +388,7 @@ Alertas automáticos: licenciamento e seguro vencendo (30 dias) ou vencidos, rev
 Entre em `Imóveis`. Duas abas:
 
 - **Imóveis** — tipo (casa, apartamento, terreno, sala comercial...), situação (moradia própria, alugado, desocupado, veraneio...), endereço completo com CEP, área, quartos, banheiros, vagas, matrícula no cartório, inscrição do IPTU, condomínio mensal, seguro residencial e, se alugado, inquilino, valor do aluguel e fim do contrato. O rodapé soma a renda de aluguel e os condomínios.
-- **Contas** — IPTU, condomínio, água, energia, gás, internet, seguro, aluguel, reforma, financiamento..., com vencimento, pagamento e repetição mensal.
+- **Contas** — IPTU, condomínio, água, energia, gás, internet, seguro, aluguel, reforma, financiamento..., com vencimento, pagamento, parcelas ou recorrência mensal e comprovantes.
 
 Alertas automáticos: seguro do imóvel vencendo ou vencido, contrato de aluguel terminando (60 dias) ou terminado, e contas a vencer ou vencidas. Imóveis não geram o alerta de nota fiscal ausente (o documento é a escritura — há tipos de documento `Escritura`, `Contrato`, `Documento do veículo (CRLV)` e `Apólice de seguro`).
 
@@ -395,15 +407,28 @@ Backup, restauração e sincronização rodam fora da tela: enquanto você esper
 
 **Sincronização entre computadores (opcional):** em `Sincronização entre computadores`, escolha uma pasta do OneDrive, Google Drive ou Dropbox que exista nos dois computadores. O Assetly guarda lá uma cópia única (criptografada, se houver senha — use a mesma senha nos dois), traz as alterações do outro computador ao abrir e envia as suas ao fechar (e a cada 10 minutos durante o uso). Durante o uso e ao fechar ele só envia: seus dados nunca são substituídos com o programa aberto — uma mudança feita no outro computador chega na próxima abertura ou em `Sincronizar agora`. Se os dois lados mudaram, ele pergunta qual versão manter; a outra nunca é perdida (vai para a pasta de segurança). Um computador novo, ainda sem cadastros, simplesmente recebe os dados.
 
+**Trocar a senha:** com a proteção ligada, `Trocar senha…` muda a senha num passo só. Os backups já feitos continuam abrindo só com a senha antiga, e o outro computador da sincronização precisa receber a mesma senha nova (senão aparece "senha incorreta").
+
+**Testar um backup:** `Testar um backup…` abre o último backup do destino (ou um arquivo/pasta que você escolher) e confere se o banco está íntegro e se cada documento tem o seu arquivo — sem mudar nada nos seus dados. Backups protegidos pedem a senha, o que também confirma que você ainda lembra dela.
+
+O `Painel` avisa quando você nunca fez backup, quando o último tem mais de 30 dias ou quando o backup automático está falhando.
+
 Para restaurar, clique em `Restaurar de um arquivo .assetly…` ou `Restaurar de uma pasta…` (backups protegidos pedem a senha). Antes de substituir qualquer coisa, o Assetly guarda uma cópia do estado atual em `~/.assetly/seguranca/` (protegida pela senha dos backups, se ela estiver ligada; ficam as 5 mais recentes) — se mudar de ideia, basta restaurar essa cópia. Se a restauração falhar no meio (disco cheio, arquivo aberto em outro programa), o estado anterior volta sozinho. O destino e a agenda do backup automático são mantidos, documentos de um backup vindo de outro computador são reencontrados na pasta atual e arquivos que nenhum documento restaurado usa são removidos da pasta de documentos.
 
 ### 12. Acompanhar o Patrimônio
 
-O módulo `Patrimônio` mostra quanto os bens em uso custaram, quanto valem hoje e quanto já depreciaram. A estimativa é linear por tipo de bem: eletrônicos perdem 20% ao ano, veículos 12%, eletrodomésticos, móveis e ferramentas 10%, sempre com um valor residual mínimo; imóveis mantêm o valor de compra. Há a distribuição por tipo, por responsável (modo família), a evolução do valor ano a ano e os bens de maior valor. Bens sem preço, sem data de compra ou com preço em outra moeda são informados no rodapé (só reais entram nos totais).
+O módulo `Patrimônio` mostra quanto os bens em uso custaram, quanto valem hoje e quanto já depreciaram. A estimativa é linear por tipo de bem: eletrônicos perdem 20% ao ano, veículos 12%, eletrodomésticos, móveis e ferramentas 10%, sempre com um valor residual mínimo; imóveis mantêm o valor de compra. Há a distribuição por tipo, por responsável (modo família), a evolução do valor ano a ano e os bens de maior valor. Bens com valor atual informado usam esse valor a partir da data da avaliação; bens com depreciação própria usam a taxa deles. O card `Patrimônio líquido` desconta as dívidas: as parcelas de despesas do tipo **Financiamento** ainda não pagas (em Automóveis e Imóveis). Bens sem preço nem valor informado, sem data de compra ou em outra moeda são informados no rodapé (só reais entram nos totais).
+
+`Relatório para o IR…` (aqui e em `Gastos de saúde`) gera um arquivo de texto com, para o ano escolhido: os gastos de saúde dedutíveis (consultas, exames e procedimentos) somados por prestador e paciente, com o CPF/CNPJ do prestador — informe-o no cadastro de cada gasto, a Receita exige —, e a lista para a ficha "Bens e Direitos" com o valor de aquisição em 31/12 do ano anterior e do ano. Farmácia não é dedutível e aparece só como total à parte. Confira sempre com os recibos.
 
 ### 13. Personalizar
 
-Em `Configurações` você escolhe tema (escuro ou claro), cor de destaque, densidade das tabelas, ordem e visibilidade dos módulos na barra lateral, o módulo que abre ao iniciar e o intervalo de atualização automática. O card `Dados locais` mostra onde ficam o banco, os documentos e o registro de erros, com botões para abrir cada pasta. Ali também fica `Exportar todos os dados (JSON)…`, e toda tabela tem o botão `Exportar CSV` (exporta exatamente as linhas visíveis, com o filtro e a busca atuais).
+Em `Configurações` você escolhe tema (escuro ou claro), cor de destaque, densidade das tabelas, ordem e visibilidade dos módulos na barra lateral, o módulo que abre ao iniciar e o intervalo de atualização automática. O card `Dados locais` mostra onde ficam o banco, os documentos e o registro de erros, com botões para abrir cada pasta. Ali também ficam `Exportar todos os dados (JSON)…` e `Importar dados (JSON)…` — a importação cria os registros novos e atualiza os que já existem (pelo identificador de cada um), sem apagar nada, e guarda antes uma cópia do estado atual na pasta de segurança; o JSON não traz os arquivos dos documentos (os que não estiverem neste computador ficam como ausentes). Toda tabela tem o botão `Exportar CSV` (exporta exatamente as linhas visíveis, com o filtro e a busca atuais).
+
+No card `Segundo plano e privacidade`:
+
+- **Manter na bandeja e abrir com o Windows**: o Assetly passa a abrir junto com o Windows, direto na bandeja (perto do relógio), e avisa por notificação do Windows os alertas novos de aviso ou críticos (garantia, conta, licenciamento, seguro, documento...) — cada alerta uma vez por sessão. Fechar a janela só a esconde; para sair de vez, clique com o botão direito no ícone da bandeja → `Sair`. Abrir o Assetly de novo pelo atalho traz a janela de volta. Só no ambiente de produção.
+- **PIN de abertura**: pedido ao abrir o programa e ao trazê-lo da bandeja. Ele protege a abertura, não os arquivos (o banco e os documentos continuam legíveis na pasta de dados). Esqueceu? Com o Assetly fechado, apague `%USERPROFILE%\.assetly\bloqueio.json`.
 
 ### Atalhos de Teclado
 
@@ -416,6 +441,7 @@ Nas telas com tabela:
 | `F2` | Editar o registro selecionado |
 | `Delete` | Excluir o registro selecionado (sempre pede confirmação) |
 | `Esc` | Limpar a seleção |
+| `Ctrl+K` | Buscar em tudo (em qualquer tela) |
 | Duplo clique | Editar (ou abrir, em Documentos; detalhes, em Bens e Alertas) |
 
 Nos formulários, `Enter` salva e `Esc` cancela. Clique no cabeçalho de uma coluna para ordenar a tabela.
@@ -472,6 +498,7 @@ Produção:
 %USERPROFILE%\.assetly\documentos\
 %USERPROFILE%\.assetly\seguranca\     (cópias feitas antes de cada restauração de backup — as 5 mais recentes)
 %USERPROFILE%\.assetly\logs\          (registro de erros inesperados, últimos 30 dias)
+%USERPROFILE%\.assetly\bloqueio.json   (só se houver PIN de abertura)
 ```
 
 Teste:
@@ -530,9 +557,9 @@ Pela Visual Studio, troque o perfil de execução para **Assetly (Teste)**. Pela
 dotnet run --project src\Assetly.Apresentacao -- --teste
 ```
 
-### Aparece "O Assetly já está aberto neste ambiente"
+### Abri o Assetly e nada apareceu / aparece "O Assetly já está aberto neste ambiente"
 
-Já existe uma janela do Assetly aberta no mesmo ambiente (talvez minimizada). Use a janela existente pela barra de tarefas. Se nenhuma janela estiver visível, encerre o processo `Assetly` no Gerenciador de Tarefas.
+Abrir o Assetly de novo traz para a frente a janela que já está aberta — inclusive quando ele está escondido na bandeja (procure o ícone perto do relógio). Se a mensagem aparecer e nenhuma janela estiver visível, encerre o processo `Assetly` no Gerenciador de Tarefas.
 
 ### Um erro inesperado apareceu
 

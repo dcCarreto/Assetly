@@ -13,6 +13,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Só para o ícone da bandeja e as notificações do Windows (NotifyIcon); a interface continua toda em WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Recursos\Imagens\assetly.ico</ApplicationIcon>
     <AssemblyName>Assetly</AssemblyName>
     <StartupObject>Assetly.Apresentacao.Programa</StartupObject>
@@ -23,6 +25,12 @@
     <Copyright>© Denis Carreto</Copyright>
     <Product>Assetly</Product>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Sem os usings globais do Windows Forms: Application, Button, MessageBox... são sempre os do WPF. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Recursos\Imagens\*.png" />

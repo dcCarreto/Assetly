@@ -10,7 +10,7 @@ public static class Programa
     [STAThread]
     public static int Main(string[] argumentos)
     {
-        if (!argumentos.Contains(Autoteste.Argumento))
+        if (!argumentos.Contains(Autoteste.Argumento) && !argumentos.Contains(Visao.InicioComWindows.ArgumentoBandeja))
         {
             new SplashScreen("Recursos/Imagens/splash.png").Show(autoClose: true, topMost: false);
         }

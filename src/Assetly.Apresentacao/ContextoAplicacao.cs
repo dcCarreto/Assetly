@@ -29,6 +29,9 @@ public sealed class ContextoAplicacao
     /// <summary>Pasta privada onde os documentos do ambiente atual são copiados.</summary>
     public string DiretorioDocumentos { get; }
 
+    /// <summary>PIN pedido ao abrir o programa (arquivo deste computador, fora do banco).</summary>
+    public Infraestrutura.Seguranca.BloqueioPin Bloqueio { get; }
+
     /// <summary>Disparado depois de qualquer alteração de dados feita pela interface — a tela principal
     /// usa para atualizar na hora todos os módulos, contadores e o painel (e não só no próximo ciclo).</summary>
     public event Action? DadosAlterados;
@@ -75,7 +78,8 @@ public sealed class ContextoAplicacao
         string diretorioSeguranca,
         string rotuloAmbiente,
         bool ambienteTeste,
-        bool semearDadosFicticios)
+        bool semearDadosFicticios,
+        string arquivoBloqueio)
     {
         _bancoDados = bancoDados ?? throw new ArgumentNullException(nameof(bancoDados), "banco de dados é obrigatório");
         _bancoDados.Inicializar();
@@ -100,6 +104,7 @@ public sealed class ContextoAplicacao
         AmbienteTeste = ambienteTeste;
         ArquivoBanco = fabricaConexao.ArquivoBanco;
         DiretorioDocumentos = diretorioDocumentos;
+        Bloqueio = new Infraestrutura.Seguranca.BloqueioPin(arquivoBloqueio);
         _diretorioSeguranca = diretorioSeguranca;
         _armazenamentoDocumento = new ArmazenamentoDocumentoLocal(diretorioDocumentos);
 
@@ -111,22 +116,27 @@ public sealed class ContextoAplicacao
 
     public static ContextoAplicacao LocalPadrao() =>
         new(BancoDadosAssetly.LocalPadrao(), CaminhosArmazenamentoLocal.DiretorioDocumentos(), CaminhosArmazenamentoLocal.DiretorioSeguranca(),
-            "Produção local", ambienteTeste: false, semearDadosFicticios: false);
+            "Produção local", ambienteTeste: false, semearDadosFicticios: false,
+            Path.Combine(CaminhosArmazenamentoLocal.DiretorioBase(), "bloqueio.json"));
 
     public static ContextoAplicacao TesteComDadosFicticios() =>
         new(BancoDadosAssetly.LocalTeste(), CaminhosArmazenamentoLocal.DiretorioDocumentosTeste(), CaminhosArmazenamentoLocal.DiretorioSegurancaTeste(),
-            "Teste", ambienteTeste: true, semearDadosFicticios: true);
+            "Teste", ambienteTeste: true, semearDadosFicticios: true,
+            Path.Combine(CaminhosArmazenamentoLocal.DiretorioBaseTeste(), "bloqueio.json"));
 
     /// <summary>Ambiente descartável numa pasta qualquer (testes de release): nunca toca nos dados do usuário.</summary>
     public static ContextoAplicacao Isolado(string pasta, bool semearDadosFicticios) =>
         new(new BancoDadosAssetly(new FabricaConexaoSqlite(Path.Combine(pasta, "banco", "assetly.sqlite3")), Path.Combine(pasta, "seguranca")),
-            Path.Combine(pasta, "documentos"), Path.Combine(pasta, "seguranca"), "Autoteste", ambienteTeste: true, semearDadosFicticios);
+            Path.Combine(pasta, "documentos"), Path.Combine(pasta, "seguranca"), "Autoteste", ambienteTeste: true, semearDadosFicticios,
+            Path.Combine(pasta, "bloqueio.json"));
 
     public FonteDados FonteDados() =>
         new(RepositorioBem, RepositorioGarantia, RepositorioManutencao, RepositorioDocumento, RepositorioAlerta, RepositorioSaude,
             RepositorioGastoSaude, RepositorioVeiculo, RepositorioAbastecimento, RepositorioImovel, RepositorioDespesa);
 
     public ExportarDados ExportarDados() => new(FonteDados());
+
+    public BuscaGeral BuscaGeral() => new(FonteDados());
 
     public ImportarDados ImportarDados() => new(FonteDados(), _armazenamentoDocumento);
 

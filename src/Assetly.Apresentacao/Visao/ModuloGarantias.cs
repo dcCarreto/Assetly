@@ -38,7 +38,7 @@ internal sealed class ModuloGarantias : IModulo
             new("Próximas", l => l.StatusClasse == "etiqueta-perto-do-vencimento"),
             new("Ativas", l => l.StatusClasse == "etiqueta-ativa")
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -55,6 +55,8 @@ internal sealed class ModuloGarantias : IModulo
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoGarantia(null),
             () => AbrirDialogoGarantia(SelecionadaAtual().Origem), () => ExcluirGarantia(SelecionadaAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

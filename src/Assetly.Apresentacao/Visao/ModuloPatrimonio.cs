@@ -82,13 +82,13 @@ internal sealed class ModuloPatrimonio : IModulo
     {
         var resumo = _contexto.CalcularPatrimonio().Executar(Hoje());
         _kpis.Children.Clear();
-        var compra = ResumoOperacao("Valor de compra", Dinheiro(resumo.ValorCompra), $"{resumo.Itens.Count} bens em uso com preço", "StatusInfo");
-        var atual = ResumoOperacao("Valor estimado hoje", Dinheiro(resumo.ValorAtual), resumo.ValorCompra == 0 ? "—" : $"{(1 - resumo.PercentualDepreciado):P0} do valor de compra", "StatusOk");
-        var perda = ResumoOperacao("Depreciação acumulada", Dinheiro(resumo.Depreciacao), $"{resumo.PercentualDepreciado:P1} desde a compra", "StatusAviso");
+        var compra = ResumoOperacao("Valor de compra", Dinheiro(resumo.ValorCompra), $"{resumo.Itens.Count} bens em uso", "StatusInfo");
+        var atual = ResumoOperacao("Valor estimado hoje", Dinheiro(resumo.ValorAtual), resumo.ValorCompra == 0 ? "—" : $"{(1 - resumo.PercentualDepreciado):P0} da compra", "StatusOk");
+        var perda = ResumoOperacao("Depreciação acumulada", Dinheiro(resumo.Depreciacao), $"{resumo.PercentualDepreciado:P1} da compra", "StatusAviso");
         Posicionar(_kpis, compra, 0, 0, new Thickness(0, 0, 6, 0));
         Posicionar(_kpis, atual, 0, 1, new Thickness(6, 0, 6, 0));
         var liquido = ResumoOperacao("Patrimônio líquido", Dinheiro(resumo.PatrimonioLiquido),
-            resumo.ParcelasEmAberto == 0 ? "sem financiamentos em aberto" : $"descontando {Dinheiro(resumo.Dividas)} em {resumo.ParcelasEmAberto} parcela(s) de financiamento",
+            resumo.ParcelasEmAberto == 0 ? "sem dívidas" : $"−{Compacto(resumo.Dividas)} em dívidas",
             resumo.PatrimonioLiquido < 0 ? "StatusPerigo" : "StatusOk");
         Posicionar(_kpis, perda, 0, 2, new Thickness(6, 0, 6, 0));
         Posicionar(_kpis, liquido, 0, 3, new Thickness(6, 0, 0, 0));
@@ -110,6 +110,11 @@ internal sealed class ModuloPatrimonio : IModulo
             "Estimativa por depreciação linear: eletrônicos 20% ao ano, veículos 12%, demais 10%, com um valor residual mínimo; imóveis mantêm o valor de compra. " +
             "Bens com valor atual informado (avaliação, tabela FIPE) ou taxa própria usam esses dados. Dívidas = parcelas de financiamento não pagas (Automóveis e Imóveis → Despesas)."
         };
+        if (resumo.ParcelasEmAberto > 0)
+        {
+            observacoes.Add($"Dívidas: {Dinheiro(resumo.Dividas)} em {resumo.ParcelasEmAberto} parcela(s) de financiamento ainda não paga(s).");
+        }
+
         if (resumo.SemPreco > 0)
         {
             observacoes.Add($"{resumo.SemPreco} bem(ns) sem preço de compra nem valor informado não entram nos totais.");

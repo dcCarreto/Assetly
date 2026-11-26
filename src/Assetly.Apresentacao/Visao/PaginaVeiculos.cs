@@ -44,7 +44,7 @@ internal sealed class PaginaVeiculos : IPagina
             new("Atenção", l => l.SituacaoClasse == "etiqueta-atencao"),
             new("Em dia", l => l.SituacaoClasse == "etiqueta-em-dia")
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -62,6 +62,8 @@ internal sealed class PaginaVeiculos : IPagina
             _filtro.Barra, _tabela, contextual, BarraResumoTabela(_resumoEsquerda, _resumoDireita));
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogo(null), () => AbrirDialogo(Selecionado().Origem), () => Excluir(Selecionado()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

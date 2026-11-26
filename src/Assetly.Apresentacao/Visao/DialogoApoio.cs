@@ -17,6 +17,9 @@ internal static class DialogoApoio
 
     /// <summary>Janela principal já visível, ou nulo (ex.: autoteste sem janela) — nunca o próprio diálogo, que o WPF
     /// registraria como janela principal se ela ainda não existisse.</summary>
+    /// <summary>Centralizado na janela principal; sem ela visível (PIN ao abrir, programa na bandeja), no meio da tela.</summary>
+    internal static WindowStartupLocation Posicao() => DonoDialogo() is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner;
+
     internal static Window? DonoDialogo() => Application.Current.MainWindow is { IsVisible: true } principal ? principal : null;
 
     internal static void ExibirModal(Window janela)
@@ -30,7 +33,7 @@ internal static class DialogoApoio
         janela.ShowDialog();
     }
 
-    internal static bool MostrarFormulario(string titulo, FrameworkElement conteudo, Action executarComando, double largura = 600)
+    internal static bool MostrarFormulario(string titulo, FrameworkElement conteudo, Action executarComando, double largura = 600, string textoSalvar = "Salvar")
     {
         var salvou = false;
         var janela = new Window
@@ -38,13 +41,13 @@ internal static class DialogoApoio
             Title = titulo,
             Width = largura,
             SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowStartupLocation = Posicao(),
             Owner = DonoDialogo(),
             ResizeMode = ResizeMode.NoResize
         };
 
         // IsDefault: Enter salva o formulário (exceto dentro de áreas de texto multilinha, que aceitam Enter).
-        var salvar = new Button { Content = "Salvar", Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
+        var salvar = new Button { Content = textoSalvar, Style = (Style)Application.Current.Resources["BotaoPrimarioStyle"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
         var cancelar = new Button { Content = "Cancelar", Style = (Style)Application.Current.Resources["BotaoSecundarioStyle"], MinWidth = 96 };
         var raizRodape = RodapeFormulario(cancelar, salvar);
         DockPanel.SetDock(raizRodape, Dock.Bottom);
@@ -402,7 +405,7 @@ internal static class DialogoApoio
         {
             Title = titulo,
             SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowStartupLocation = Posicao(),
             Owner = DonoDialogo(),
             ResizeMode = ResizeMode.NoResize,
             MinWidth = 380,
@@ -435,7 +438,7 @@ internal static class DialogoApoio
         {
             Title = titulo,
             SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowStartupLocation = Posicao(),
             Owner = DonoDialogo(),
             ResizeMode = ResizeMode.NoResize,
             MinWidth = 380,
@@ -478,7 +481,7 @@ internal static class DialogoApoio
         {
             Title = titulo,
             SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowStartupLocation = Posicao(),
             Owner = DonoDialogo(),
             ResizeMode = ResizeMode.NoResize,
             MinWidth = 420,

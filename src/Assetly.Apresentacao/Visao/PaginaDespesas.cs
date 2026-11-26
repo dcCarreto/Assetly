@@ -54,7 +54,7 @@ internal sealed class PaginaDespesas : IPagina
             new("Este ano", l => l.Origem.Vencimento.Year == Hoje().Year),
             new("Todas", _ => true)
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -71,6 +71,8 @@ internal sealed class PaginaDespesas : IPagina
         Conteudo = TelaComTabela(titulo, descricao, direita, _filtro.Barra, _tabela, contextual, BarraResumoTabela(_resumoEsquerda, _resumoDireita));
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogo(null, null), () => AbrirDialogo(Selecionada().Origem, null), () => Excluir(Selecionada()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

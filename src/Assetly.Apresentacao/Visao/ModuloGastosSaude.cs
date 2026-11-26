@@ -41,7 +41,7 @@ internal sealed class ModuloGastosSaude : IModulo
             new("Exames", l => l.Origem.Tipo == TipoGastoSaude.Exame),
             new("Procedimentos", l => l.Origem.Tipo == TipoGastoSaude.Procedimento)
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -57,6 +57,8 @@ internal sealed class ModuloGastosSaude : IModulo
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoGastoSaude(null),
             () => AbrirDialogoGastoSaude(SelecionadoAtual().Origem), () => ExcluirGasto(SelecionadoAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {

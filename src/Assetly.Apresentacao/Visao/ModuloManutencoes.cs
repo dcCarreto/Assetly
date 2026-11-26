@@ -40,7 +40,7 @@ internal sealed class ModuloManutencoes : IModulo
             new("Concluídas", l => l.StatusClasse == "etiqueta-concluida"),
             new("Canceladas", l => l.StatusClasse == "etiqueta-cancelada")
         ]);
-        busca.TextChanged += (_, _) => _filtro.DefinirBusca(busca.Text);
+        _filtro.ConectarBusca(busca);
 
         var contextual = BarraContextual(_tabela,
         [
@@ -61,6 +61,8 @@ internal sealed class ModuloManutencoes : IModulo
         ConfigurarAtalhosTabela(Conteudo, _tabela, busca, () => AbrirDialogoManutencao(null),
             () => AbrirDialogoManutencao(SelecionadaAtual().Origem), () => ExcluirManutencao(SelecionadaAtual()));
     }
+
+    public bool Localizar(object chave) => _filtro.Localizar(chave);
 
     public void Atualizar()
     {
