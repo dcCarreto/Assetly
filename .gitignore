@@ -6,6 +6,8 @@ obj/
 
 # .NET
 *.user
+TestResults/
+cobertura/
 [Dd]ebug/
 [Rr]elease/
 

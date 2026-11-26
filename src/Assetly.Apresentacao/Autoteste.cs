@@ -15,7 +15,7 @@ namespace Assetly.Apresentacao;
 /// <summary>
 /// Verificação de ponta a ponta do executável publicado, usada pelo workflow de release antes de publicar
 /// (e depois de instalar pelo instalador): <c>Assetly.exe --autoteste [--relatorio=arquivo] [--telas=pasta]
-/// [--versao-esperada=AAAA.MM.DD]</c>. Tudo acontece numa pasta temporária — os dados do usuário nunca são
+/// [--versao-esperada=AAAA.MM.DD] [--volume[=MB]]</c> (ver <see cref="AutotesteVolume"/>). Tudo acontece numa pasta temporária — os dados do usuário nunca são
 /// tocados — e nenhuma janela é aberta: as telas são desenhadas em memória. Código de saída 0 = tudo certo.
 /// </summary>
 internal static class Autoteste
@@ -93,6 +93,12 @@ internal static class Autoteste
             });
 
             Etapa("Backup criptografado (gerar, senha errada, restaurar)", () => TestarBackup(contexto, pasta));
+
+            if (argumentos.FirstOrDefault(a => a.StartsWith(AutotesteVolume.Argumento, StringComparison.OrdinalIgnoreCase)) is { } volume)
+            {
+                var megabytes = int.TryParse(volume.Split('=').ElementAtOrDefault(1), out var valor) && valor > 0 ? valor : 1024;
+                AutotesteVolume.Executar(Etapa, pasta, megabytes);
+            }
         }
         catch (Exception excecao)
         {

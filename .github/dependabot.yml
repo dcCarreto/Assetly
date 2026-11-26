@@ -1,0 +1,31 @@
+# Avisa (com um pull request) quando sai versão nova de um pacote NuGet ou de uma action usada nos workflows.
+# Uma vez por semana e agrupado, para não virar um PR por pacote. O CI roda em cada PR antes de aceitar.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    target-branch: desenvolvimento
+    groups:
+      testes:
+        patterns: ["xunit*", "Microsoft.NET.Test.Sdk", "Shouldly", "coverlet.*"]
+      dependencias:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    target-branch: desenvolvimento
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"

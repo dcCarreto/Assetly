@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - desenvolvimento
 
 jobs:
   test:
@@ -30,8 +31,22 @@ jobs:
       - name: Compilar
         run: dotnet build Assetly.slnx --no-restore --configuration Release
 
-      - name: Rodar testes
-        run: dotnet test Assetly.slnx --no-build --configuration Release
+      - name: Rodar testes (com cobertura)
+        run: dotnet test Assetly.slnx --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory cobertura
+
+      # Tabela de cobertura por camada no resumo da execução; falha se Domínio, Aplicação ou Infraestrutura
+      # caírem abaixo do mínimo (ver .github/cobertura.ps1).
+      - name: Cobertura dos testes
+        shell: pwsh
+        run: ./.github/cobertura.ps1 -Pasta cobertura
+
+      - name: Guardar o relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: cobertura/**/coverage.cobertura.xml
+          if-no-files-found: ignore
 
       # Abre o programa de verdade (sem janela): banco novo, migrações, dados fictícios, todas as telas e
       # formulários, exportação, patrimônio e backup criptografado. Mesmo teste usado antes de cada release.
@@ -43,3 +58,16 @@ jobs:
           $p = Start-Process $exe.FullName -ArgumentList "--autoteste", "--relatorio=$relatorio" -Wait -PassThru
           Get-Content $relatorio -Encoding UTF8
           if ($p.ExitCode -ne 0) { throw "O autoteste falhou (código $($p.ExitCode))." }
+
+      # Banco grande (500 bens, 5 mil contas, 2 mil documentos com 256 MB de anexos): tempos do ciclo da tela, busca,
+      # exportação, backup e arquivo da sincronização no resumo da execução. Falha se o ciclo da tela passar de 5 s.
+      - name: Autoteste com volume
+        shell: pwsh
+        run: |
+          $exe = Get-Item src\Assetly.Apresentacao\bin\Release\net10.0-windows10.0.19041.0\Assetly.exe
+          $relatorio = Join-Path $env:RUNNER_TEMP "autoteste-volume.txt"
+          $p = Start-Process $exe.FullName -ArgumentList "--autoteste", "--volume=256", "--relatorio=$relatorio" -Wait -PassThru
+          $linhas = Get-Content $relatorio -Encoding UTF8
+          $linhas
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding UTF8 -Value ("### Autoteste com volume`n`n" + (($linhas | Where-Object { $_ -match 'Volume|RESULTADO' } | ForEach-Object { "- $_" }) -join "`n"))
+          if ($p.ExitCode -ne 0) { throw "O autoteste com volume falhou (código $($p.ExitCode))." }
