@@ -1,0 +1,55 @@
+name: Problema
+description: Algo não funciona como deveria.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por relatar! **Não anexe seu banco de dados, backups nem documentos reais.** Se puder, reproduza no ambiente de teste (dados fictícios).
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Assetly
+      description: Em Configurações → Versão e atualizações.
+      placeholder: "2026.11.25"
+    validations:
+      required: true
+  - type: dropdown
+    id: ambiente
+    attributes:
+      label: Ambiente
+      options:
+        - Produção (meus dados)
+        - Teste (dados fictícios)
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      placeholder: "Windows 11 23H2"
+  - type: textarea
+    id: passos
+    attributes:
+      label: O que você fez
+      description: Passo a passo até o problema aparecer.
+      placeholder: |
+        1. Abri o módulo Backup
+        2. Cliquei em "Fazer backup agora"
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava e o que aconteceu
+      description: Se apareceu uma mensagem de erro, copie o texto dela.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Registro de erros do dia
+      description: |
+        Arquivo do dia em `%USERPROFILE%\.assetly\logs\` (teste: `%USERPROFILE%\.assetly-teste\logs\`). O caminho também aparece em Configurações → Dados locais.
+        Confira o conteúdo antes: ele não traz seus cadastros, mas mostra o nome do usuário do Windows nos caminhos.
+      render: text

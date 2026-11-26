@@ -1,0 +1,19 @@
+name: Sugestão
+description: Uma ideia de funcionalidade ou melhoria.
+labels: ["sugestão"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Que problema você quer resolver?
+      description: 'Conte a situação do dia a dia antes da solução (por exemplo, "esqueço de renovar o seguro do carro").'
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Como você imagina que funcionaria?
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Como você resolve isso hoje?

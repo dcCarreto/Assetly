@@ -590,7 +590,11 @@ Assetly/
 ├── Assetly.slnx
 ├── docs/imagens/          # capturas de tela do README (geradas pelo autoteste)
 ├── instalador/            # script do Inno Setup e imagens do instalador
-├── .github/workflows/     # CI (testes + autoteste) e Release (por data)
+├── CONTRIBUTING.md        # como relatar problemas e propor alterações
+├── Directory.Build.props  # vale para todos os projetos: avisos viram erro
+├── .editorconfig          # convenções do código
+├── .github/workflows/     # CI (testes, cobertura, autotestes) e Release (por data)
+├── .github/ISSUE_TEMPLATE/# modelos de issue (Problema, Sugestão)
 ├── src/
 │   ├── Assetly.Dominio/
 │   ├── Assetly.Aplicacao/
@@ -647,7 +651,7 @@ publicar\Assetly.exe --autoteste --relatorio=autoteste.txt --telas=telas   # có
 
 A atualização automática só funciona na cópia instalada pelo instalador e numa versão publicada; rodando pela Visual Studio, por `dotnet run` ou por um executável gerado localmente, o card de atualizações informa isso e nada é baixado.
 
-**Assinatura digital (opcional):** remove o aviso do SmartScreen. Com um certificado de assinatura de código, cadastre no repositório os *secrets* `CERTIFICADO_PFX_BASE64` (o arquivo `.pfx` em base64) e `CERTIFICADO_SENHA`. O workflow detecta os *secrets* e passa a assinar o executável, o instalador e o desinstalador (Authenticode com carimbo de tempo). Sem eles, tudo funciona igual, só sem assinatura.
+**Assinatura digital (opcional):** remove o aviso do SmartScreen. Com um certificado de assinatura de código, cadastre no repositório os *secrets* `CERTIFICADO_PFX_BASE64` (o arquivo `.pfx` em base64) e `CERTIFICADO_SENHA`. O workflow detecta os *secrets* e passa a assinar o executável, o instalador e o desinstalador (Authenticode com carimbo de tempo). Sem eles, tudo funciona igual, só sem assinatura. Uma alternativa mais barata ao certificado tradicional é o **Azure Trusted Signing** (assinatura na nuvem, cobrança mensal); ele usa outra ferramenta de assinatura, então exigiria trocar os passos de assinatura do workflow, que hoje esperam um `.pfx`.
 
 ### Executar Testes
 
@@ -655,7 +659,11 @@ A atualização automática só funciona na cópia instalada pelo instalador e n
 dotnet test
 ```
 
-São testes de domínio, casos de uso e infraestrutura real (SQLite e arquivos em pastas temporárias), incluindo migrações a partir de um banco da versão anterior, backup criptografado (senha errada, arquivo alterado ou truncado), sincronização entre dois "computadores" com conflito, leitura de QR Code e de notas por texto, patrimônio, exportação e o atualizador (com respostas simuladas do GitHub e SHA-256 incorreto). O CI roda os testes e o autoteste do programa a cada envio para `main` e `desenvolvimento`.
+São testes de domínio, casos de uso, infraestrutura real (SQLite e arquivos em pastas temporárias) e da camada de interface (WPF numa thread própria, sem janela), incluindo migrações a partir de um banco da versão anterior, backup criptografado (senha errada, arquivo alterado ou truncado), sincronização entre dois "computadores" com conflito, leitura de QR Code e de notas por texto, patrimônio, importação, lixeira, exportação e o atualizador (com respostas simuladas do GitHub e SHA-256 incorreto). Como cobrem a interface, os testes rodam só no Windows.
+
+Para medir com muitos dados, `Assetly.exe --autoteste --volume[=MB]` monta numa pasta temporária um banco grande (500 bens, 5 mil contas, 2 mil documentos com anexos que somam o tamanho pedido — 1 GB por padrão) e informa o tempo do ciclo de atualização da tela (falha acima de 5 s), da busca, da exportação, do backup e do arquivo da sincronização.
+
+O CI roda a cada envio e pull request para `main` e `desenvolvimento`: compilação sem nenhum aviso (avisos viram erro, ver `Directory.Build.props` e `.editorconfig`), testes com cobertura (tabela por camada no resumo da execução; falha se Domínio cair abaixo de 90%, Infraestrutura de 85% ou Aplicação de 80%), o autoteste do programa e o autoteste com volume (256 MB). O Dependabot abre, toda segunda-feira, um pull request agrupado quando há versão nova dos pacotes NuGet ou das actions.
 
 Antes de propor uma alteração, confira:
 
@@ -666,6 +674,8 @@ git status --short
 ```
 
 Mudanças de esquema do banco são feitas por migrações SQL versionadas em `src/Assetly.Infraestrutura/Banco/Migracoes/` (registradas em `MigradorBancoDados`); bancos existentes são atualizados automaticamente na abertura e ao restaurar um backup antigo.
+
+Convenções, como relatar problemas e como propor alterações: [CONTRIBUTING.md](CONTRIBUTING.md). As issues têm modelos de **Problema** (que pede a versão e o registro de erros do dia) e de **Sugestão**.
 
 ## O Que Ainda Está Planejado
 
