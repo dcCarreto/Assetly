@@ -120,7 +120,7 @@ internal sealed class ModuloGastosSaude : IModulo
         var descricao = CampoTexto("Descrição", gasto?.Descricao ?? string.Empty);
         var data = DataPicker(gasto?.Data ?? Hoje());
         var valor = CampoTexto("Valor (ex.: 89,90)", TextoValor(gasto?.Valor.Valor));
-        var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", gasto?.Valor.CodigoMoeda ?? "BRL");
+        var moeda = ComboMoeda(gasto?.Valor.CodigoMoeda);
         var prestador = CampoTexto("Médico, clínica, laboratório...", gasto?.Prestador ?? string.Empty);
         var documentoPrestador = CampoTexto("CPF ou CNPJ de quem recebeu (está no recibo ou na nota)",
             gasto is null || gasto.DocumentoPrestador.Length == 0 ? string.Empty : Dominio.Compartilhado.CpfCnpj.Formatar(gasto.DocumentoPrestador));
@@ -139,7 +139,7 @@ internal sealed class ModuloGastosSaude : IModulo
         {
             var dataValor = DataObrigatoria(data, "do gasto");
             var valorDecimal = DecimalOpcional(valor.Text) ?? throw new ArgumentException("valor do gasto é obrigatório");
-            var codigoMoeda = TextoOpcional(moeda.Text) ?? throw new ArgumentException("moeda do gasto é obrigatória");
+            var codigoMoeda = MoedaEscolhida(moeda);
             if (gasto is null)
             {
                 _contexto.RegistrarGastoSaude().Executar(new RegistrarGastoSaudeComando(

@@ -31,6 +31,8 @@ internal sealed class ModuloComAbas : IModulo
     private readonly ContentControl _area = new();
     private readonly Func<int> _contador;
     private int _selecionada;
+    private readonly Border _faixa;
+    private readonly Border _faixaNoTopo = new() { Margin = new Thickness(18, 8, 20, 0) };
 
     public string Titulo { get; }
     public string Descricao { get; }
@@ -56,17 +58,17 @@ internal sealed class ModuloComAbas : IModulo
             barra.Children.Add(aba);
         }
 
-        var faixa = new Border
+        _faixa = new Border
         {
             BorderBrush = (Brush)Application.Current.Resources["CardBorder"],
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Margin = new Thickness(18, 8, 20, 0),
             Child = barra
         };
-        DockPanel.SetDock(faixa, Dock.Top);
+        _faixaNoTopo.Child = null;
+        DockPanel.SetDock(_faixaNoTopo, Dock.Top);
 
         var raiz = new DockPanel { Focusable = true, FocusVisualStyle = null };
-        raiz.Children.Add(faixa);
+        raiz.Children.Add(_faixaNoTopo);
         raiz.Children.Add(_area);
         // A tela principal foca o conteúdo do módulo ao trocar de módulo; repassa o foco para a página
         // visível para que os atalhos dela (Ctrl+N, F2, Delete...) funcionem de imediato.
@@ -78,6 +80,7 @@ internal sealed class ModuloComAbas : IModulo
             }
         };
         Conteudo = raiz;
+        MostrarAbasNaPagina(paginas[0]);
         _area.Content = paginas[0].Conteudo;
     }
 
@@ -122,8 +125,34 @@ internal sealed class ModuloComAbas : IModulo
             _abas[i].IsChecked = i == indice;
         }
 
+        MostrarAbasNaPagina(_paginas[indice]);
         _area.Content = _paginas[indice].Conteudo;
         FocarPagina();
+    }
+
+    /// <summary>As abas vão para logo abaixo do cabeçalho da página (como nas outras telas, o título não desce); uma página que
+    /// não tem esse lugar as recebe no topo, como antes.</summary>
+    private void MostrarAbasNaPagina(IPagina pagina)
+    {
+        if (_faixa.Parent is ContentControl anterior)
+        {
+            anterior.Content = null;
+        }
+        else if (_faixa.Parent is Border borda)
+        {
+            borda.Child = null;
+        }
+
+        if (LayoutApoio.LugarDasAbas(pagina.Conteudo) is { } lugar)
+        {
+            _faixa.Margin = new Thickness(0, 0, 0, 12);
+            lugar.Content = _faixa;
+        }
+        else
+        {
+            _faixa.Margin = new Thickness(0);
+            _faixaNoTopo.Child = _faixa;
+        }
     }
 
     private void FocarPagina()

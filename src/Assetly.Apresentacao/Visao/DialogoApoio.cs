@@ -201,6 +201,30 @@ internal static class DialogoApoio
         };
     }
 
+    private static readonly (string Codigo, string Nome)[] Moedas =
+    [
+        ("BRL", "real"), ("USD", "dólar americano"), ("EUR", "euro"), ("GBP", "libra esterlina"), ("ARS", "peso argentino"),
+        ("CLP", "peso chileno"), ("UYU", "peso uruguaio"), ("PYG", "guarani"), ("CAD", "dólar canadense"), ("JPY", "iene"), ("CHF", "franco suíço")
+    ];
+
+    /// <summary>Moeda escolhida numa lista (antes era texto livre, e nada impedia "reais" ou "R$"). Um código já salvo que
+    /// não está na lista continua aparecendo.</summary>
+    internal static ComboBox ComboMoeda(string? atual)
+    {
+        var itens = Moedas.Select(m => new ItemValor<string>(m.Codigo, $"{m.Codigo} — {m.Nome}")).ToList();
+        if (!string.IsNullOrWhiteSpace(atual) && itens.All(i => i.Valor != atual))
+        {
+            itens.Add(new ItemValor<string>(atual, atual));
+        }
+
+        return ApoioFichas.ComboItens(itens, codigo => codigo == (string.IsNullOrWhiteSpace(atual) ? "BRL" : atual));
+    }
+
+    internal static string MoedaEscolhida(ComboBox combo) => ApoioFichas.ValorItem<string>(combo, "escolha a moeda");
+
+    internal static void EscolherMoeda(ComboBox combo, string codigo) =>
+        combo.SelectedItem = combo.Items.OfType<ItemValor<string>>().FirstOrDefault(i => i.Valor == codigo) ?? combo.SelectedItem;
+
     internal static CheckBox CaixaMarcacao(string texto, bool marcada) => new()
     {
         Style = (Style)Application.Current.Resources["CheckBoxStyle"],

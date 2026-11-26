@@ -101,10 +101,11 @@
     <Color x:Key="TextSecondaryColor">#4B5A6B</Color>
     <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource TextSecondaryColor}"/>
 
-    <Color x:Key="TextLabelColor">#6B7C8D</Color>
+    <!-- Contraste mínimo 4,5:1 (WCAG AA) também sobre BgSurface2: rótulos e textos de ajuda são pequenos. -->
+    <Color x:Key="TextLabelColor">#526275</Color>
     <SolidColorBrush x:Key="TextLabel" Color="{StaticResource TextLabelColor}"/>
 
-    <Color x:Key="TextMutedColor">#94A3AF</Color>
+    <Color x:Key="TextMutedColor">#5A6A7D</Color>
     <SolidColorBrush x:Key="TextMuted" Color="{StaticResource TextMutedColor}"/>
 
     <!-- ================= Cards ================= -->

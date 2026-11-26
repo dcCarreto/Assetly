@@ -38,7 +38,7 @@
          nos pontos de uso) — TextBlock não expõe CharacterCasing como TextBox expõe. -->
     <Style x:Key="RotuloKpiStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource FontMono}"/>
-        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextLabel}"/>
     </Style>

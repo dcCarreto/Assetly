@@ -334,7 +334,7 @@ internal sealed class TelaPrincipal
         {
             Text = "MÓDULOS",
             FontFamily = (FontFamily)recursos["FontMono"],
-            FontSize = 10,
+            FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)recursos["TextLabel"],
             Margin = new Thickness(6, 4, 6, 8)

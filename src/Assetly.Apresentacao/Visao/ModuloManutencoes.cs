@@ -206,14 +206,14 @@ internal sealed class ModuloManutencoes : IModulo
 
         var concluidaEm = DataPicker(Hoje());
         var custo = CampoTexto("Custo (ex.: 150,00)", string.Empty);
-        var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", "BRL");
+        var moeda = ComboMoeda("BRL");
         var grade = GradeFormulario();
         AdicionarCampo(grade, 0, 0, "Concluída em *", concluidaEm);
         AdicionarCampo(grade, 0, 1, "Custo", custo);
         AdicionarCampo(grade, 1, 0, "Moeda", moeda);
 
         if (MostrarFormulario("Concluir manutenção", grade, () => _contexto.ConcluirManutencao().Executar(new ConcluirManutencaoComando(
-                manutencao.Id, DataObrigatoria(concluidaEm, "conclusão"), DecimalOpcional(custo.Text), TextoOpcional(moeda.Text)))))
+                manutencao.Id, DataObrigatoria(concluidaEm, "conclusão"), DecimalOpcional(custo.Text), MoedaEscolhida(moeda)))))
         {
             _contexto.NotificarAlteracao();
         }

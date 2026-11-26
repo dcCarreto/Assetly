@@ -106,13 +106,26 @@ internal static class AcoesApoio
 
         var painelDireita = UiApoio.Linha(8, destrutivas.Select(a => (UIElement)BotaoPerigo(a.Texto, a.Acao)).ToArray());
 
+        // Sem seleção, a barra não some: diz que ações existem e como chegar nelas (antes nada indicava que havia ações).
+        var nomesAcoes = seguras.Concat(destrutivas).Select(a => a.Texto.ToLowerInvariant()).ToList();
+        var dica = new TextBlock
+        {
+            Text = $"Selecione uma linha para {string.Join(", ", nomesAcoes.Take(nomesAcoes.Count - 1))}{(nomesAcoes.Count > 1 ? " ou " : string.Empty)}{nomesAcoes.LastOrDefault()} — ou clique com o botão direito.",
+            FontSize = 11.5,
+            Foreground = (Brush)recursos["TextMuted"],
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
         var grade = new Grid();
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(painelEsquerda, 0);
         Grid.SetColumn(painelDireita, 1);
+        Grid.SetColumnSpan(dica, 2);
         grade.Children.Add(painelEsquerda);
         grade.Children.Add(painelDireita);
+        grade.Children.Add(dica);
 
         var barra = new Border
         {
@@ -121,11 +134,19 @@ internal static class AcoesApoio
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(14, 0, 12, 0),
             Height = 46,
-            Visibility = Visibility.Collapsed,
             Child = grade
         };
 
-        tabela.SelectionChanged += (_, _) => barra.Visibility = tabela.SelectedItem is null ? Visibility.Collapsed : Visibility.Visible;
+        void Atualizar()
+        {
+            var selecionado = tabela.SelectedItem is not null;
+            painelEsquerda.Visibility = painelDireita.Visibility = selecionado ? Visibility.Visible : Visibility.Collapsed;
+            dica.Visibility = selecionado ? Visibility.Collapsed : Visibility.Visible;
+            barra.Background = (Brush)recursos[selecionado ? "SelectionBarBg" : "TableFooterBg"];
+        }
+
+        tabela.SelectionChanged += (_, _) => Atualizar();
+        Atualizar();
         return barra;
     }
 

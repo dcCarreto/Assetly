@@ -76,18 +76,27 @@ internal static class LayoutApoio
 
         var moldura = new Border { Style = (Style)Application.Current.Resources["CardPanelStyle"], Child = corpoGrade };
 
-        var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18) };
+        // Lugar das abas logo abaixo do cabeçalho (vazio fora dos módulos com abas — ver ModuloComAbas): assim o título
+        // fica na mesma altura em todas as telas.
+        var abas = new ContentControl { Focusable = false };
+        var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18), Tag = abas };
+        raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(cabecalho, 0);
-        Grid.SetRow(linhaFiltro, 1);
-        Grid.SetRow(moldura, 2);
+        Grid.SetRow(abas, 1);
+        Grid.SetRow(linhaFiltro, 2);
+        Grid.SetRow(moldura, 3);
         raiz.Children.Add(cabecalho);
+        raiz.Children.Add(abas);
         raiz.Children.Add(linhaFiltro);
         raiz.Children.Add(moldura);
         return raiz;
     }
+
+    /// <summary>O lugar das abas numa tela montada por <see cref="TelaComTabela"/> (nulo em outras telas).</summary>
+    internal static ContentControl? LugarDasAbas(UIElement tela) => (tela as FrameworkElement)?.Tag as ContentControl;
 
     /// <summary>Busca (filtro em memória, <c>Ctrl+F</c> foca) e botão primário de criação, sempre à
     /// direita da primeira linha das telas de entidade.</summary>

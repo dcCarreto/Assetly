@@ -161,7 +161,7 @@ internal sealed class ModuloBens : IModulo
         var tipo = Combo(bem?.Tipo ?? TipoBem.Eletronico);
         var compradoEm = DataPicker(bem?.CompradoEm);
         var preco = CampoTexto("Preço (ex.: 1.234,56)", TextoValor(bem?.PrecoCompra?.Valor));
-        var moeda = CampoTexto("Código da moeda (BRL, USD, EUR...)", bem?.PrecoCompra?.CodigoMoeda ?? "BRL");
+        var moeda = ComboMoeda(bem?.PrecoCompra?.CodigoMoeda ?? bem?.ValorInformado?.CodigoMoeda);
         var observacoes = AreaTexto(bem?.Observacoes ?? string.Empty);
         var responsavel = ComboResponsavel(bem);
         var inventario = bem?.Inventario ?? InventarioBem.Vazio;
@@ -208,7 +208,7 @@ internal sealed class ModuloBens : IModulo
             if (leitura.Dados.ValorTotal is { } total)
             {
                 preco.Text = TextoValor(total);
-                moeda.Text = "BRL";
+                EscolherMoeda(moeda, "BRL");
             }
 
             situacaoNota.Text = LeitorNotaImagem.Descrever(leitura) + " A imagem será anexada como nota fiscal ao salvar.";
@@ -238,7 +238,7 @@ internal sealed class ModuloBens : IModulo
         {
             var compradoEmValor = ValorData(compradoEm);
             var precoValor = DecimalOpcional(preco.Text);
-            var moedaValor = TextoOpcional(moeda.Text);
+            var moedaValor = MoedaEscolhida(moeda);
             var responsavelValor = (responsavel.SelectedItem as ItemResponsavel)?.Pessoa?.Id;
             var inventarioValor = new InventarioBem(marca.Text, modelo.Text, numeroSerie.Text, loja.Text, localizacao.Text);
             var valorAtualValor = DecimalOpcional(valorAtual.Text);

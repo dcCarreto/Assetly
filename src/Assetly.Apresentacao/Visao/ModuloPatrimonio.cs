@@ -21,6 +21,8 @@ internal sealed class ModuloPatrimonio : IModulo
     private readonly ContextoAplicacao _contexto;
     private readonly Grid _kpis = new();
     private readonly ContentControl _porTipo = new();
+    private bool _semImoveis;
+    private ResumoPatrimonio? _ultimoResumo;
     private readonly ContentControl _evolucao = new();
     private readonly ContentControl _porResponsavel = new();
     private readonly ContentControl _maiores = new();
@@ -93,9 +95,8 @@ internal sealed class ModuloPatrimonio : IModulo
         Posicionar(_kpis, perda, 0, 2, new Thickness(6, 0, 6, 0));
         Posicionar(_kpis, liquido, 0, 3, new Thickness(6, 0, 0, 0));
 
-        _porTipo.Content = resumo.PorTipo.Count == 0
-            ? Vazio("Cadastre bens com preço de compra para ver a distribuição.")
-            : Barras(resumo.PorTipo.Select(p => p.Grupo with { Rotulo = Formatador.TextoEnum(p.Tipo) }).ToList());
+        _ultimoResumo = resumo;
+        DesenharPorTipo();
         _evolucao.Content = resumo.Evolucao.Count == 0 ? Vazio("Sem dados suficientes.") : Colunas(resumo.Evolucao);
 
         var comResponsavel = resumo.PorResponsavel.Where(g => g.Quantidade > 0).ToList();
@@ -131,6 +132,38 @@ internal sealed class ModuloPatrimonio : IModulo
         }
 
         _rodape.Text = string.Join("  ", observacoes);
+    }
+
+    /// <summary>Os imóveis costumam valer muito mais que o resto e achatavam as outras barras em 1 px: com "Sem imóveis" a
+    /// escala (e o percentual) passa a ser só dos demais tipos.</summary>
+    private void DesenharPorTipo()
+    {
+        if (_ultimoResumo is not { } resumo || resumo.PorTipo.Count == 0)
+        {
+            _porTipo.Content = Vazio("Cadastre bens com preço de compra para ver a distribuição.");
+            return;
+        }
+
+        var temImoveis = resumo.PorTipo.Any(p => p.Tipo == Dominio.Bem.TipoBem.Imovel) && resumo.PorTipo.Count > 1;
+        var grupos = resumo.PorTipo
+            .Where(p => !(_semImoveis && temImoveis && p.Tipo == Dominio.Bem.TipoBem.Imovel))
+            .Select(p => p.Grupo with { Rotulo = Formatador.TextoEnum(p.Tipo) })
+            .ToList();
+        var barras = Barras(grupos);
+        if (!temImoveis)
+        {
+            _porTipo.Content = barras;
+            return;
+        }
+
+        var semImoveis = DialogoApoio.CaixaMarcacao("Sem imóveis (para comparar os demais tipos)", _semImoveis);
+        semImoveis.Margin = new Thickness(0, 0, 0, 10);
+        semImoveis.Click += (_, _) =>
+        {
+            _semImoveis = semImoveis.IsChecked == true;
+            DesenharPorTipo();
+        };
+        _porTipo.Content = UiApoio.Coluna(0, semImoveis, barras);
     }
 
     private static string Dinheiro(decimal valor) => valor.ToString("C0", Cultura);
@@ -175,12 +208,13 @@ internal sealed class ModuloPatrimonio : IModulo
     {
         var recursos = Application.Current.Resources;
         var maximo = Math.Max(1m, grupos.Max(g => g.ValorCompra));
+        var total = Math.Max(1m, grupos.Sum(g => g.ValorAtual));
         var destaque = (Brush)recursos["AccentPrimary"];
         var trilho = (Brush)recursos["AccentPrimaryHalo"];
         var grade = new Grid();
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
         var linha = 0;
         foreach (var grupo in grupos.OrderByDescending(g => g.ValorAtual))
         {
@@ -190,8 +224,10 @@ internal sealed class ModuloPatrimonio : IModulo
             rotulo.TextTrimming = TextTrimming.CharacterEllipsis;
 
             var area = new Grid { Height = 12, VerticalAlignment = VerticalAlignment.Center };
-            area.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength((double)(grupo.ValorCompra / maximo), GridUnitType.Star) });
-            area.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength((double)(1 - grupo.ValorCompra / maximo), GridUnitType.Star) });
+            // Mínimo de 1,5%: um tipo pequeno continua aparecendo como barra, não some.
+            var fracao = Math.Max(0.015, (double)(grupo.ValorCompra / maximo));
+            area.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(fracao, GridUnitType.Star) });
+            area.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 1 - fracao), GridUnitType.Star) });
             var trilhoBorda = new Border { Background = trilho, CornerRadius = new CornerRadius(0, 4, 4, 0) };
             var proporcao = grupo.ValorCompra == 0 ? 0 : (double)(grupo.ValorAtual / grupo.ValorCompra);
             var barraInterna = new Grid();
@@ -203,7 +239,7 @@ internal sealed class ModuloPatrimonio : IModulo
             area.Background = Brushes.Transparent;
             area.ToolTip = $"{grupo.Rotulo}: {grupo.Quantidade} bem(ns)\nCompra: {Dinheiro(grupo.ValorCompra)}\nHoje: {Dinheiro(grupo.ValorAtual)} ({proporcao:P0})";
 
-            var valor = UiApoio.Texto(Dinheiro(grupo.ValorAtual), 12, FontWeights.SemiBold, (Brush)recursos["TextTitle"]);
+            var valor = UiApoio.Texto($"{Dinheiro(grupo.ValorAtual)}  ·  {(grupo.ValorAtual / total).ToString("P0", Cultura)}", 12, FontWeights.SemiBold, (Brush)recursos["TextTitle"]);
             valor.HorizontalAlignment = HorizontalAlignment.Right;
             valor.VerticalAlignment = VerticalAlignment.Center;
 
@@ -254,7 +290,6 @@ internal sealed class ModuloPatrimonio : IModulo
             Grid.SetColumn(coluna, i);
             grade.Children.Add(coluna);
 
-            if (i == 0 || i == pontos.Count - 1 || ponto.Ano == Hoje().Year)
             {
                 var valor = UiApoio.Texto(Compacto(ponto.Valor), 11, FontWeights.SemiBold, (Brush)recursos["TextSecondary"]);
                 valor.HorizontalAlignment = HorizontalAlignment.Center;
