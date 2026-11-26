@@ -74,6 +74,25 @@ internal static class Autoteste
             }
 
             Etapa("Telas (todos os módulos e abas)", () => DesenharTelas(contexto, pastaTelas));
+            Etapa("Telas no tema claro", () =>
+            {
+                AparenciaApoio.AplicarTema(Dominio.Preferencias.TemaVisual.Claro);
+                try
+                {
+                    return DesenharTelas(contexto, Subpasta(pastaTelas, "tema-claro"), formularios: false);
+                }
+                finally
+                {
+                    AparenciaApoio.AplicarTema(Dominio.Preferencias.TemaVisual.Escuro);
+                }
+            });
+            Etapa($"Telas na largura mínima ({LarguraMinima}×{AlturaMinima})",
+                () => DesenharTelas(contexto, Subpasta(pastaTelas, "largura-minima"), formularios: false, LarguraMinima, AlturaMinima));
+            Etapa("Telas com o banco vazio (primeiro uso)", () =>
+            {
+                var vazio = ContextoAplicacao.Isolado(Path.Combine(pasta, "vazio"), semearDadosFicticios: false);
+                return DesenharTelas(vazio, Subpasta(pastaTelas, "banco-vazio"), formularios: false);
+            });
 
             Etapa("Exportação JSON", () =>
             {
@@ -145,7 +164,13 @@ internal static class Autoteste
 
     /// <summary>Monta a tela principal real e desenha cada módulo (e cada aba) em memória — pega exceções
     /// de montagem/atualização que só aparecem com dados. Com <c>--telas</c>, grava os PNGs.</summary>
-    private static string DesenharTelas(ContextoAplicacao contexto, string? pastaTelas)
+    /// <summary>Tamanho mínimo da janela principal (ver App.xaml.cs).</summary>
+    internal const int LarguraMinima = 980;
+    internal const int AlturaMinima = 670;
+
+    private static string? Subpasta(string? pastaTelas, string nome) => pastaTelas is null ? null : Path.Combine(pastaTelas, nome);
+
+    private static string DesenharTelas(ContextoAplicacao contexto, string? pastaTelas, bool formularios = true, int largura = 1440, int altura = 900)
     {
         if (pastaTelas is not null)
         {
@@ -159,20 +184,23 @@ internal static class Autoteste
             foreach (var modulo in tela.Modulos)
             {
                 tela.IrPara(modulo.Titulo);
-                Desenhar(tela.Raiz, pastaTelas, $"{++desenhadas:D2}-{modulo.Titulo}");
+                Desenhar(tela.Raiz, pastaTelas, $"{++desenhadas:D2}-{modulo.Titulo}", largura, altura);
                 if (modulo is ModuloComAbas abas)
                 {
                     for (var indice = 1; indice < abas.QuantidadeAbas; indice++)
                     {
                         abas.Selecionar(indice);
-                        Desenhar(tela.Raiz, pastaTelas, $"{++desenhadas:D2}-{modulo.Titulo}-{indice + 1}");
+                        Desenhar(tela.Raiz, pastaTelas, $"{++desenhadas:D2}-{modulo.Titulo}-{indice + 1}", largura, altura);
                     }
 
                     abas.Selecionar(0);
                 }
             }
 
-            desenhadas += DesenharFormularios(contexto, tela, pastaTelas);
+            if (formularios)
+            {
+                desenhadas += DesenharFormularios(contexto, tela, pastaTelas);
+            }
         }
         finally
         {
@@ -225,10 +253,8 @@ internal static class Autoteste
         codificador.Save(fluxo);
     }
 
-    private static void Desenhar(UIElement raiz, string? pastaTelas, string nome)
+    private static void Desenhar(UIElement raiz, string? pastaTelas, string nome, int largura, int altura)
     {
-        const int largura = 1440;
-        const int altura = 900;
         var moldura = new Grid { Background = (Brush)Application.Current.Resources["BgChrome"], Width = largura, Height = altura };
         moldura.Children.Add(raiz);
         try
