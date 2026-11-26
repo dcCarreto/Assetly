@@ -234,16 +234,15 @@ Esta seção descreve o fluxo de uso mais comum. Para experimentar sem medo, com
 
 Ao abrir o aplicativo, a primeira tela é o painel. Ele mostra:
 
-- quantos itens pedem atenção (alertas pendentes e documentos ausentes);
-- quantos alertas críticos estão pendentes;
-- quantos bens estão em uso;
-- garantias vencidas e a vencer, manutenções atrasadas, convênios a vencer, documentos ausentes e alertas pendentes;
-- lista de alertas pendentes, do mais grave para o menos grave;
-- lista de prioridades por prazo.
+- uma faixa de aviso quando não há backup recente (ou o automático está falhando);
+- na primeira vez, os **Primeiros passos** (pasta de backup, pessoas da família e primeiro bem), que somem depois do primeiro bem;
+- quantos itens pedem ação, quantos já venceram e quantos bens estão em uso (sem contar as pessoas da família);
+- garantias vencidas e a vencer, manutenções atrasadas, convênios a vencer, contas vencidas e bens sem nota fiscal;
+- a lista **O que fazer agora**, com tudo o que pede ação agrupado por prazo: vencido, próximos 7 dias, próximos 30 dias, mais adiante e sem prazo.
 
-Os números consideram apenas bens em uso (ativos ou em manutenção): uma garantia vencida de um item descartado não é pendência.
+Os números consideram apenas bens em uso (ativos ou em manutenção): uma garantia vencida de um item descartado não é pendência. Na barra lateral, o número ao lado de cada módulo é o que pede ação nele (vermelho se algo é crítico); o total de registros aparece ao passar o mouse.
 
-Clique em uma linha de alerta ou de prioridade para ir direto ao módulo onde ela é resolvida. Os dados se atualizam na hora depois de qualquer alteração, e a tela aberta é redesenhada sozinha a cada 30 segundos (por padrão; ajuste em `Configurações`); os alertas são refeitos também na virada do dia. O botão `Reprocessar alertas` força uma verificação imediata.
+Clique em uma linha da lista para ir direto ao módulo onde ela é resolvida. Os dados se atualizam na hora depois de qualquer alteração, e a tela aberta é redesenhada sozinha a cada 30 segundos (por padrão; ajuste em `Configurações`); os alertas são refeitos também na virada do dia. O botão `Reprocessar alertas` força uma verificação imediata.
 
 ### 2. Registrar um Bem
 
@@ -444,7 +443,7 @@ Nas telas com tabela:
 | `Ctrl+K` | Buscar em tudo (em qualquer tela) |
 | Duplo clique | Editar (ou abrir, em Documentos; detalhes, em Bens e Alertas) |
 
-Nos formulários, `Enter` salva e `Esc` cancela. Clique no cabeçalho de uma coluna para ordenar a tabela.
+Nos formulários, `Enter` salva e `Esc` cancela. Clique no cabeçalho de uma coluna para ordenar a tabela; arraste a borda do cabeçalho para mudar a largura e clique com o botão direito nele para escolher quais colunas aparecem (`Restaurar colunas e larguras` volta ao padrão). Essas escolhas ficam guardadas neste computador. Numa janela estreita, as tabelas de Veículos e Imóveis escondem sozinhas as colunas menos importantes.
 
 ## Ambiente de Teste Completo
 
@@ -499,6 +498,7 @@ Produção:
 %USERPROFILE%\.assetly\seguranca\     (cópias feitas antes de cada restauração de backup — as 5 mais recentes)
 %USERPROFILE%\.assetly\logs\          (registro de erros inesperados, últimos 30 dias)
 %USERPROFILE%\.assetly\bloqueio.json   (só se houver PIN de abertura)
+%USERPROFILE%\.assetly\interface.json  (colunas e larguras escolhidas nas tabelas)
 ```
 
 Teste:
@@ -645,6 +645,7 @@ Para testar o instalador localmente, sem publicar nada (precisa do [Inno Setup 6
 ```powershell
 dotnet publish src\Assetly.Apresentacao -p:PublishProfile=win-x64 -p:Version=2026.11.23
 publicar\Assetly.exe --autoteste --relatorio=autoteste.txt --telas=telas   # código de saída 0 = tudo certo
+# --telas também desenha o tema claro, a largura mínima (980×670) e o banco vazio, em subpastas
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DVersao=2026.11.23 instalador\Assetly.iss
 # Saída: publicar\instalador\Assetly-Setup-2026.11.23.exe
 ```
