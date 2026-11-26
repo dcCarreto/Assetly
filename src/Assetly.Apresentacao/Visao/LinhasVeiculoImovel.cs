@@ -7,7 +7,7 @@ namespace Assetly.Apresentacao.Visao;
 
 internal sealed record VeiculoLinha(
     BemId Id, string Nome, string Placa, string MarcaModelo, string Ano, string Quilometragem, string Situacao, string SituacaoClasse,
-    string LinhaClasse, string Licenciamento, string Seguro, string Revisao, string Consumo, Veiculo Origem)
+    string LinhaClasse, string Licenciamento, string Seguro, string Revisao, string Consumo, string Motivo, Veiculo Origem)
 {
     public int QuilometragemOrdenacao => Origem.Quilometragem;
     public DateOnly? LicenciamentoOrdenacao => Origem.VencimentoLicenciamento;
@@ -35,8 +35,8 @@ internal sealed record DespesaLinha(
 }
 
 internal sealed record ImovelLinha(
-    BemId Id, string Nome, string Tipo, string Situacao, string SituacaoClasse, string LinhaClasse, string Endereco, string Area,
-    string Condominio, string Aluguel, string Seguro, Imovel Origem)
+    BemId Id, string Nome, string Tipo, string Uso, string UsoClasse, string Situacao, string SituacaoClasse, string LinhaClasse, string Endereco,
+    string Area, string Condominio, string Aluguel, string Seguro, string Motivo, Imovel Origem)
 {
     public decimal? AreaOrdenacao => Origem.AreaM2;
     public decimal? CondominioOrdenacao => Origem.ValorCondominio?.Valor;

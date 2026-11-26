@@ -7,14 +7,15 @@ namespace Assetly.Apresentacao.Visao;
 
 /// <summary>
 /// Exporta para CSV exatamente o que a tabela está mostrando (filtro, busca e ordenação atuais), com as
-/// colunas visíveis e os textos já formatados. Separador ";" e UTF-8 com BOM: o Excel em português abre
+/// colunas de dados (inclusive as escondidas só por falta de espaço) e os textos já formatados. Separador ";" e UTF-8 com BOM: o Excel em português abre
 /// direto, com acentos e colunas certas.
 /// </summary>
 internal static class ExportacaoCsv
 {
     internal static string Gerar(DataGrid tabela)
     {
-        var colunas = tabela.Columns.Where(c => c.Visibility == Visibility.Visible && c.ClipboardContentBinding is not null)
+        // Inclui as colunas escondidas só por falta de espaço na janela (ver TabelaApoio.ColunasOpcionais).
+        var colunas = tabela.Columns.Where(c => c.ClipboardContentBinding is not null)
             .OrderBy(c => c.DisplayIndex).ToList();
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(';', colunas.Select(c => Escapar(c.Header?.ToString()))));

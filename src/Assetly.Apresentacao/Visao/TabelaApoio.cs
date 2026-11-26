@@ -102,6 +102,41 @@ internal static class TabelaApoio
         return null;
     }
 
+    /// <summary>Numa tabela estreita (janela pequena), esconde as colunas opcionais — a menos importante primeiro — até as
+    /// restantes caberem na largura mínima delas; ao alargar, elas voltam. Sem isso a tabela espremia todas as colunas até
+    /// nenhuma ser legível (a rolagem horizontal fica desligada no tema).</summary>
+    internal static void ColunasOpcionais(DataGrid grade, params DataGridColumn[] menosImportantesPrimeiro)
+    {
+        static double Minima(DataGridColumn coluna) => coluna.Width.IsAbsolute ? coluna.Width.Value : coluna.MinWidth;
+
+        void Ajustar()
+        {
+            var disponivel = grade.ActualWidth - 12;
+            foreach (var coluna in menosImportantesPrimeiro)
+            {
+                coluna.Visibility = Visibility.Visible;
+            }
+
+            foreach (var coluna in menosImportantesPrimeiro)
+            {
+                if (grade.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(Minima) <= disponivel)
+                {
+                    break;
+                }
+
+                coluna.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        grade.SizeChanged += (_, evento) =>
+        {
+            if (evento.WidthChanged)
+            {
+                Ajustar();
+            }
+        };
+    }
+
     /// <summary>Coluna de texto — recorte com reticências e ToolTip com o valor completo em qualquer largura.</summary>
     internal static DataGridTextColumn ColunaTexto(string titulo, string caminho, DataGridLength largura, double larguraMinima = 0, string? estiloBase = null)
     {
@@ -131,6 +166,8 @@ internal static class TabelaApoio
         fabricaTexto.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["CelulaMonoStyle"]);
         fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminho));
         fabricaTexto.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
+        fabricaTexto.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        fabricaTexto.SetBinding(FrameworkElement.ToolTipProperty, new Binding(caminho));
 
         return new DataGridTemplateColumn
         {
@@ -142,7 +179,8 @@ internal static class TabelaApoio
         };
     }
 
-    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse, DataGridLength largura, string? ordenarPor = null)
+    internal static DataGridTemplateColumn ColunaEtiqueta(string titulo, string caminhoTexto, string caminhoClasse, DataGridLength largura, string? ordenarPor = null,
+        string? dica = null)
     {
         var fabricaBorda = new FrameworkElementFactory(typeof(Border));
         fabricaBorda.SetValue(FrameworkElement.StyleProperty, (Style)Application.Current.Resources["BadgeStyle"]);
@@ -154,6 +192,10 @@ internal static class TabelaApoio
         fabricaTexto.SetBinding(TextBlock.TextProperty, new Binding(caminhoTexto));
         fabricaTexto.SetBinding(TextBlock.ForegroundProperty, new Binding(caminhoClasse) { Converter = new ConversorStatusPincel(), ConverterParameter = "Texto" });
         fabricaBorda.AppendChild(fabricaTexto);
+        if (dica is not null)
+        {
+            fabricaBorda.SetBinding(FrameworkElement.ToolTipProperty, new Binding(dica));
+        }
 
         return new DataGridTemplateColumn
         {

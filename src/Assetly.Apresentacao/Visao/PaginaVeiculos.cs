@@ -77,16 +77,21 @@ internal sealed class PaginaVeiculos : IPagina
     private void ConfigurarTabela()
     {
         TabelaApoio.AplicarEstiloBase(_tabela);
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Veículo", nameof(VeiculoLinha.Nome), Estrela(1.4), estiloBase: "CelulaDestaqueStyle"));
-        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Situação", nameof(VeiculoLinha.Situacao), nameof(VeiculoLinha.SituacaoClasse), new DataGridLength(104)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Placa", nameof(VeiculoLinha.Placa), new DataGridLength(90)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Marca / modelo", nameof(VeiculoLinha.MarcaModelo), Estrela(1.2)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Ano", nameof(VeiculoLinha.Ano), new DataGridLength(84)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Km", nameof(VeiculoLinha.Quilometragem), new DataGridLength(100), nameof(VeiculoLinha.QuilometragemOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Licenciamento", nameof(VeiculoLinha.Licenciamento), new DataGridLength(184), nameof(VeiculoLinha.LicenciamentoOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Seguro", nameof(VeiculoLinha.Seguro), new DataGridLength(184), nameof(VeiculoLinha.SeguroOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Próxima revisão", nameof(VeiculoLinha.Revisao), Estrela(1.3), estiloBase: "CelulaSecundariaStyle"));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Consumo", nameof(VeiculoLinha.Consumo), new DataGridLength(96)));
+        // Mais importante primeiro (o que pede ação vem logo depois do nome): numa janela estreita, o que não cabe some
+        // pela direita, sem cortar tudo. Nome, modelo e revisão dividem o que sobra, com mínimo para nunca sumirem; as
+        // colunas de data e número têm a largura do conteúdo (fonte monoespaçada).
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Veículo", nameof(VeiculoLinha.Nome), Estrela(1.6), larguraMinima: 150, estiloBase: "CelulaDestaqueStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Situação", nameof(VeiculoLinha.Situacao), nameof(VeiculoLinha.SituacaoClasse), new DataGridLength(104), dica: nameof(VeiculoLinha.Motivo)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Licenciamento", nameof(VeiculoLinha.Licenciamento), new DataGridLength(156), nameof(VeiculoLinha.LicenciamentoOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Seguro", nameof(VeiculoLinha.Seguro), new DataGridLength(156), nameof(VeiculoLinha.SeguroOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Placa", nameof(VeiculoLinha.Placa), new DataGridLength(86)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Marca / modelo", nameof(VeiculoLinha.MarcaModelo), Estrela(1.3), larguraMinima: 120));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Km", nameof(VeiculoLinha.Quilometragem), new DataGridLength(90), nameof(VeiculoLinha.QuilometragemOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Ano", nameof(VeiculoLinha.Ano), new DataGridLength(74)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Próxima revisão", nameof(VeiculoLinha.Revisao), Estrela(1.1), larguraMinima: 110, estiloBase: "CelulaSecundariaStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Consumo", nameof(VeiculoLinha.Consumo), new DataGridLength(86)));
+        var colunas = _tabela.Columns;
+        TabelaApoio.ColunasOpcionais(_tabela, colunas[9], colunas[7], colunas[8], colunas[6], colunas[5]); // consumo, ano, revisão, km, modelo
         TabelaApoio.ConfigurarLinhas<VeiculoLinha>(_tabela, l => l.LinhaClasse, MenuContexto, l => MostrarFicha(l.Origem));
     }
 
@@ -95,10 +100,11 @@ internal sealed class PaginaVeiculos : IPagina
         var hoje = Hoje();
         var nomeBem = NomesBens(_contexto);
         var abastecimentos = _contexto.ListarAbastecimentos().Executar().ToLookup(a => a.BemId);
+        var despesas = _contexto.ListarDespesas().Executar().ToLookup(d => d.BemId);
         var linhas = veiculos.Select(v =>
         {
-            var (vencidos, proximos) = ContarPrazos(v, hoje);
-            var (situacao, classe, linha) = ApoioFichas.Situacao(vencidos, proximos);
+            var pendencias = Pendencias(v, despesas[v.BemId], hoje);
+            var (situacao, classe, linha) = ApoioFichas.Situacao(pendencias.Vencidos, pendencias.Proximos);
             var consumo = CalculoConsumo.Medio(abastecimentos[v.BemId]);
             return new VeiculoLinha(
                 v.BemId,
@@ -114,6 +120,7 @@ internal sealed class PaginaVeiculos : IPagina
                 ApoioFichas.Prazo(v.VencimentoSeguro, hoje, Veiculo.DiasAvisoVencimento),
                 Revisao(v),
                 consumo is null ? Formatador.TextoOuTraco(null) : $"{Formatador.Numero(consumo, 1)} km/l",
+                pendencias.Motivo,
                 v);
         }).ToList();
 
@@ -126,43 +133,19 @@ internal sealed class PaginaVeiculos : IPagina
     }
 
     /// <summary>Conta prazos vencidos e próximos (licenciamento, seguro, revisão por km e por data).</summary>
-    internal static (int Vencidos, int Proximos) ContarPrazos(Veiculo veiculo, DateOnly hoje)
+    internal static ApoioFichas.Pendencias Pendencias(Veiculo veiculo, IEnumerable<Dominio.Despesa.Despesa> despesas, DateOnly hoje)
     {
-        var vencidos = 0;
-        var proximos = 0;
-        void Avaliar(DateOnly? data, int diasAviso)
+        var pendencias = new ApoioFichas.Pendencias(hoje);
+        pendencias.Prazo("licenciamento", veiculo.VencimentoLicenciamento, Veiculo.DiasAvisoVencimento);
+        pendencias.Prazo("seguro", veiculo.VencimentoSeguro, Veiculo.DiasAvisoVencimento);
+        pendencias.Prazo("revisão", veiculo.ProximaRevisaoEm, Veiculo.DiasAvisoRevisao);
+        if (veiculo.ProximaRevisaoKm is { } km && veiculo.Quilometragem >= km)
         {
-            if (data is null)
-            {
-                return;
-            }
-
-            if (data < hoje)
-            {
-                vencidos++;
-            }
-            else if (data <= hoje.AddDays(diasAviso))
-            {
-                proximos++;
-            }
+            pendencias.Vencido($"revisão dos {Formatador.Km(km)} passou");
         }
 
-        Avaliar(veiculo.VencimentoLicenciamento, Veiculo.DiasAvisoVencimento);
-        Avaliar(veiculo.VencimentoSeguro, Veiculo.DiasAvisoVencimento);
-        Avaliar(veiculo.ProximaRevisaoEm, Veiculo.DiasAvisoRevisao);
-        if (veiculo.ProximaRevisaoKm is { } km)
-        {
-            if (veiculo.Quilometragem >= km)
-            {
-                vencidos++;
-            }
-            else if (veiculo.Quilometragem >= km - Veiculo.KmAvisoRevisao)
-            {
-                proximos++;
-            }
-        }
-
-        return (vencidos, proximos);
+        pendencias.Contas(despesas);
+        return pendencias;
     }
 
     private static string Ano(Veiculo veiculo) => (veiculo.AnoFabricacao, veiculo.AnoModelo) switch

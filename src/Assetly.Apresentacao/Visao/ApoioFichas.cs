@@ -42,6 +42,61 @@ internal static class ApoioFichas
     }
 
     /// <summary>Situação resumida de prazos: "Pendência" (algo vencido), "Atenção" (algo perto de vencer) ou "Em dia".</summary>
+    /// <summary>Junta prazos (licenciamento, seguro, contrato...) e contas do bem numa contagem de vencidos/próximos e num
+    /// texto com o motivo — mostrado ao passar o mouse na situação.</summary>
+    internal sealed class Pendencias(DateOnly hoje)
+    {
+        private readonly List<string> _motivos = [];
+
+        internal int Vencidos { get; private set; }
+        internal int Proximos { get; private set; }
+        internal string Motivo => _motivos.Count == 0 ? "Nada vencendo." : string.Join(" · ", _motivos);
+
+        internal void Prazo(string nome, DateOnly? data, int diasAviso)
+        {
+            if (data is null)
+            {
+                return;
+            }
+
+            var dias = data.Value.DayNumber - hoje.DayNumber;
+            if (dias < 0)
+            {
+                Vencidos++;
+                _motivos.Add($"{nome} venceu em {Formatador.Data(data)}");
+            }
+            else if (dias <= diasAviso)
+            {
+                Proximos++;
+                _motivos.Add(dias == 0 ? $"{nome} vence hoje" : $"{nome} vence em {dias} d");
+            }
+        }
+
+        internal void Vencido(string motivo)
+        {
+            Vencidos++;
+            _motivos.Add(motivo);
+        }
+
+        internal void Contas(IEnumerable<Dominio.Despesa.Despesa> despesas)
+        {
+            var lista = despesas.ToList();
+            var vencidas = lista.Count(d => d.StatusEm(hoje) == Dominio.Despesa.StatusDespesa.Vencida);
+            var aVencer = lista.Count(d => d.StatusEm(hoje) == Dominio.Despesa.StatusDespesa.AVencer);
+            if (vencidas > 0)
+            {
+                Vencidos += vencidas;
+                _motivos.Add(vencidas == 1 ? "1 conta vencida" : $"{vencidas} contas vencidas");
+            }
+
+            if (aVencer > 0)
+            {
+                Proximos += aVencer;
+                _motivos.Add(aVencer == 1 ? "1 conta vence em até 7 dias" : $"{aVencer} contas vencem em até 7 dias");
+            }
+        }
+    }
+
     internal static (string Texto, string Classe, string Linha) Situacao(int vencidos, int proximos) =>
         vencidos > 0 ? ("Pendência", "etiqueta-pendencia", "linha-perigo")
         : proximos > 0 ? ("Atenção", "etiqueta-atencao", "linha-aviso")

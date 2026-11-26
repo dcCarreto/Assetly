@@ -434,7 +434,8 @@
                             <TextBlock x:Name="dica" Text="{TemplateBinding Tag}" Foreground="{DynamicResource TextMuted}"
                                        Margin="{TemplateBinding Padding}" Padding="2,0,0,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                            <!-- O próprio TextBox já aplica o Padding ao texto; repeti-lo aqui dobrava o recuo e a altura do campo. -->
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -484,7 +485,8 @@
                 <ControlTemplate TargetType="PasswordBox">
                     <Border x:Name="fundo" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        <!-- O próprio TextBox já aplica o Padding ao texto; repeti-lo aqui dobrava o recuo e a altura do campo. -->
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsFocused" Value="True">

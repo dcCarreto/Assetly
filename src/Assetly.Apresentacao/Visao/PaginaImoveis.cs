@@ -73,14 +73,17 @@ internal sealed class PaginaImoveis : IPagina
     private void ConfigurarTabela()
     {
         TabelaApoio.AplicarEstiloBase(_tabela);
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Imóvel", nameof(ImovelLinha.Nome), Estrela(1.2), estiloBase: "CelulaDestaqueStyle"));
-        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Situação", nameof(ImovelLinha.Situacao), nameof(ImovelLinha.SituacaoClasse), new DataGridLength(128)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Tipo", nameof(ImovelLinha.Tipo), new DataGridLength(112)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Endereço", nameof(ImovelLinha.Endereco), Estrela(2.2), estiloBase: "CelulaSecundariaStyle"));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Área", nameof(ImovelLinha.Area), new DataGridLength(90), nameof(ImovelLinha.AreaOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Condomínio", nameof(ImovelLinha.Condominio), new DataGridLength(112), nameof(ImovelLinha.CondominioOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Aluguel", nameof(ImovelLinha.Aluguel), new DataGridLength(112), nameof(ImovelLinha.AluguelOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Seguro", nameof(ImovelLinha.Seguro), new DataGridLength(184), nameof(ImovelLinha.SeguroOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Imóvel", nameof(ImovelLinha.Nome), Estrela(1.2), larguraMinima: 140, estiloBase: "CelulaDestaqueStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Situação", nameof(ImovelLinha.Situacao), nameof(ImovelLinha.SituacaoClasse), new DataGridLength(104), dica: nameof(ImovelLinha.Motivo)));
+        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Uso", nameof(ImovelLinha.Uso), nameof(ImovelLinha.UsoClasse), new DataGridLength(140)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Tipo", nameof(ImovelLinha.Tipo), new DataGridLength(120)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Endereço", nameof(ImovelLinha.Endereco), Estrela(2.2), larguraMinima: 140, estiloBase: "CelulaSecundariaStyle"));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Área", nameof(ImovelLinha.Area), new DataGridLength(86), nameof(ImovelLinha.AreaOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Condomínio", nameof(ImovelLinha.Condominio), new DataGridLength(108), nameof(ImovelLinha.CondominioOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Aluguel", nameof(ImovelLinha.Aluguel), new DataGridLength(108), nameof(ImovelLinha.AluguelOrdenacao)));
+        _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Seguro", nameof(ImovelLinha.Seguro), new DataGridLength(156), nameof(ImovelLinha.SeguroOrdenacao)));
+        var colunas = _tabela.Columns;
+        TabelaApoio.ColunasOpcionais(_tabela, colunas[5], colunas[3], colunas[7], colunas[6], colunas[2]); // área, tipo, aluguel, condomínio, uso
         TabelaApoio.ConfigurarLinhas<ImovelLinha>(_tabela, l => l.LinhaClasse, MenuContexto, l => MostrarFicha(l.Origem));
     }
 
@@ -92,24 +95,33 @@ internal sealed class PaginaImoveis : IPagina
         _resumoEsquerda.Text = $"{imoveis.Count} imóve{(imoveis.Count == 1 ? "l" : "is")} · {alugados.Count} alugado{(alugados.Count == 1 ? "" : "s")}";
         _resumoDireita.Text = $"Aluguel mensal recebido {Formatador.Total(alugados.Select(i => i.ValorAluguel))} · condomínios {Formatador.Total(imoveis.Select(i => i.ValorCondominio))}";
 
+        var despesas = _contexto.ListarDespesas().Executar().ToLookup(d => d.BemId);
         return imoveis.Select(i =>
         {
-            var vencidos = (i.VencimentoSeguro < hoje ? 1 : 0) + (i.Alugado && i.FimContratoAluguel < hoje ? 1 : 0);
-            var proximos = (i.VencimentoSeguro >= hoje && i.VencimentoSeguro <= hoje.AddDays(Imovel.DiasAvisoSeguro) ? 1 : 0)
-                + (i.Alugado && i.FimContratoAluguel >= hoje && i.FimContratoAluguel <= hoje.AddDays(Imovel.DiasAvisoContrato) ? 1 : 0);
-            var (_, _, linha) = ApoioFichas.Situacao(vencidos, proximos);
+            var pendencias = new ApoioFichas.Pendencias(hoje);
+            pendencias.Prazo("seguro", i.VencimentoSeguro, Imovel.DiasAvisoSeguro);
+            if (i.Alugado)
+            {
+                pendencias.Prazo("contrato de aluguel", i.FimContratoAluguel, Imovel.DiasAvisoContrato);
+            }
+
+            pendencias.Contas(despesas[i.BemId]);
+            var (situacao, classe, linha) = ApoioFichas.Situacao(pendencias.Vencidos, pendencias.Proximos);
             return new ImovelLinha(
                 i.BemId,
                 nomeBem(i.BemId),
                 Formatador.TextoEnum(i.Tipo),
                 Formatador.TextoEnum(i.Situacao),
                 Formatador.ClasseEtiqueta(i.Situacao),
+                situacao,
+                classe,
                 linha,
                 Formatador.TextoOuTraco(i.EnderecoCompleto),
                 i.AreaM2 is null ? Formatador.TextoOuTraco(null) : $"{Formatador.Numero(i.AreaM2, i.AreaM2 % 1 == 0 ? 0 : 2)} m²",
                 Formatador.Dinheiro(i.ValorCondominio),
                 i.Alugado ? Formatador.Dinheiro(i.ValorAluguel) : Formatador.TextoOuTraco(null),
                 ApoioFichas.Prazo(i.VencimentoSeguro, hoje, Imovel.DiasAvisoSeguro),
+                pendencias.Motivo,
                 i);
         }).ToList();
     }
