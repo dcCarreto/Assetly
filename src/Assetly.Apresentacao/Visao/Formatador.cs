@@ -209,11 +209,11 @@ internal static partial class Formatador
 
     private static string RotuloStatusSaude(StatusSaude valor) => valor switch
     {
-        StatusSaude.NaoIniciada => "Não iniciada",
-        StatusSaude.Ativa => "Ativa",
+        StatusSaude.NaoIniciada => "Não iniciado",
+        StatusSaude.Ativa => "Ativo",
         StatusSaude.PertoDoVencimento => "Perto do vencimento",
-        StatusSaude.Vencida => "Vencida",
-        _ => "Cancelada"
+        StatusSaude.Vencida => "Vencido",
+        _ => "Cancelado"
     };
 
     private static string RotuloTipoGastoSaude(TipoGastoSaude valor) => valor switch

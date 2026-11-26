@@ -91,13 +91,26 @@ internal static class LayoutApoio
 
     /// <summary>Busca (filtro em memória, <c>Ctrl+F</c> foca) e botão primário de criação, sempre à
     /// direita da primeira linha das telas de entidade.</summary>
+    /// <summary>A caixa de busca tem largura fixa: dicas longas ("Buscar por nome, tipo, marca, nº de série...") eram
+    /// cortadas no meio da palavra. Mantém o começo até a última palavra que cabe e termina com reticências.</summary>
+    internal static string DicaCurta(string dica, int maximo = 40)
+    {
+        if (dica.Length <= maximo)
+        {
+            return dica;
+        }
+
+        var corte = dica.LastIndexOf(' ', maximo - 1);
+        return (corte > 0 ? dica[..corte] : dica[..(maximo - 1)]).TrimEnd(' ', ',') + "…";
+    }
+
     internal static (FrameworkElement Direita, TextBox Busca) CabecalhoBuscaCriacao(string placeholder, string textoNovo, Action acaoNovo)
     {
         var busca = new TextBox
         {
             Style = (Style)Application.Current.Resources["CampoTextoStyle"],
             Width = 252,
-            Tag = placeholder,
+            Tag = DicaCurta(placeholder),
             ToolTip = placeholder + " (Ctrl+F)"
         };
         var criar = AcoesApoio.BotaoPrimarioCriacao(textoNovo, acaoNovo);

@@ -165,7 +165,7 @@ internal static class DialogoApoio
         {
             combo.SelectedItem = itens.FirstOrDefault(i => i.Bem.Id.Equals(selecionado.Id)) ?? itens.FirstOrDefault();
         }
-        else if (itens.Count > 0)
+        else if (itens.Count == 1)
         {
             combo.SelectedItem = itens[0];
         }
@@ -566,7 +566,7 @@ internal static class DialogoApoio
 
     /// <summary>Valor monetário para exibir num campo de edição, no formato brasileiro ("1234,56").</summary>
     internal static string TextoValor(decimal? valor) =>
-        valor?.ToString("0.00", CultureInfo.GetCultureInfo("pt-BR")) ?? string.Empty;
+        valor?.ToString("#,##0.00", CultureInfo.GetCultureInfo("pt-BR")) ?? string.Empty;
 
     /// <summary>Seletor de arquivo nativo do Windows — navegação por unidades, rede, busca e acesso rápido.</summary>
     internal static string? SelecionarArquivo(string titulo, string? caminhoAtual)

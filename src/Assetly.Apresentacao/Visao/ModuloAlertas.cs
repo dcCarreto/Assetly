@@ -14,6 +14,7 @@ namespace Assetly.Apresentacao.Visao;
 internal sealed class ModuloAlertas : IModulo
 {
     private readonly ContextoAplicacao _contexto;
+    private DataGridColumn _colunaStatus = null!;
     private readonly DataGrid _tabela = new();
     private readonly FiltroTabela<AlertaLinha> _filtro;
     private readonly TextBlock _resumoEsquerda = new();
@@ -42,6 +43,8 @@ internal sealed class ModuloAlertas : IModulo
             new("Todos", _ => true)
         ]);
         _filtro.ConectarBusca(busca);
+        // "Status" só aparece quando as linhas visíveis misturam status (em "Pendentes" eram todas "Aberto").
+        _filtro.Aplicado += linhas => _colunaStatus.Visibility = linhas.Select(l => l.Origem.Status).Distinct().Count() > 1 ? Visibility.Visible : Visibility.Collapsed;
 
         var contextual = BarraContextual(_tabela,
         [
@@ -76,8 +79,9 @@ internal sealed class ModuloAlertas : IModulo
         TabelaApoio.AplicarEstiloBase(_tabela);
         _tabela.Columns.Add(TabelaApoio.ColunaTexto("Bem", nameof(AlertaLinha.Bem), Estrela(1.3), estiloBase: "CelulaDestaqueStyle"));
         _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Severidade", nameof(AlertaLinha.Severidade), nameof(AlertaLinha.SeveridadeClasse), new DataGridLength(118), nameof(AlertaLinha.SeveridadeOrdenacao)));
-        _tabela.Columns.Add(TabelaApoio.ColunaEtiqueta("Status", nameof(AlertaLinha.Status), nameof(AlertaLinha.StatusClasse), new DataGridLength(108)));
-        _tabela.Columns.Add(TabelaApoio.ColunaTexto("Tipo", nameof(AlertaLinha.Tipo), new DataGridLength(160)));
+        _colunaStatus = TabelaApoio.ColunaEtiqueta("Status", nameof(AlertaLinha.Status), nameof(AlertaLinha.StatusClasse), new DataGridLength(108));
+        _tabela.Columns.Add(_colunaStatus);
+        // Sem coluna "Tipo": a mensagem já começa por ele ("Garantia vencida em…"); o tipo continua na busca e nos detalhes.
         _tabela.Columns.Add(TabelaApoio.ColunaTexto("Mensagem", nameof(AlertaLinha.Mensagem), Estrela(2.4), estiloBase: "CelulaSecundariaStyle"));
         _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Criado", nameof(AlertaLinha.Criado), new DataGridLength(104), nameof(AlertaLinha.CriadoOrdenacao)));
         _tabela.Columns.Add(TabelaApoio.ColunaTextoMono("Prazo", nameof(AlertaLinha.Prazo), new DataGridLength(104), nameof(AlertaLinha.PrazoOrdenacao)));
@@ -120,13 +124,9 @@ internal sealed class ModuloAlertas : IModulo
             return "linha-neutra";
         }
 
-        return alerta.Severidade switch
-        {
-            SeveridadeAlerta.Critico => "linha-perigo",
-            SeveridadeAlerta.Aviso => "linha-aviso",
-            SeveridadeAlerta.Informativo => "linha-informativa",
-            _ => "linha-neutra"
-        };
+        // Só o crítico pinta a linha: com todas tingidas (vermelho e laranja), nada se destacava. O selo de severidade
+        // continua mostrando aviso e informativo.
+        return alerta.Severidade == SeveridadeAlerta.Critico ? "linha-perigo" : "linha-neutra";
     }
 
     private static string Detalhes(AlertaLinha linha)

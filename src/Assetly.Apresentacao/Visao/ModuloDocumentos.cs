@@ -38,7 +38,7 @@ internal sealed class ModuloDocumentos : IModulo
         _filtro = new FiltroTabela<DocumentoLinha>(_tabela, l => l.Id, l => $"{l.Bem} {l.Tipo} {l.Nome} {l.NotaEletronica} {l.Origem.ChaveAcesso}",
         [
             new("Todos", _ => true),
-            new("Disponíveis", l => l.StatusClasse == "etiqueta-disponivel"),
+            new("Disponíveis", l => l.Origem.Status == StatusDocumento.Disponivel),
             new("Ausentes", l => l.StatusClasse == "etiqueta-ausente"),
             new("Arquivados", l => l.StatusClasse == "etiqueta-arquivado")
         ]);
@@ -104,7 +104,8 @@ internal sealed class ModuloDocumentos : IModulo
             d.Nome.Valor,
             d.CaminhoLocal.Valor,
             Formatador.Data(d.RegistradoEm),
-            Formatador.TextoEnum(d.Status),
+            // 22 selos "Disponível" iguais não dizem nada: só as exceções (Ausente, Arquivado) ganham selo.
+            d.Status == StatusDocumento.Disponivel ? string.Empty : Formatador.TextoEnum(d.Status),
             Formatador.ClasseEtiqueta(d.Status),
             ClasseLinha(d.Status),
             ChaveAcessoNfe.TentarCriar(d.ChaveAcesso) is { } chave ? $"{chave.Modelo} nº {chave.Numero}" : string.Empty,
@@ -154,14 +155,15 @@ internal sealed class ModuloDocumentos : IModulo
         bem.IsEnabled = documento is null;
         var tipo = Combo(documento?.Tipo ?? TipoDocumento.NotaFiscal);
         var nome = CampoTexto("Nome", documento?.Nome.Valor ?? string.Empty);
-        var caminho = CampoTexto("Arquivo de origem", documento?.CaminhoLocal.Valor ?? string.Empty);
+        // O caminho completo (interno, na pasta privada) fica guardado aqui, fora da tela; o formulário mostra só o nome.
+        var caminho = new TextBox { Text = documento?.CaminhoLocal.Valor ?? string.Empty };
         var registradoEm = DataPicker(documento?.RegistradoEm ?? Hoje());
         var grade = GradeFormulario();
         AdicionarCampo(grade, 0, 0, "Bem *", bem);
         AdicionarCampo(grade, 0, 1, "Tipo *", tipo);
         AdicionarCampo(grade, 1, 0, "Nome *", nome);
         AdicionarCampo(grade, 1, 1, "Registrado em *", registradoEm);
-        AdicionarCampo(grade, 2, 0, documento is null ? "Arquivo *" : "Arquivo (escolha outro só para substituir)", SeletorArquivo(caminho, nome), ocupaLinhaToda: true);
+        AdicionarCampo(grade, 2, 0, "Arquivo *", SeletorArquivo(caminho, nome, documento is null ? "Selecionar…" : "Substituir…"), ocupaLinhaToda: true);
 
         var chave = CampoTexto("44 dígitos (opcional)", ChaveAcessoNfe.TentarCriar(documento?.ChaveAcesso)?.Formatada ?? string.Empty);
         var url = CampoTexto("Link do QR Code (opcional)", documento?.UrlConsulta ?? string.Empty);
@@ -260,9 +262,18 @@ internal sealed class ModuloDocumentos : IModulo
         }
     }
 
-    private static FrameworkElement SeletorArquivo(TextBox campo, TextBox nome)
+    private static FrameworkElement SeletorArquivo(TextBox campo, TextBox nome, string textoBotao)
     {
-        var selecionar = BotaoSecundario("Selecionar…", () =>
+        var exibicao = CampoTexto("Nenhum arquivo escolhido", NomeExibido(campo.Text));
+        exibicao.IsReadOnly = true;
+        exibicao.Focusable = false;
+        exibicao.ToolTip = string.IsNullOrEmpty(campo.Text) ? null : campo.Text;
+        campo.TextChanged += (_, _) =>
+        {
+            exibicao.Text = NomeExibido(campo.Text);
+            exibicao.ToolTip = campo.Text;
+        };
+        var selecionar = BotaoSecundario(textoBotao, () =>
         {
             var arquivo = SelecionarArquivo("Selecionar documento", campo.Text);
             if (arquivo is null)
@@ -280,11 +291,18 @@ internal sealed class ModuloDocumentos : IModulo
         var grade = new Grid();
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(campo, 0);
+        Grid.SetColumn(exibicao, 0);
         Grid.SetColumn(selecionar, 1);
-        grade.Children.Add(campo);
+        grade.Children.Add(exibicao);
         grade.Children.Add(selecionar);
         return grade;
+    }
+
+    /// <summary>Nome do arquivo sem a pasta e sem o identificador que a cópia privada ganha ("{guid}-nota.pdf").</summary>
+    private static string NomeExibido(string caminho)
+    {
+        var nome = Path.GetFileName(caminho.Trim());
+        return nome.Length > 37 && nome[36] == '-' && Guid.TryParse(nome[..36], out _) ? nome[37..] : nome;
     }
 
     private static string ArquivoExistente(Documento documento)

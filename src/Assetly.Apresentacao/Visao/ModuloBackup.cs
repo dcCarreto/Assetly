@@ -98,8 +98,7 @@ internal sealed class ModuloBackup : IModulo
         statusSenha.TextWrapping = TextWrapping.Wrap;
         var botaoSenha = BotaoSecundario("Proteger com senha…", AlternarSenha);
         var trocarSenha = BotaoSecundario("Trocar senha…", () => DefinirSenha(troca: true));
-        var exportarArquivo = BotaoSecundario("Salvar cópia em arquivo…", SalvarCopiaEmArquivo);
-        var cardSenha = CardConfiguracao("Proteção por senha", UiApoio.Coluna(10, UiApoio.Linha(8, botaoSenha, trocarSenha, exportarArquivo), statusSenha));
+        var cardSenha = CardConfiguracao("Proteção por senha", UiApoio.Coluna(10, UiApoio.Linha(8, botaoSenha, trocarSenha), statusSenha));
 
         // Sincronização opcional por uma pasta já sincronizada com a nuvem (OneDrive, Google Drive, Dropbox...).
         var statusSync = Nota(string.Empty);
@@ -123,11 +122,16 @@ internal sealed class ModuloBackup : IModulo
         var executarAgora = new Button { Content = "Fazer backup agora", Style = (Style)recursos["BotaoPrimarioStyle"] };
         executarAgora.Click += (_, _) => ExecutarComTratamento(FazerBackupAgora);
 
-        var direitaCabecalho = UiApoio.Linha(12, ultimoTexto, executarAgora);
+        // "Salvar cópia em arquivo" é um backup manual: fica junto de "Fazer backup agora" (antes estava no card da senha).
+        var exportarArquivo = BotaoSecundario("Salvar cópia em arquivo…", SalvarCopiaEmArquivo);
+        var direitaCabecalho = UiApoio.Linha(12, ultimoTexto, exportarArquivo, executarAgora);
         var cabecalho = CabecalhoTela("Backup", "Escolha onde e com que frequência seus dados são copiados.", direitaCabecalho);
         cabecalho.Margin = new Thickness(0, 0, 0, 14);
 
-        var cartoes = UiApoio.Coluna(14, cardDestino, cardAuto, cardSenha, cardSync, cardRestaurar);
+        // O risco mais importante da tela (nunca houve backup, backup antigo ou falhando) não pode ficar num texto cinza no canto.
+        var aviso = new FaixaAviso();
+        aviso.Raiz.Margin = new Thickness(0);
+        var cartoes = UiApoio.Coluna(14, aviso.Raiz, cardDestino, cardAuto, cardSenha, cardSync, cardRestaurar);
 
         var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18) };
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -173,6 +177,9 @@ internal sealed class ModuloBackup : IModulo
             destinoTexto.Foreground = (Brush)recursos[configuracao.CaminhoDestino is null ? "TextMuted" : "TextBody"];
             abrirPasta.IsEnabled = configuracao.CaminhoDestino is not null;
 
+            var lembrete = Aplicacao.CasoDeUso.LembreteBackup.Avaliar(configuracao, DateTimeOffset.Now,
+                _contexto.RepositorioBem.Listar().Count > 0, FalhaAutomatica);
+            aviso.Mostrar(lembrete?.Mensagem, lembrete?.Critico ?? false);
             ultimoTexto.Text = configuracao.UltimoBackupEm is null
                 ? "nenhum backup realizado ainda"
                 : $"último backup {Formatador.DataHora(configuracao.UltimoBackupEm.Value.LocalDateTime)}";
@@ -191,7 +198,7 @@ internal sealed class ModuloBackup : IModulo
                 ? $"Último backup automático falhou: {FalhaAutomatica} Uma nova tentativa é feita no próximo ciclo."
                 : !configuracao.AutoBackupHabilitado
                     ? configuracao.CaminhoDestino is null
-                        ? "Escolha uma pasta de destino para poder ativar o backup automático."
+                        ? "Sem pasta de destino: ao ativar, o Assetly pede para você escolher uma."
                         : "Backup automático desativado."
                     : $"Backup automático ativo — frequência {Formatador.TextoEnum(configuracao.Frequencia).ToLowerInvariant()}. Executado enquanto o Assetly estiver aberto.";
 
@@ -607,8 +614,26 @@ internal sealed class ModuloBackup : IModulo
     private static TextBlock Nota(string texto) =>
         UiApoio.Texto(texto, 11.5, FontWeights.Normal, (Brush)Application.Current.Resources["TextMuted"]);
 
+    /// <summary>Sem pasta de destino, o primeiro clique em "Fazer backup agora" ou "Ativar backup automático" abre a escolha
+    /// da pasta (antes, só mostrava um erro). Falso se o usuário desistiu.</summary>
+    private bool GarantirDestino()
+    {
+        if (_contexto.ObterConfiguracaoBackup().Executar().CaminhoDestino is not null)
+        {
+            return true;
+        }
+
+        EscolherPastaBackup();
+        return _contexto.ObterConfiguracaoBackup().Executar().CaminhoDestino is not null;
+    }
+
     private void FazerBackupAgora()
     {
+        if (!GarantirDestino())
+        {
+            return;
+        }
+
         OperacaoEmSegundoPlano.ComEspera("Fazendo o backup…", () => _contexto.ExecutarBackupAgora().Executar(), caminho =>
         {
             FalhaAutomatica = null;
@@ -626,6 +651,11 @@ internal sealed class ModuloBackup : IModulo
         }
         else
         {
+            if (!GarantirDestino())
+            {
+                return;
+            }
+
             _contexto.HabilitarAutoBackup().Executar(new HabilitarAutoBackupComando(ValorEnum<FrequenciaBackup>(frequenciaCombo)));
         }
 

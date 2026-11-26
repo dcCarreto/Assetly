@@ -24,6 +24,7 @@ internal sealed class TelaPrincipal
     private readonly List<ToggleButton> _botoesNavegacao = [];
     private readonly Dictionary<string, ToggleButton> _botoesPorTitulo = [];
     private readonly Dictionary<string, TextBlock> _contadoresNavegacao = [];
+    private readonly TextBlock _rodapeBackup = new();
     private readonly Border _painelEspera = new();
     private readonly TextBlock _textoEspera = new();
     private readonly DockPanel _estrutura = new();
@@ -380,8 +381,8 @@ internal sealed class TelaPrincipal
             Child = UiApoio.LinhaComCrescimento(8,
                 new Border { Width = 6, Height = 6, CornerRadius = new CornerRadius(3), Background = (Brush)recursos["StatusOkBorder"], VerticalAlignment = VerticalAlignment.Center },
                 UiApoio.Coluna(1,
-                    UiApoio.Texto("Base local SQLite", 11.5, FontWeights.Normal, (Brush)recursos["TextSecondary"]),
-                    UiApoio.Texto("Dados privados no dispositivo", 10.5, FontWeights.Normal, (Brush)recursos["TextMuted"])))
+                    UiApoio.Texto("Dados neste computador", 11.5, FontWeights.Normal, (Brush)recursos["TextSecondary"]),
+                    _rodapeBackup))
         };
         DockPanel.SetDock(rodape, Dock.Bottom);
 
@@ -460,7 +461,7 @@ internal sealed class TelaPrincipal
         {
             contador = new TextBlock
             {
-                Text = "0",
+                Text = string.Empty,
                 FontFamily = (FontFamily)recursos["FontMono"],
                 FontSize = 10.5,
                 FontWeight = FontWeights.SemiBold,
@@ -535,30 +536,44 @@ internal sealed class TelaPrincipal
         SelecionarPorBotao(botao, modulo.Conteudo);
     }
 
+    /// <summary>O contador de cada módulo mostra o que pede ação nele (alertas abertos que se resolvem ali), em vermelho se
+    /// algum é crítico, e some quando não há nada — o total de registros fica na dica do botão. Antes, a maioria contava o
+    /// total e só Alertas contava pendências, com o mesmo visual.</summary>
     private void AtualizarContadoresNavegacao()
     {
+        var recursos = Application.Current.Resources;
+        var veiculos = _contexto.ListarVeiculos().Executar().Select(v => v.BemId).ToHashSet();
+        var imoveis = _contexto.ListarImoveis().Executar().Select(i => i.BemId).ToHashSet();
+        var pendentes = _contexto.ListarAlertas().Executar().Where(a => a.EstaAcionavel()).ToList();
+        var porModulo = pendentes.ToLookup(a => ModuloDoAlerta.Titulo(a, veiculos, imoveis));
+
         foreach (var modulo in _modulos.Where(m => m.ComContador))
         {
+            if (_botoesPorTitulo.TryGetValue(modulo.Titulo, out var botao))
+            {
+                botao.ToolTip = $"{modulo.Titulo}: {modulo.Contador} cadastrado{(modulo.Contador == 1 ? "" : "s")}";
+            }
+
             if (!_contadoresNavegacao.TryGetValue(modulo.Titulo, out var contador))
             {
                 continue;
             }
 
-            var contagem = modulo.Contador;
-            contador.Text = contagem.ToString();
-
-            var alertaPendente = modulo.Titulo == "Alertas" && contagem > 0;
-            contador.Tag = alertaPendente ? "alerta-pendente" : null;
-            if (alertaPendente)
+            var alertas = modulo.Titulo == "Alertas" ? pendentes : porModulo[modulo.Titulo].ToList();
+            contador.Text = alertas.Count == 0 ? string.Empty : alertas.Count.ToString();
+            contador.Tag = alertas.Count > 0 ? "alerta-pendente" : null;
+            contador.Foreground = (Brush)recursos[alertas.Any(a => a.Severidade == Dominio.Alerta.SeveridadeAlerta.Critico) ? "StatusPerigoText" : "StatusAvisoText"];
+            if (botao is not null)
             {
-                contador.Foreground = (Brush)Application.Current.Resources["StatusAvisoText"];
-            }
-            else
-            {
-                var selecionado = _botoesPorTitulo.TryGetValue(modulo.Titulo, out var botao) && botao.IsChecked == true;
-                contador.Foreground = (Brush)Application.Current.Resources[selecionado ? "TextSecondary" : "TextMuted"];
+                System.Windows.Automation.AutomationProperties.SetHelpText(botao, alertas.Count == 0 ? "nada pendente" : $"{alertas.Count} pendência(s)");
             }
         }
+
+        var ultimo = _contexto.ObterConfiguracaoBackup().Executar().UltimoBackupEm;
+        var dias = ultimo is null ? -1 : (int)(DateTimeOffset.Now - ultimo.Value).TotalDays;
+        _rodapeBackup.Text = ultimo is null ? "nenhum backup ainda" : dias == 0 ? "último backup hoje" : dias == 1 ? "último backup ontem" : $"último backup há {dias} dias";
+        _rodapeBackup.FontSize = 10.5;
+        _rodapeBackup.Foreground = (Brush)recursos[ultimo is null || dias > Aplicacao.CasoDeUso.LembreteBackup.DiasSemBackup ? "StatusAvisoText" : "TextMuted"];
     }
 
     /// <summary>Troca o conteúdo e leva o foco do teclado para ele — sem isso o foco ficava no botão

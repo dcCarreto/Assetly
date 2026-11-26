@@ -61,4 +61,27 @@ public class CamadaInterfaceTests
 
         filtro.Localizar(99).ShouldBeFalse();
     });
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 1)]
+    [InlineData(7, 1)]
+    [InlineData(8, 2)]
+    [InlineData(30, 2)]
+    [InlineData(31, 3)]
+    public void PainelAgrupaOQueFazerPorPrazo(int dias, int grupo)
+    {
+        var hoje = new DateOnly(2026, 11, 25);
+        ModuloPainel.GrupoPrazo(hoje.AddDays(dias), hoje).ShouldBe(grupo);
+        ModuloPainel.GrupoPrazo(null, hoje).ShouldBe(4);
+    }
+
+    [Fact]
+    public void DicaDaBuscaCabeNaCaixaSemCortarPalavra()
+    {
+        LayoutApoio.DicaCurta("Buscar por bem, tipo ou mensagem").ShouldBe("Buscar por bem, tipo ou mensagem");
+        var curta = LayoutApoio.DicaCurta("Buscar por nome, tipo, marca, nº de série, local ou observações");
+        curta.Length.ShouldBeLessThanOrEqualTo(40);
+        curta.ShouldBe("Buscar por nome, tipo, marca, nº de…");
+    }
 }

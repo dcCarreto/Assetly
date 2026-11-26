@@ -40,12 +40,13 @@ internal sealed class ModuloBens : IModulo
         _filtro = new FiltroTabela<BemLinha>(_tabela, l => l.Id, l => $"{l.Nome} {l.Tipo} {l.Responsavel} {l.Observacoes} {l.Origem.Inventario.Marca} {l.Origem.Inventario.Modelo} " +
             $"{l.Origem.Inventario.NumeroSerie} {l.Origem.Inventario.Loja} {l.Origem.Inventario.Localizacao}",
         [
-            new("Todos", _ => true),
-            new("Ativos", l => l.Origem.Status == StatusBem.Ativo),
-            new("Em manutenção", l => l.Origem.Status == StatusBem.EmManutencao),
-            new("Arquivados", l => l.Origem.Status == StatusBem.Arquivado),
-            new("Descartados", l => l.Origem.Status == StatusBem.Descartado),
-            new("Pessoas", l => l.Origem.Tipo == TipoBem.Pessoa)
+            // As pessoas da família (tipo "Pessoa") ficam no filtro próprio: não são itens do inventário.
+            new("Bens", l => !EhPessoa(l)),
+            new("Ativos", l => !EhPessoa(l) && l.Origem.Status == StatusBem.Ativo),
+            new("Em manutenção", l => !EhPessoa(l) && l.Origem.Status == StatusBem.EmManutencao),
+            new("Arquivados", l => !EhPessoa(l) && l.Origem.Status == StatusBem.Arquivado),
+            new("Descartados", l => !EhPessoa(l) && l.Origem.Status == StatusBem.Descartado),
+            new("Pessoas", EhPessoa)
         ]);
         _filtro.ConectarBusca(busca);
 
@@ -75,7 +76,7 @@ internal sealed class ModuloBens : IModulo
     public void Atualizar()
     {
         var bens = _contexto.ListarBens().Executar();
-        _contador = bens.Count;
+        _contador = bens.Count(b => b.Tipo != TipoBem.Pessoa);
         _filtro.AtualizarDados(ConstruirLinhas(bens));
     }
 
@@ -96,10 +97,11 @@ internal sealed class ModuloBens : IModulo
 
     private IReadOnlyList<BemLinha> ConstruirLinhas(IReadOnlyList<Bem> bens)
     {
-        var ativos = bens.Count(b => b.Status == StatusBem.Ativo);
-        var emManutencao = bens.Count(b => b.Status == StatusBem.EmManutencao);
-        var emUso = bens.Where(b => b.Status is StatusBem.Ativo or StatusBem.EmManutencao);
-        _resumoEsquerda.Text = $"{bens.Count} bens · {ativos} ativos · {emManutencao} em manutenção";
+        var itens = bens.Where(b => b.Tipo != TipoBem.Pessoa).ToList();
+        var ativos = itens.Count(b => b.Status == StatusBem.Ativo);
+        var emManutencao = itens.Count(b => b.Status == StatusBem.EmManutencao);
+        var emUso = itens.Where(b => b.Status is StatusBem.Ativo or StatusBem.EmManutencao);
+        _resumoEsquerda.Text = $"{itens.Count} bens · {ativos} ativos · {emManutencao} em manutenção";
         _resumoDireita.Text = $"Valor dos bens em uso {Formatador.Total(emUso.Select(b => b.PrecoCompra))}";
         var nomes = bens.ToDictionary(b => b.Id, b => b.Nome.Valor);
 
@@ -117,11 +119,13 @@ internal sealed class ModuloBens : IModulo
             bem)).ToList();
     }
 
+    private static bool EhPessoa(BemLinha linha) => linha.Origem.Tipo == TipoBem.Pessoa;
+
     private static string ClasseLinha(StatusBem status) => status switch
     {
         StatusBem.Ativo => "linha-ok",
         StatusBem.EmManutencao => "linha-aviso",
-        StatusBem.Descartado => "linha-perigo",
+        StatusBem.Descartado => "linha-neutra",
         StatusBem.Arquivado => "linha-neutra",
         _ => "linha-neutra"
     };
@@ -135,10 +139,11 @@ internal sealed class ModuloBens : IModulo
         menu.Items.Add(ItemMenu(bem.Status == StatusBem.Arquivado ? "Desarquivar (ativar)" : "Ativar", () => AlterarStatusBem(bem, StatusBem.Ativo),
             bem.Status is not (StatusBem.Ativo or StatusBem.Descartado)));
         menu.Items.Add(ItemMenu("Marcar em manutenção", () => AlterarStatusBem(bem, StatusBem.EmManutencao),
-            bem.Status is StatusBem.Ativo));
+            bem.Status is StatusBem.Ativo && bem.Tipo != TipoBem.Pessoa));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ItemMenu("Arquivar", () => AlterarStatusBem(bem, StatusBem.Arquivado), bem.Status is StatusBem.Ativo or StatusBem.EmManutencao));
-        menu.Items.Add(ItemMenu("Descartar", () => AlterarStatusBem(bem, StatusBem.Descartado), bem.Status != StatusBem.Descartado));
+        menu.Items.Add(ItemMenu("Arquivar", () => AlterarStatusBem(bem, StatusBem.Arquivado),
+            bem.Status is StatusBem.Ativo or StatusBem.EmManutencao && bem.Tipo != TipoBem.Pessoa));
+        menu.Items.Add(ItemMenu("Descartar", () => AlterarStatusBem(bem, StatusBem.Descartado), bem.Status != StatusBem.Descartado && bem.Tipo != TipoBem.Pessoa));
         menu.Items.Add(ItemMenu("Excluir…", () => ExcluirBem(bem)));
         return menu;
     }
@@ -261,6 +266,11 @@ internal sealed class ModuloBens : IModulo
 
     private void AlterarStatusBem(Bem bem, StatusBem status)
     {
+        if (bem.Tipo == TipoBem.Pessoa && status != StatusBem.Ativo)
+        {
+            throw new InvalidOperationException($"\"{bem.Nome.Valor}\" é uma pessoa da família: não entra em manutenção nem é arquivada ou descartada. Para tirá-la do cadastro, use Excluir.");
+        }
+
         if (status is StatusBem.Descartado or StatusBem.Arquivado
             && !MostrarConfirmacao(status == StatusBem.Descartado ? "Descartar bem" : "Arquivar bem",
                 status == StatusBem.Descartado

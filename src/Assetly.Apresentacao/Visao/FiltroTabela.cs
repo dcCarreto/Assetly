@@ -29,6 +29,9 @@ internal sealed class FiltroTabela<T> where T : class
 
     internal FrameworkElement Barra { get; }
 
+    /// <summary>Depois de cada filtragem, com as linhas que ficaram visíveis.</summary>
+    internal event Action<IReadOnlyList<T>>? Aplicado;
+
     internal FiltroTabela(DataGrid tabela, Func<T, object> chave, Func<T, string> textoBusca, IReadOnlyList<OpcaoFiltro<T>> opcoes)
     {
         _tabela = tabela;
@@ -159,5 +162,6 @@ internal sealed class FiltroTabela<T> where T : class
         var lista = filtrados.ToList();
         TabelaApoio.RecarregarTabela(_tabela, lista, _chave);
         _contagem.Text = $"{lista.Count} de {_mestre.Count} registros";
+        Aplicado?.Invoke(lista);
     }
 }

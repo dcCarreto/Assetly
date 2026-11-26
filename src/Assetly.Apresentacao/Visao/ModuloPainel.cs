@@ -22,20 +22,15 @@ namespace Assetly.Apresentacao.Visao;
 /// </summary>
 internal sealed class ModuloPainel : IModulo
 {
-    private const int LimiteAlertas = 8;
-    private const int LimitePrioridades = 6;
 
     private readonly ContextoAplicacao _contexto;
     private readonly Action<string> _irParaModulo;
     private readonly Grid _painelOperacao = new();
-    private readonly StackPanel _painelAlertas = new();
     private readonly StackPanel _painelAcoes = new();
     private readonly ContentControl _faixaIndicadoresSlot = new();
-    private readonly TextBlock _contadorAlertasPainel = new();
-    private readonly TextBlock _contadorPrioridadesPainel = new();
+    private readonly TextBlock _contadorAcoes = new();
     private readonly TextBlock _horarioVerificacao = new();
-    private readonly Border _avisoBackup = new();
-    private readonly TextBlock _textoAvisoBackup = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5 };
+    private readonly FaixaAviso _avisoBackup;
 
     public string Titulo => "Painel";
     public string Descricao => "Resumo operacional";
@@ -67,45 +62,13 @@ internal sealed class ModuloPainel : IModulo
         _painelOperacao.Margin = new Thickness(0, 0, 0, 14);
         _faixaIndicadoresSlot.Margin = new Thickness(0, 0, 0, 14);
 
-        var linkVerTodos = new TextBlock { Text = "Ver todos", Style = (Style)Application.Current.Resources["PanelLinkStyle"], Cursor = Cursors.Hand };
+        // Uma lista só, por prazo, com tudo o que pede ação (antes eram "Alertas pendentes" e "Prioridades" lado a lado,
+        // quase iguais e cortadas em 8 e 6 itens).
+        var linkVerTodos = new TextBlock { Text = "Ver alertas", Style = (Style)Application.Current.Resources["PanelLinkStyle"], Cursor = Cursors.Hand };
         linkVerTodos.MouseLeftButtonUp += (_, _) => _irParaModulo("Alertas");
-        var painelAlertasBorda = PainelListaCard("Alertas pendentes", _contadorAlertasPainel, linkVerTodos, _painelAlertas);
+        var painelInferior = PainelListaCard("O que fazer agora", _contadorAcoes, linkVerTodos, _painelAcoes);
 
-        var rotuloPrazo = new TextBlock
-        {
-            Text = "POR PRAZO",
-            FontFamily = (FontFamily)Application.Current.Resources["FontMono"],
-            FontSize = 10,
-            Foreground = (Brush)Application.Current.Resources["TextMuted"],
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        var painelPrioridadesBorda = PainelListaCard("Prioridades", _contadorPrioridadesPainel, rotuloPrazo, _painelAcoes);
-
-        var painelInferior = new Grid();
-        painelInferior.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });
-        painelInferior.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        painelAlertasBorda.Margin = new Thickness(0, 0, 6, 0);
-        painelPrioridadesBorda.Margin = new Thickness(6, 0, 0, 0);
-        Grid.SetColumn(painelAlertasBorda, 0);
-        Grid.SetColumn(painelPrioridadesBorda, 1);
-        painelInferior.Children.Add(painelAlertasBorda);
-        painelInferior.Children.Add(painelPrioridadesBorda);
-
-        var irParaBackup = AcoesApoio.BotaoSecundario("Ir para Backup", () => _irParaModulo("Backup"));
-        _avisoBackup.BorderThickness = new Thickness(1);
-        _avisoBackup.CornerRadius = new CornerRadius(8);
-        _avisoBackup.Padding = new Thickness(14, 10, 10, 10);
-        _avisoBackup.Margin = new Thickness(0, 0, 0, 14);
-        _avisoBackup.Visibility = Visibility.Collapsed;
-        var linhaAviso = new Grid();
-        linhaAviso.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        linhaAviso.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        irParaBackup.Margin = new Thickness(12, 0, 0, 0);
-        Grid.SetColumn(irParaBackup, 1);
-        linhaAviso.Children.Add(_textoAvisoBackup);
-        linhaAviso.Children.Add(irParaBackup);
-        _avisoBackup.Child = linhaAviso;
-        System.Windows.Automation.AutomationProperties.SetLiveSetting(_textoAvisoBackup, System.Windows.Automation.AutomationLiveSetting.Polite);
+        _avisoBackup = new FaixaAviso("Ir para Backup", () => _irParaModulo("Backup"));
 
         var raiz = new Grid { Margin = new Thickness(18, 16, 20, 18) };
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -114,12 +77,12 @@ internal sealed class ModuloPainel : IModulo
         raiz.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         raiz.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(cabecalho, 0);
-        Grid.SetRow(_avisoBackup, 1);
+        Grid.SetRow(_avisoBackup.Raiz, 1);
         Grid.SetRow(_painelOperacao, 2);
         Grid.SetRow(_faixaIndicadoresSlot, 3);
         Grid.SetRow(painelInferior, 4);
         raiz.Children.Add(cabecalho);
-        raiz.Children.Add(_avisoBackup);
+        raiz.Children.Add(_avisoBackup.Raiz);
         raiz.Children.Add(_painelOperacao);
         raiz.Children.Add(_faixaIndicadoresSlot);
         raiz.Children.Add(painelInferior);
@@ -130,18 +93,7 @@ internal sealed class ModuloPainel : IModulo
     {
         var aviso = Aplicacao.CasoDeUso.LembreteBackup.Avaliar(_contexto.ObterConfiguracaoBackup().Executar(), DateTimeOffset.Now, temDados,
             _contexto.FalhaBackupAutomatico);
-        _avisoBackup.Visibility = aviso is null ? Visibility.Collapsed : Visibility.Visible;
-        if (aviso is null)
-        {
-            return;
-        }
-
-        var recursos = Application.Current.Resources;
-        var prefixo = aviso.Critico ? "StatusPerigo" : "StatusAviso";
-        _avisoBackup.Background = (Brush)recursos[prefixo + "Bg"];
-        _avisoBackup.BorderBrush = (Brush)recursos[prefixo + "Border"];
-        _textoAvisoBackup.Foreground = (Brush)recursos[prefixo + "Text"];
-        _textoAvisoBackup.Text = aviso.Mensagem;
+        _avisoBackup.Mostrar(aviso?.Mensagem, aviso?.Critico ?? false);
     }
 
     public void Atualizar()
@@ -158,19 +110,7 @@ internal sealed class ModuloPainel : IModulo
         var contasVencidas = _contexto.ListarDespesas().Executar().Count(d => d.StatusEm(hoje) == StatusDespesa.Vencida);
         var veiculos = _contexto.ListarVeiculos().Executar().Select(v => v.BemId).ToHashSet();
         var imoveis = _contexto.ListarImoveis().Executar().Select(i => i.BemId).ToHashSet();
-        string ModuloDoAlerta(Alerta alerta) => alerta.Tipo switch
-        {
-            TipoAlerta.GarantiaVencendo or TipoAlerta.GarantiaVencida => "Garantias",
-            TipoAlerta.ManutencaoProxima or TipoAlerta.ManutencaoAtrasada => "Manutenções",
-            TipoAlerta.ConvenioVencendo or TipoAlerta.ConvenioVencido => "Convênios",
-            TipoAlerta.DocumentoAusente => "Documentos",
-            TipoAlerta.LicenciamentoVencendo or TipoAlerta.LicenciamentoVencido or TipoAlerta.RevisaoVeiculo => ModulosVeiculoImovel.TituloAutomoveis,
-            TipoAlerta.ContratoAluguel => ModulosVeiculoImovel.TituloImoveis,
-            TipoAlerta.SeguroVencendo or TipoAlerta.SeguroVencido or TipoAlerta.ContaVencendo or TipoAlerta.ContaVencida
-                => veiculos.Contains(alerta.BemId) ? ModulosVeiculoImovel.TituloAutomoveis
-                : imoveis.Contains(alerta.BemId) ? ModulosVeiculoImovel.TituloImoveis : "Alertas",
-            _ => "Alertas"
-        };
+        string ModuloDoAlerta(Alerta alerta) => Visao.ModuloDoAlerta.Titulo(alerta, veiculos, imoveis);
 
         var garantiasVencidas = garantias.Count(g => g.StatusEm(hoje) == StatusGarantia.Vencida);
         var garantiasProximas = garantias.Count(g => g.StatusEm(hoje) == StatusGarantia.PertoDoVencimento);
@@ -178,20 +118,28 @@ internal sealed class ModuloPainel : IModulo
         var conveniosAVencer = convenios.Count(s => s.StatusEm(hoje) is StatusSaude.Vencida or StatusSaude.PertoDoVencimento);
         var documentosAusentes = documentos.Where(d => d.Status == StatusDocumento.Ausente && emUso.Contains(d.BemId)).ToList();
         var pendentes = alertas.Where(a => a.EstaAcionavel()).ToList();
-        var alertasCriticos = pendentes.Count(a => a.Severidade == SeveridadeAlerta.Critico);
-        var pontosAtencao = pendentes.Count + documentosAusentes.Count;
+        var semNotaFiscal = pendentes.Count(a => a.Tipo == TipoAlerta.DocumentoAusente);
+
+        var acoes = pendentes
+            .Select(a => new Prioridade(CategoriaAlerta(a.Tipo), nomeBem(a.BemId), a.Mensagem, Formatador.ClasseEtiqueta(a.Severidade), a.PrazoEm,
+                (int)a.Severidade, ModuloDoAlerta(a)))
+            .Concat(documentosAusentes.Select(d => new Prioridade("Arquivo", nomeBem(d.BemId), $"{d.Nome.Valor}: arquivo não encontrado",
+                Formatador.ClasseEtiqueta(StatusDocumento.Ausente), null, (int)SeveridadeAlerta.Aviso, "Documentos")))
+            .ToList();
+        var vencidas = acoes.Count(a => GrupoPrazo(a.Prazo, hoje) == 0);
 
         _horarioVerificacao.Text = $"verificado {Formatador.DataHora(DateTime.Now)}";
         AtualizarAvisoBackup(bens.Count > 0 || documentos.Count > 0);
 
+        var bensSemPessoas = bens.Where(b => b.Tipo != TipoBem.Pessoa).ToList();
+        var emUsoSemPessoas = bensSemPessoas.Count(b => b.Status is StatusBem.Ativo or StatusBem.EmManutencao);
         _painelOperacao.Children.Clear();
-        AdicionarResumoOperacao(0, "Atenção necessária", pontosAtencao.ToString(),
-            pontosAtencao == 0 ? "tudo em dia" : pontosAtencao == 1 ? "item pede revisão" : "itens pedem revisão", pontosAtencao == 0 ? "StatusOk" : "StatusAviso");
-        AdicionarResumoOperacao(1, "Alertas críticos", alertasCriticos.ToString(),
-            alertasCriticos == 0 ? "sem pendências críticas" : alertasCriticos == 1 ? "alerta crítico pendente" : "alertas críticos pendentes",
-            alertasCriticos == 0 ? "StatusOk" : "StatusPerigo");
-        AdicionarResumoOperacao(2, "Bens em uso", emUso.Count.ToString(),
-            $"de {bens.Count} cadastrado{(bens.Count == 1 ? "" : "s")} · {documentos.Count} documento{(documentos.Count == 1 ? "" : "s")}", "StatusInfo");
+        AdicionarResumoOperacao(0, "O que fazer agora", acoes.Count.ToString(),
+            acoes.Count == 0 ? "tudo em dia" : acoes.Count == 1 ? "item pede ação" : "itens pedem ação", acoes.Count == 0 ? "StatusOk" : "StatusAviso");
+        AdicionarResumoOperacao(1, "Vencidos", vencidas.ToString(),
+            vencidas == 0 ? "nada vencido" : vencidas == 1 ? "prazo já passou" : "prazos já passaram", vencidas == 0 ? "StatusOk" : "StatusPerigo");
+        AdicionarResumoOperacao(2, "Bens em uso", emUsoSemPessoas.ToString(),
+            $"de {bensSemPessoas.Count} cadastrado{(bensSemPessoas.Count == 1 ? "" : "s")} · {documentos.Count} documento{(documentos.Count == 1 ? "" : "s")}", "StatusInfo");
 
         _faixaIndicadoresSlot.Content = FaixaIndicadores(
             ("Garantias vencidas", garantiasVencidas, garantiasVencidas > 0, "StatusPerigo"),
@@ -199,51 +147,48 @@ internal sealed class ModuloPainel : IModulo
             ("Manutenções atrasadas", manutencoesAtrasadas, manutencoesAtrasadas > 0, "StatusPerigo"),
             ("Convênios a vencer", conveniosAVencer, conveniosAVencer > 0, "StatusAviso"),
             ("Contas vencidas", contasVencidas, contasVencidas > 0, "StatusPerigo"),
-            ("Documentos ausentes", documentosAusentes.Count, documentosAusentes.Count > 0, "StatusAviso"));
+            ("Sem nota fiscal", semNotaFiscal, semNotaFiscal > 0, "StatusAviso"));
 
-        _contadorAlertasPainel.Text = pendentes.Count.ToString();
-        _painelAlertas.Children.Clear();
-        foreach (var alerta in pendentes
-                     .OrderBy(a => a.Severidade switch { SeveridadeAlerta.Critico => 0, SeveridadeAlerta.Aviso => 1, _ => 2 })
-                     .ThenBy(a => a.PrazoEm ?? DateOnly.MaxValue)
-                     .Take(LimiteAlertas))
-        {
-            _painelAlertas.Children.Add(LinhaAlerta(alerta, nomeBem(alerta.BemId)));
-        }
-
-        if (_painelAlertas.Children.Count == 0)
-        {
-            _painelAlertas.Children.Add(TextoVazio("Nenhum alerta pendente."));
-        }
-
-        var prioridades = new List<Prioridade>();
-        foreach (var alerta in pendentes.Where(a => a.Severidade is SeveridadeAlerta.Critico or SeveridadeAlerta.Aviso))
-        {
-            prioridades.Add(new Prioridade(CategoriaAlerta(alerta.Tipo), nomeBem(alerta.BemId), alerta.Mensagem,
-                Formatador.ClasseEtiqueta(alerta.Severidade), alerta.PrazoEm, alerta.PrazoEm ?? hoje, ModuloDoAlerta(alerta)));
-        }
-
-        foreach (var documento in documentosAusentes)
-        {
-            prioridades.Add(new Prioridade("Documento", nomeBem(documento.BemId), $"{documento.Nome.Valor} (ausente)",
-                Formatador.ClasseEtiqueta(StatusDocumento.Ausente), null, hoje, "Documentos"));
-        }
-
-        var prioridadesOrdenadas = prioridades.OrderBy(p => p.Ordenacao).ThenBy(p => p.Bem, StringComparer.CurrentCulture).Take(LimitePrioridades).ToList();
-        _contadorPrioridadesPainel.Text = prioridades.Count.ToString();
+        _contadorAcoes.Text = acoes.Count.ToString();
         _painelAcoes.Children.Clear();
-        foreach (var prioridade in prioridadesOrdenadas)
+        foreach (var grupo in acoes.GroupBy(a => GrupoPrazo(a.Prazo, hoje)).OrderBy(g => g.Key))
         {
-            _painelAcoes.Children.Add(LinhaPrioridade(prioridade));
+            _painelAcoes.Children.Add(TituloGrupo($"{NomesGrupos[grupo.Key]} · {grupo.Count()}"));
+            foreach (var acao in grupo.OrderByDescending(a => a.Severidade).ThenBy(a => a.Prazo ?? DateOnly.MaxValue).ThenBy(a => a.Bem, StringComparer.CurrentCulture))
+            {
+                _painelAcoes.Children.Add(LinhaPrioridade(acao));
+            }
         }
 
         if (_painelAcoes.Children.Count == 0)
         {
-            _painelAcoes.Children.Add(TextoVazio("Nenhuma prioridade no momento."));
+            _painelAcoes.Children.Add(TextoVazio("Nada pendente. Garantias, contas, manutenções e documentos estão em dia."));
         }
     }
 
-    private sealed record Prioridade(string Categoria, string Bem, string Detalhe, string ClasseCss, DateOnly? Prazo, DateOnly Ordenacao, string Modulo);
+    private static readonly string[] NomesGrupos = ["Vencido", "Próximos 7 dias", "Próximos 30 dias", "Mais adiante", "Sem prazo"];
+
+    /// <summary>0 = vencido, 1 = próximos 7 dias, 2 = próximos 30 dias, 3 = depois, 4 = sem prazo.</summary>
+    internal static int GrupoPrazo(DateOnly? prazo, DateOnly hoje) => prazo switch
+    {
+        null => 4,
+        { } data when data < hoje => 0,
+        { } data when data <= hoje.AddDays(7) => 1,
+        { } data when data <= hoje.AddDays(30) => 2,
+        _ => 3
+    };
+
+    private static TextBlock TituloGrupo(string texto) => new()
+    {
+        Text = texto.ToUpperInvariant(),
+        FontFamily = (FontFamily)Application.Current.Resources["FontMono"],
+        FontSize = 10.5,
+        FontWeight = FontWeights.SemiBold,
+        Foreground = (Brush)Application.Current.Resources["TextLabel"],
+        Margin = new Thickness(14, 12, 14, 4)
+    };
+
+    private sealed record Prioridade(string Categoria, string Bem, string Detalhe, string ClasseCss, DateOnly? Prazo, int Severidade, string Modulo);
 
     private static string CategoriaAlerta(TipoAlerta tipo) => tipo switch
     {
@@ -284,55 +229,6 @@ internal sealed class ModuloPainel : IModulo
         borda.MouseLeave += (_, _) => borda.Background = Brushes.Transparent;
         borda.MouseLeftButtonUp += (_, _) => _irParaModulo(modulo);
         return borda;
-    }
-
-    private UIElement LinhaAlerta(Alerta alerta, string nomeBem)
-    {
-        var recursos = Application.Current.Resources;
-        var badge = EtiquetaApoio.CriarEtiqueta(Formatador.TextoEnum(alerta.Severidade), Formatador.ClasseEtiqueta(alerta.Severidade));
-        badge.VerticalAlignment = VerticalAlignment.Center;
-
-        var nomeBemLabel = new TextBlock
-        {
-            Text = nomeBem,
-            Style = (Style)recursos["CelulaDestaqueStyle"],
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        var mensagemLabel = new TextBlock
-        {
-            Text = alerta.Mensagem,
-            FontSize = 12.5,
-            Foreground = (Brush)recursos["TextSecondary"],
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 10, 0)
-        };
-        var prazoLabel = new TextBlock
-        {
-            Text = Formatador.Data(alerta.PrazoEm),
-            FontFamily = (FontFamily)recursos["FontMono"],
-            FontSize = 11.5,
-            Foreground = (Brush)recursos["TextLabel"],
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        var grade = new Grid { Height = 42 };
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(176) });
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
-        Grid.SetColumn(badge, 0);
-        Grid.SetColumn(nomeBemLabel, 1);
-        Grid.SetColumn(mensagemLabel, 2);
-        Grid.SetColumn(prazoLabel, 3);
-        grade.Children.Add(badge);
-        grade.Children.Add(nomeBemLabel);
-        grade.Children.Add(mensagemLabel);
-        grade.Children.Add(prazoLabel);
-
-        return LinhaClicavel(grade, "Alertas", $"{nomeBem}: {alerta.Mensagem}\nClique para abrir Alertas.");
     }
 
     private UIElement LinhaPrioridade(Prioridade prioridade)

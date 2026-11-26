@@ -48,9 +48,10 @@ internal static class EtiquetaApoio
             or "etiqueta-a-vencer" or "etiqueta-atencao" or "etiqueta-em-construcao"
             or "etiqueta-em-manutencao" or "etiqueta-ausente"
             => StatusSemantica.Aviso,
-        "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-cancelada" or "etiqueta-descartado" or "etiqueta-critico" or "etiqueta-pendencia"
+        "etiqueta-vencida" or "etiqueta-atrasada" or "etiqueta-critico" or "etiqueta-pendencia"
             => StatusSemantica.Perigo,
-        "etiqueta-arquivado" => StatusSemantica.Neutro,
+        // Cancelar ou descartar é uma decisão do usuário, não um problema: cinza, como arquivado.
+        "etiqueta-arquivado" or "etiqueta-cancelada" or "etiqueta-descartado" => StatusSemantica.Neutro,
         _ => StatusSemantica.Neutro
     };
 

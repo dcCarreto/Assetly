@@ -197,6 +197,9 @@ internal static class TabelaApoio
             fabricaBorda.SetBinding(FrameworkElement.ToolTipProperty, new Binding(dica));
         }
 
+        // Texto vazio = sem selo (ex.: documento disponível — só as exceções ganham selo).
+        fabricaBorda.SetBinding(UIElement.VisibilityProperty, new Binding(caminhoTexto) { Converter = new VisivelSeTemTextoConverter() });
+
         return new DataGridTemplateColumn
         {
             Header = titulo,

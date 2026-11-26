@@ -49,7 +49,7 @@ internal sealed class PaginaDespesas : IPagina
         [
             new("Em aberto", l => l.Origem.PagaEm is null),
             new("Vencidas", l => l.StatusClasse == "etiqueta-vencida"),
-            new("A vencer", l => l.StatusClasse == "etiqueta-a-vencer"),
+            new($"Vencem em {Despesa.DiasAvisoVencimento} dias", l => l.StatusClasse == "etiqueta-a-vencer"),
             new("Pagas", l => l.Origem.PagaEm is not null),
             new("Este ano", l => l.Origem.Vencimento.Year == Hoje().Year),
             new("Todas", _ => true)
