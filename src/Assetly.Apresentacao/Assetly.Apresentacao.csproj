@@ -33,6 +33,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Assetly.Testes" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Recursos\Imagens\*.png" />
     <Resource Include="Recursos\Imagens\assetly.ico" />
   </ItemGroup>

@@ -1,0 +1,9 @@
+<Project>
+  <!-- Vale para todos os projetos: o build tem que sair sem nenhum aviso. Um aviso novo (do compilador, dos
+       analisadores do .NET ou das regras do .editorconfig) quebra o build local e o CI em vez de se acumular. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

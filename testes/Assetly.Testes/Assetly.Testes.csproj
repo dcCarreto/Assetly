@@ -1,7 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows: os testes também cobrem a camada de interface (WPF), que só existe no Windows. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -17,12 +19,16 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <!-- Com UseWPF, o SDK deixa de importar estes dois por padrão. -->
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Assetly.Dominio\Assetly.Dominio.csproj" />
     <ProjectReference Include="..\..\src\Assetly.Aplicacao\Assetly.Aplicacao.csproj" />
     <ProjectReference Include="..\..\src\Assetly.Infraestrutura\Assetly.Infraestrutura.csproj" />
+    <ProjectReference Include="..\..\src\Assetly.Apresentacao\Assetly.Apresentacao.csproj" />
   </ItemGroup>
 
 </Project>

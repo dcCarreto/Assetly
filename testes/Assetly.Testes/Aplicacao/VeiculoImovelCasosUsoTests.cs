@@ -128,7 +128,7 @@ public class VeiculoImovelCasosUsoTests
         new AtualizarQuilometragem(_veiculos).Executar(veiculo.BemId, 50100);
         var segunda = Gerador().Executar(Hoje);
         segunda.Single().Mensagem.ShouldStartWith("Revisão atrasada");
-        _alertas.Listar().Single(a => a.Mensagem.StartsWith("Revisão próxima")).Status.ShouldBe(StatusAlerta.Resolvido);
+        _alertas.Listar().Single(a => a.Mensagem.StartsWith("Revisão próxima", StringComparison.Ordinal)).Status.ShouldBe(StatusAlerta.Resolvido);
 
         // Licenciamento e seguro renovados, revisão feita: tudo se resolve sozinho.
         new EditarVeiculo(_veiculos).Executar(new EditarVeiculoComando(veiculo.BemId, veiculo.Dados() with
